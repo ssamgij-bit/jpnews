@@ -426,4 +426,9 @@ def main():
 
 
 if __name__ == "__main__":
+    if "--test" in sys.argv:  # 텔레그램 연결 테스트: 상태는 건드리지 않음
+        now = datetime.now(JST).strftime("%Y-%m-%d %H:%M")
+        ok = tg_send(f"<b>[테스트]</b> 일본 뉴스봇 연결 확인 ({now} JST)\n이 메시지가 보이면 채널 발송이 정상입니다.")
+        print("[info] 테스트 발송", "성공" if ok else "실패")
+        sys.exit(0 if ok else 1)
     main()
