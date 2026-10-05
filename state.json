@@ -121,18 +121,100 @@
 "荒木彩花よりいいバレーをsvリーグ女子開幕戦はバンコクで": 1791202486.5888448,
 "性被害訴える元検事の女性らptsdに致傷罪適用を求める会発足": 1791202486.5896988,
 "高市首相消費税減税で家計にゆとり赤字国債頼らず所信表明": 1791202486.590526,
-"世界の石油備蓄恐ろしいほど乏しい､アラムコceoが市場悪化に警鐘": 1791202486.591415
+"世界の石油備蓄恐ろしいほど乏しい､アラムコceoが市場悪化に警鐘": 1791202486.591415,
+"大阪公立大学にランサム攻撃個人情報13万人流出恐れ": 1791203282.564783,
+"豊昇龍久々の土俵入り秋巡業は途中から参加へ": 1791203282.5653043,
+"全日本力士選士権若元春が初v大の里は2回戦敗退": 1791203282.5657926,
+"台風25号被災の千葉jr内房線一部区間が再開代行バスには列": 1791203282.5663638,
+"経済政策関連ニュース最新情報と分析ブルームバーグ": 1791203282.5669909,
+"きょうの5本定番の質問当社の志望度は無益なやりとり": 1791203282.5676773,
+"ラグビー協会が創立100周年フォーラム政財界などの400人参加": 1791203282.5683298,
+"金沢市まちなか芸術祭へ第2回実行委員会一部展示作品が決定": 1791203282.5689406,
+"プロ野球のバット色を原則自由に来季から規則緩和": 1791203282.569496
 },
 "recent": [],
 "digest": [],
-"pending": [],
+"pending": [
+{
+"source": "nikkei",
+"label": "니케이",
+"title": "大阪公立大学にランサム攻撃　個人情報、13万人流出恐れ",
+"lead": "大阪公立大は5日、身代金要求型コンピューターウイルス「ランサムウエア」によるサイバー攻撃を受けたと明らかにした。2日未明にシステム障害が発生、サーバー500台が停止し、一部のデータが改ざんされた形跡を確認した。在学生や卒業生ら少なくとも13万人の個人情報が流出した恐れがあるとしている。記者会見した桜木弘之学長は「学生、受験生、卒業生など多くの関係者の皆さまにご不便とご心配をおかけし深くおわび",
+"link": "https://www.nikkei.com/article/DGXZQOUF057NR0V01C26A0000000/",
+"gn": false,
+"ts": 1791196390,
+"key": "大阪公立大学にランサム攻撃個人情報13万人流出恐れ",
+"id": "n3282_0",
+"first_try": 1791203288.8520849
+},
+{
+"source": "bloomberg",
+"label": "블룸버그",
+"title": "経済・政策関連ニュース: 最新情報と分析－ブルームバーグ - Bloomberg",
+"lead": "",
+"link": "https://news.google.com/rss/articles/CBMiT0FVX3lxTFBud212WDFuVHBmVC10SnduRlFmT1Fwd180NWhLdjA2cnM5Q0g2VXk0bkxnVGxtQmxFTXF2UXFzZWJEY29yaDRjbmNfY0thczg?oc=5",
+"gn": true,
+"ts": 1791196429,
+"key": "経済政策関連ニュース最新情報と分析ブルームバーグ",
+"id": "n3283_1",
+"first_try": 1791203288.8520894
+},
+{
+"source": "nikkei",
+"label": "니케이",
+"title": "きょうの5本 定番の質問「当社の志望度は」、無益なやりとり",
+"lead": "",
+"link": "https://news.google.com/rss/articles/CBMibEFVX3lxTE56MHM5ZWJDYzdEVmZvVVA1RjVvWmlQRWE1VmNBcUxyWUhCQmJaMjNpT1RSelJfYWtKOTQwZnFIdHpERi1jR2hGV0hVTXNLMGxkZzk3RTVtcmdfazl5dkcxUTZ4QXBEMjdTbENNcA?oc=5",
+"gn": true,
+"ts": 1791201600,
+"key": "きょうの5本定番の質問当社の志望度は無益なやりとり",
+"id": "n3283_2",
+"first_try": 1791203288.8520906
+},
+{
+"source": "nikkei",
+"label": "니케이",
+"title": "ラグビー協会が創立100周年フォーラム、政財界などの400人参加",
+"lead": "",
+"link": "https://news.google.com/rss/articles/CBMibEFVX3lxTE12VE9GVm9adFFleVF4OGJvUXIwblU1VHFVRi1nN0dtVm93dzFadkg5QUdCVHJMOGlJSkNqZFh0OEhZV2Vxem10TlR2dWtjeGx5ZnpYa2tZcG9Xd2pZSlFkLWQ3RjBwVzhXWVZEZQ?oc=5",
+"gn": true,
+"ts": 1791202867,
+"key": "ラグビー協会が創立100周年フォーラム政財界などの400人参加",
+"id": "n3283_3",
+"first_try": 1791203288.8520916
+},
+{
+"source": "nikkei",
+"label": "니케이",
+"title": "金沢市、まちなか芸術祭へ第2回実行委員会 一部展示作品が決定",
+"lead": "",
+"link": "https://news.google.com/rss/articles/CBMibEFVX3lxTE9LaGF0c0stakhaa0RuNEIyT3NhMU16T2VkalhQZ2ROSmFtbGRJVUxVQVJnUFMxaDZhb19NeUMwNnJPSmVrR3dtcG15RlAxQV9CN21IYWNpNVhRMTFCT240Tm9yQ1BPbjBTYTk2dQ?oc=5",
+"gn": true,
+"ts": 1791202904,
+"key": "金沢市まちなか芸術祭へ第2回実行委員会一部展示作品が決定",
+"id": "n3283_4",
+"first_try": 1791203288.8520923
+},
+{
+"source": "nikkei",
+"label": "니케이",
+"title": "プロ野球のバット、色を原則自由に 来季から規則緩和",
+"lead": "",
+"link": "https://news.google.com/rss/articles/CBMibEFVX3lxTE1JNHpBTTZYbEdCVGdRcjJTMkdhQmJTZUkycXBna0J6Znhja0lyV1hpS1kwU0VnOF9WRGM1eHRqdDNQZ2ZrVllpVDlOZnBSZDVyaWJ0bWlNdXVNTHdrOHl4WXBiY3hGQXNPZ0xBcw?oc=5",
+"gn": true,
+"ts": 1791203113,
+"key": "プロ野球のバット色を原則自由に来季から規則緩和",
+"id": "n3283_5",
+"first_try": 1791203288.8520927
+}
+],
 "daily": {
 "date": "2026-10-05",
 "count": 0
 },
-"last_digest": "",
+"last_digest": "2026-10-05",
 "model": {
-"name": "",
-"checked": 0
+"name": "gemini-3.5-flash",
+"checked": 1791203283.897138
 }
 }
