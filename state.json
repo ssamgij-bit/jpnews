@@ -169,180 +169,99 @@
 "金沢市まちなか芸術祭へ第2回実行委員会一部展示作品が決定nikkeicom": 1791203631.720468,
 "プロ野球のバット色を原則自由に来季から規則緩和nikkeicom": 1791203631.721676,
 "仏シュナイダー35兆円で米ptc買収産業aiを強化nikkeicom": 1791203631.7229319,
-"アルカラス2年連続決勝進出終盤ギア上げ逆転テニス･ジャパンopnikkeicom": 1791203631.724279
+"アルカラス2年連続決勝進出終盤ギア上げ逆転テニス･ジャパンopnikkeicom": 1791203631.724279,
+"仏シュナイダー35兆円で米ptc買収産業aiを強化": 1791203942.4799538,
+"アルカラス2年連続決勝進出終盤ギア上げ逆転テニス･ジャパンop": 1791203942.4815204,
+"自民党高木経産副大臣ら資産訂正日本維新の会美延文科政務官は再び": 1791203942.4830794
 },
-"recent": [],
-"digest": [],
-"pending": [
+"recent": [
 {
-"source": "nikkei",
-"label": "니케이",
-"title": "大阪公立大学にランサム攻撃　個人情報、13万人流出恐れ",
-"lead": "大阪公立大は5日、身代金要求型コンピューターウイルス「ランサムウエア」によるサイバー攻撃を受けたと明らかにした。2日未明にシステム障害が発生、サーバー500台が停止し、一部のデータが改ざんされた形跡を確認した。在学生や卒業生ら少なくとも13万人の個人情報が流出した恐れがあるとしている。記者会見した桜木弘之学長は「学生、受験生、卒業生など多くの関係者の皆さまにご不便とご心配をおかけし深くおわび",
-"link": "https://www.nikkei.com/article/DGXZQOUF057NR0V01C26A0000000/",
-"gn": false,
-"ts": 1791196390,
-"key": "大阪公立大学にランサム攻撃個人情報13万人流出恐れ",
-"id": "n3631_0",
-"first_try": 1791203288.8520849
+"id": "n3942_0",
+"ko": "오사카공립대학 랜섬웨어 공격으로 개인정보 13만 명 유출 우려",
+"ts": 1791203972.1814256
 },
 {
-"source": "bloomberg",
-"label": "블룸버그",
-"title": "経済・政策関連ニュース: 最新情報と分析－ブルームバーグ - Bloomberg",
-"lead": "",
-"link": "https://news.google.com/rss/articles/CBMiT0FVX3lxTFBud212WDFuVHBmVC10SnduRlFmT1Fwd180NWhLdjA2cnM5Q0g2VXk0bkxnVGxtQmxFTXF2UXFzZWJEY29yaDRjbmNfY0thczg?oc=5",
-"gn": true,
-"ts": 1791196429,
-"key": "経済政策関連ニュース最新情報と分析ブルームバーグ",
-"id": "n3631_1",
-"first_try": 1791203288.8520894
+"id": "n3942_1",
+"ko": "경제·정책 관련 뉴스: 최신 정보와 분석 - 블룸버그",
+"ts": 1791203972.1814287
 },
 {
-"source": "nikkei",
-"label": "니케이",
-"title": "きょうの5本 定番の質問「当社の志望度は」、無益なやりとり",
-"lead": "",
-"link": "https://news.google.com/rss/articles/CBMibEFVX3lxTE56MHM5ZWJDYzdEVmZvVVA1RjVvWmlQRWE1VmNBcUxyWUhCQmJaMjNpT1RSelJfYWtKOTQwZnFIdHpERi1jR2hGV0hVTXNLMGxkZzk3RTVtcmdfazl5dkcxUTZ4QXBEMjdTbENNcA?oc=5",
-"gn": true,
-"ts": 1791201600,
-"key": "きょうの5本定番の質問当社の志望度は無益なやりとり",
-"id": "n3631_2",
-"first_try": 1791203288.8520906
+"id": "n3942_6",
+"ko": "성 프란치스코 연례 동물 축복식에 모인 반려동물 주인들",
+"ts": 1791203972.1814303
 },
 {
-"source": "nikkei",
-"label": "니케이",
-"title": "ラグビー協会が創立100周年フォーラム、政財界などの400人参加",
-"lead": "",
-"link": "https://news.google.com/rss/articles/CBMibEFVX3lxTE12VE9GVm9adFFleVF4OGJvUXIwblU1VHFVRi1nN0dtVm93dzFadkg5QUdCVHJMOGlJSkNqZFh0OEhZV2Vxem10TlR2dWtjeGx5ZnpYa2tZcG9Xd2pZSlFkLWQ3RjBwVzhXWVZEZQ?oc=5",
-"gn": true,
-"ts": 1791202867,
-"key": "ラグビー協会が創立100周年フォーラム政財界などの400人参加",
-"id": "n3631_3",
-"first_try": 1791203288.8520916
+"id": "n3942_7",
+"ko": "중국국제항공(0753.HK) 주가 및 최신 뉴스",
+"ts": 1791203972.181431
 },
 {
-"source": "nikkei",
-"label": "니케이",
-"title": "金沢市、まちなか芸術祭へ第2回実行委員会 一部展示作品が決定",
-"lead": "",
-"link": "https://news.google.com/rss/articles/CBMibEFVX3lxTE9LaGF0c0stakhaa0RuNEIyT3NhMU16T2VkalhQZ2ROSmFtbGRJVUxVQVJnUFMxaDZhb19NeUMwNnJPSmVrR3dtcG15RlAxQV9CN21IYWNpNVhRMTFCT240Tm9yQ1BPbjBTYTk2dQ?oc=5",
-"gn": true,
-"ts": 1791202904,
-"key": "金沢市まちなか芸術祭へ第2回実行委員会一部展示作品が決定",
-"id": "n3631_4",
-"first_try": 1791203288.8520923
+"id": "n3942_8",
+"ko": "블룸버그 오피니언: 칼럼과 분석",
+"ts": 1791203972.1814315
 },
 {
-"source": "nikkei",
-"label": "니케이",
-"title": "プロ野球のバット、色を原則自由に 来季から規則緩和",
-"lead": "",
-"link": "https://news.google.com/rss/articles/CBMibEFVX3lxTE1JNHpBTTZYbEdCVGdRcjJTMkdhQmJTZUkycXBna0J6Znhja0lyV1hpS1kwU0VnOF9WRGM1eHRqdDNQZ2ZrVllpVDlOZnBSZDVyaWJ0bWlNdXVNTHdrOHl4WXBiY3hGQXNPZ0xBcw?oc=5",
-"gn": true,
-"ts": 1791203113,
-"key": "プロ野球のバット色を原則自由に来季から規則緩和",
-"id": "n3631_5",
-"first_try": 1791203288.8520927
+"id": "n3942_9",
+"ko": "자기주식 취득 상황에 관한 알림",
+"ts": 1791203972.1814325
 },
 {
-"source": "reuters",
-"label": "로이터",
-"title": "Pet owners gather for St. Francis' annual animal blessing",
-"lead": "",
-"link": "https://news.google.com/rss/articles/CBMia0FVX3lxTE1HMTFDUE96Q1p6NjAzVVBTYVlIQW9WZm1oaVNfSU1zMjk5RldFX1N3X1F4S2VwNUVNWll4SUFZdjZ6bmhvM1JSenFOb2paVXFob2VFOUtrc1A5NjFQd2pNd3ZXRThoRHRjSUx3?oc=5",
-"gn": true,
-"ts": 1791196655,
-"key": "petownersgatherforstfrancisannualanimalblessing",
-"id": "n3631_6",
-"first_try": 1791203660.070312
+"id": "n3942_10",
+"ko": "도쿄에서 펼쳐지는 글로벌 로보택시 경쟁, 편리한 철도망 뚫고 안착할까",
+"ts": 1791203972.1814334
 },
 {
-"source": "reuters",
-"label": "로이터",
-"title": "0753.HK - | Stock Price & Latest News",
-"lead": "",
-"link": "https://news.google.com/rss/articles/CBMiY0FVX3lxTE42N215cWdjQzdFbl95LW8yMkZnaGY5RFg3ZzRqYVNnYXk4ajROM190REtoQ3AzY09mZWVVNkdBeDlic1N5Q0d2ajZEd2RLbGtwVmM2QWhuV19TVmx1R0tmZWRoYw?oc=5",
-"gn": true,
-"ts": 1791197475,
-"key": "0753hkstockprice&latestnews",
-"id": "n3631_7",
-"first_try": 1791203660.070313
+"id": "n3942_11",
+"ko": "경기 결과 - 니케이",
+"ts": 1791203972.1814342
 },
 {
-"source": "bloomberg",
-"label": "블룸버그",
-"title": "ブルームバーグ・オピニオン: コラムと分析 - Bloomberg",
-"lead": "",
-"link": "https://news.google.com/rss/articles/CBMiTEFVX3lxTFAxR3Y3dlQxR2pfYkZSUnY4cHNPRVFZc0ZOMm8tN2pDNXo4Rm1XLUY2ZVp0N214blV4WVZONlRkY2xTa2p0dG9KVEFTOGM?oc=5",
-"gn": true,
-"ts": 1791198727,
-"key": "ブルームバーグオピニオンコラムと分析",
-"id": "n3631_8",
-"first_try": 1791203660.0703135
+"id": "n3942_2",
+"ko": "오늘의 5개 기사: 단골 질문 '당사 지원도는', 무익한 대화",
+"ts": 1791203972.1814346
 },
 {
-"source": "nikkei",
-"label": "니케이",
-"title": "自己株式の取得状況に関するお知らせ - nikkei.com",
-"lead": "",
-"link": "https://news.google.com/rss/articles/CBMinAFBVV95cUxOZmhBM05DYVNTM2l4MXN6UEN4Y1hNTkxBRl8yNHMtc0RqREd3bU1CaDduOEJsc1I1NzV0Wl9DRDRfNG1tYTF2TFJoSW1fMzhzYUlnLWxnUzNoX3N4T0ZEaDlwUEhfTW41Ny1RemtycHRjREJyMzU4Z2NrQXhJRE12RlRPNW1UbjVEbF90QkJkcDRSSzJ4eW5BUG1NMEQ?oc=5",
-"gn": true,
-"ts": 1791199392,
-"key": "自己株式の取得状況に関するお知らせnikkeicom",
-"id": "n3631_9",
-"first_try": 1791203660.0703144
+"id": "n3942_3",
+"ko": "일본 럭비협회 창립 100주년 포럼 개최, 정재계 등 400명 참석",
+"ts": 1791203972.1814353
 },
 {
-"source": "bloomberg",
-"label": "블룸버그",
-"title": "東京で世界のロボタクシー競争、便利な鉄道網に割って入れるか",
-"lead": "",
-"link": "https://news.google.com/rss/articles/CBMie0FVX3lxTE16eEhzNEpXYzBqTktpWnpJNG55dGhJdEEzUXluTEoydlptMFFjbWUyWUJrQ0Q5V2VPeFR5bWFmU24zaFJiLW8zek5QT3J5TThpU0V0S0o2WGtteEx3c3loZzFEMDU3bHQ0MjBSeWV2MG9Vb0xQc25JcG11cw?oc=5",
-"gn": true,
-"ts": 1791199575,
-"key": "東京で世界のロボタクシー競争便利な鉄道網に割って入れるか",
-"id": "n3631_10",
-"first_try": 1791203660.0703154
+"id": "n3942_4",
+"ko": "가나자와시, 거리 예술제 제2회 실행위원회 개최 및 일부 전시 작품 결정",
+"ts": 1791203972.1814358
 },
 {
-"source": "nikkei",
-"label": "니케이",
-"title": "試合結果 - nikkei.com",
-"lead": "",
-"link": "https://news.google.com/rss/articles/CBMi4gFBVV95cUxOSzBQTkRZaGw1Sk5jam1ibWF3SzNJSUFzUG1DaElJSXJseWpLZ0FXbkRiOGY4bkg2NTZTLWZjTFBaRGNpVk5QbjZ6d3lUWXBRY1RMLXJzdTB4ZTVIQ2lXV1d4a1F1bFFkbE56Mk9nenBqR3pzbzdBMFdCZGdtZWRiZ2xERDV4WTlVSG9PWUlObWp1VTZuNU55aGp2Y280VnRtWlBiclhGYnFrdGhWQzhtdHJ0b2U0azNrMVVtdEVfMXU2TjJCS0ZreExtUzk3QTVmd0FpYk81eFZFVzlIOFhJUFZR?oc=5",
-"gn": true,
-"ts": 1791199837,
-"key": "試合結果nikkeicom",
-"id": "n3631_11",
-"first_try": 1791203660.0703158
+"id": "n3942_5",
+"ko": "프로야구 배트 색상 원칙적 자유화, 내년 시즌부터 규칙 완화",
+"ts": 1791203972.1814368
 },
 {
-"source": "nikkei",
-"label": "니케이",
-"title": "仏シュナイダー、3.5兆円で米PTC買収 産業AIを強化 - nikkei.com",
-"lead": "",
-"link": "https://news.google.com/rss/articles/CBMibEFVX3lxTFBvcURXWnJ0NWtScnNUaWo0RzFVVVNJSm8zaDJYbGU0MzFVY1dZU0xISThtZUFxeTdZSGdPUFF5NVc2TEk5LXU2S1NqWjRCSTVodU80Zk5KYldQYXNEMFJmaUNtX1lOYTVuN0xtTQ?oc=5",
-"gn": true,
-"ts": 1791203400,
-"key": "仏シュナイダー35兆円で米ptc買収産業aiを強化nikkeicom",
-"id": "n3631_12",
-"first_try": 1791203660.0703168
+"id": "n3942_12",
+"ko": "프랑스 슈나이더, 3.5조 엔에 미국 PTC 인수하며 산업용 AI 강화",
+"ts": 1791203972.1814375
 },
 {
-"source": "nikkei",
-"label": "니케이",
-"title": "アルカラス、2年連続決勝進出 終盤ギア上げ逆転 テニス･ジャパンOP - nikkei.com",
-"lead": "",
-"link": "https://news.google.com/rss/articles/CBMibEFVX3lxTE1iNzNPTF91eWk0dC1VdFh2NnNZMXZKMHRYTmNabnFVSl9qUkRYUUJwQWd4U1ZqWGNibkNZaUJCQ0d0SERPcXNvZG83SE84cFdhTjlmblpKNlYtZERkYUstZ3RGdDBLaHpua0ZMcQ?oc=5",
-"gn": true,
-"ts": 1791203400,
-"key": "アルカラス2年連続決勝進出終盤ギア上げ逆転テニス･ジャパンopnikkeicom",
-"id": "n3631_13",
-"first_try": 1791203660.0703175
+"id": "n3942_13",
+"ko": "알카라스, 2년 연속 결승 진출... 테니스 재팬 오픈 역전승",
+"ts": 1791203972.4461586
+},
+{
+"id": "n3942_14",
+"ko": "자민당 다카기 경산부대신 등 자산 정정, 일본유신회 미노베 의원은 재정정",
+"ts": 1791203972.4461603
 }
 ],
+"digest": [
+{
+"ko": "프랑스 슈나이더, 3.5조 엔에 미국 PTC 인수하며 산업용 AI 강화",
+"url": "https://www.nikkei.com/article/DGXZQOGR058F40V01C26A0000000/",
+"label": "니케이",
+"cat": "기업",
+"score": 3,
+"ts": 1791203400
+}
+],
+"pending": [],
 "daily": {
 "date": "2026-10-05",
 "count": 0
