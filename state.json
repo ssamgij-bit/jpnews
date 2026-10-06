@@ -971,7 +971,23 @@
 "顧客情報の適正な管理は極めて重要大和証の情報漏洩の可能性で金融相": 1791261357.1775422,
 "オープンａｉのアストラ名使用米ソフト会社が商標侵害と提訴": 1791261357.1853764,
 "香港不動産大手の新世界発展返済圧力軽減に債務交換オファーを開始": 1791261357.1935356,
-"ノルウェー政府特定の場所でａｉ眼鏡を一時的に禁止する法案提出へ": 1791261357.2016442
+"ノルウェー政府特定の場所でａｉ眼鏡を一時的に禁止する法案提出へ": 1791261357.2016442,
+"市场消息软银支持的dayone有望于年底前在美国完成首次公开募股": 1791261964.6229985,
+"中国ムーンショット8兆円近い企業価値で資金調達来年のipo準備bloombergcom": 1791261964.630875,
+"ｆｂｉアクセンチュアの請負業者を排除情報漏洩巡り関係筋": 1791261964.63851,
+"日米中国をai革命の敵対勢力として懸念マコーマック米上院議員bloombergcom": 1791261964.6469586,
+"ストラテジー79月は黒字転換ビットコイン上昇で評価益33兆円bloombergcom": 1791261964.655551,
+"経産省対ロ輸出禁止対象を拡大銅製品やレアメタルなど": 1791261964.6630156,
+"10年国債入札応札倍率は376倍過去12カ月平均を上回るbloombergcom": 1791261964.6718848,
+"韓国最先端ａｉ開発に35億ドル投資27年3月始動": 1791261964.679221,
+"アングル米有権者の実感なき雇用堅調中間選挙迎える政権に厳しい評価": 1791261964.6873517,
+"トランプ氏支持者に郵便投票促す不正主張から一転": 1791261964.6945071,
+"メローニ伊首相自身の声をｅｕに商標出願ａｉ偽動画対策": 1791261964.7020097,
+"tdkのhdd磁気ヘッド事業シーゲイトと東芝が買収競う関係者bloombergcom": 1791261964.710737,
+"米副大統領アラスカの米韓ガス事業は前進へ日本も実現望むと説明bloombergcom": 1791261964.7197607,
+"commentaryコラムｓ＆ｐ５００種の1万到達に賭ける米金融街": 1791261964.7279365,
+"米国債日本と中国の需要後退が新たなリスクレイダリオ氏が警告bloombergcom": 1791261964.737047,
+"日銀10月会合で基調物価2％到達と判断の可能性関係筋": 1791261964.74459
 },
 "recent": [
 {
@@ -3047,92 +3063,82 @@
 "ts": 1791261363.7644408
 }
 ],
-"digest": [
-{
-"ko": "일본 정부, 화학·철강 등 102개 품목 대러 수출 금지 추가 제재",
-"url": "https://finance.sina.com.cn/7x24/?id=5127906",
-"label": "신랑재경",
-"cat": "거시·정책",
-"score": 4,
-"ts": 1791254843.0
-},
-{
-"ko": "글로벌 은행들, 아시아 GPU 인프라 대출 참여 검토... 미쓰이스미토모도 포함",
-"url": "https://wallstreetcn.com/articles/3783050",
-"label": "월스트리트견문",
-"cat": "기업",
-"score": 3,
-"ts": 1791256677
-},
-{
-"ko": "일본 10년물 국채 입찰 응찰 배율 3.76배 기록, 작년 5월 이후 최고",
-"url": "https://finance.sina.com.cn/7x24/?id=5127942",
-"label": "신랑재경",
-"cat": "거시·정책",
-"score": 3,
-"ts": 1791257814.0
-},
-{
-"ko": "미 부통령, 알래스카 한미 가스 사업 추진 및 일본의 참여 희망 시사",
-"url": "https://www.bloomberg.com/jp/news/articles/2026-10-06/TMGPSOT9NJLT00?srnd=jp-homepage",
-"label": "블룸버그",
-"cat": "국제",
-"score": 3,
-"ts": 1791258960
-},
-{
-"ko": "레이 달리오, 일본 등 해외 수요 감소에 따른 미 국채 시장 취약성 경고",
-"url": "https://finance.sina.com.cn/7x24/?id=5127966",
-"label": "신랑재경",
-"cat": "거시·정책",
-"score": 3,
-"ts": 1791259816.0
-},
-{
-"ko": "후지필름, 히로노 공장에 항체약물접합체(ADC) 생산 설비 도입",
-"url": "https://finance.sina.com.cn/7x24/?id=5127974",
-"label": "신랑재경",
-"cat": "기업",
-"score": 3,
-"ts": 1791260397.0
-},
-{
-"ko": "일본은행, 이르면 이달 핵심 인플레 2% 달성 신호 시사 가능성",
-"url": "https://finance.sina.com.cn/7x24/?id=5127978",
-"label": "신랑재경",
-"cat": "거시·정책",
-"score": 5,
-"ts": 1791260804.0
-},
-{
-"ko": "후지이 총무상, '부두(副首都)' 지정 일정 다음 달 제시 표명",
-"url": "https://news.web.nhk/newsweb/na/nd-20261006de55117",
-"label": "NHK",
-"cat": "정치",
-"score": 3,
-"ts": 1791260883
-}
-],
+"digest": [],
 "pending": [],
 "daily": {
 "date": "2026-10-06",
 "count": 48
 },
-"last_digest": "2026-10-05",
+"last_digest": "2026-10-06 0830",
 "model": {
-"name": "gemini-3.8-flash",
-"list": [
-"gemini-3.8-flash",
-"gemini-3.7-flash",
-"gemini-3.6-flash",
-"gemini-3.5-flash",
-"gemini-3-flash-preview",
-"gemini-3.5-flash-lite",
-"gemini-3.1-flash-lite",
+"names": [
 "gemini-2.5-flash",
-"gemini-2.5-flash-lite"
+"gemini-2.5-pro",
+"gemini-2.5-flash-preview-tts",
+"gemini-2.5-pro-preview-tts",
+"gemma-4-26b-a4b-it",
+"gemma-4-31b-it",
+"gemini-flash-latest",
+"gemini-flash-lite-latest",
+"gemini-pro-latest",
+"gemini-2.5-flash-lite",
+"gemini-2.5-flash-image",
+"gemini-3-flash-preview",
+"gemini-3.1-pro-preview",
+"gemini-3.1-pro-preview-customtools",
+"gemini-3.1-flash-lite-preview",
+"gemini-3.1-flash-lite",
+"gemini-3-pro-image-preview",
+"gemini-3-pro-image",
+"nano-banana-pro-preview",
+"gemini-3.1-flash-image-preview",
+"gemini-3.1-flash-image",
+"gemini-3.1-flash-lite-image",
+"gemini-3.5-flash",
+"gemini-3.5-flash-lite",
+"gemini-omni-flash-preview",
+"gemini-omni-1.1-flash",
+"gemini-3.5-transcribe",
+"gemini-3.6-flash",
+"gemini-3.7-flash",
+"gemini-3.8-flash",
+"lyria-3-clip-preview",
+"lyria-3-pro-preview",
+"lyria-3.5",
+"gemini-3.1-flash-tts-preview",
+"gemini-3.8-flash-tts",
+"gemini-3.8-flash-lite-tts",
+"gemini-robotics-er-2-preview",
+"gemini-2.5-computer-use-preview-10-2025",
+"antigravity-preview-05-2026",
+"antigravity-preview-09-2026",
+"antigravity-preview-latest",
+"deep-research-max-preview-04-2026",
+"deep-research-preview-04-2026",
+"deep-research-pro-preview-12-2025"
 ],
-"checked": 1791203631.8947043
+"checked": 1791261964.8778646
 },
-"version": 2
+"version": 2,
+"health": {
+"llm": 0,
+"src": {
+"니케이|://assets.wor.jp/rss/rdf/nikkei/news.rdf": 0,
+"니케이|assets.wor.jp/rss/rdf/nikkei/markets.rdf": 0,
+"니케이|assets.wor.jp/rss/rdf/nikkei/economy.rdf": 0,
+"니케이|ssets.wor.jp/rss/rdf/nikkei/business.rdf": 0,
+"니케이|.wor.jp/rss/rdf/nikkei/international.rdf": 0,
+"로이터|https://news.google.com/rss/search": 0,
+"블룸버그|https://news.google.com/rss/search": 0,
+"NHK|news.web.nhk/n-data/conf/na/rss/cat5.xml": 0,
+"NHK|news.web.nhk/n-data/conf/na/rss/cat4.xml": 0,
+"NHK|news.web.nhk/n-data/conf/na/rss/cat6.xml": 0,
+"NHK|news.web.nhk/n-data/conf/na/rss/cat1.xml": 0,
+"월스트리트견문|i-one-wscn.awtmt.com/apiv1/content/lives": 0,
+"월스트리트견문|awtmt.com/apiv1/content/information-flow": 0,
+"신랑재경|https://zhibo.sina.com.cn/api/zhibo/feed": 0,
+"제일재경|https://www.yicai.com/api/ajax/getlatest": 0
+},
+"alerted": []
+}
 }
