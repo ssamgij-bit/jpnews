@@ -27,8 +27,8 @@ UA = {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
 STATE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "state.json")
 
 THRESHOLD = int(os.getenv("SCORE_THRESHOLD", "4"))
-DIGEST_MIN_SCORE = 3
-DIGEST_SLOTS = [("0830", "아침 브리핑 · 밤사이"), ("1545", "장 마감 다이제스트")]  # JST, 평일
+DIGEST_MIN_SCORE = THRESHOLD  # ★3 이하는 보내지 않음
+DIGEST_SLOTS = []  # 다이제스트·아침 브리핑 사용 안 함(★4 이상 즉시 알림만)
 FAIL_ALERT_N = 3       # 같은 실패가 연속 이 횟수에 이르면 경고 발송
 MAX_AGE_H = 6          # 이보다 오래된 기사는 무시(첫 실행·지연 대비)
 MAX_BATCH = 50         # LLM 1회 호출당 최대 기사 수
@@ -90,8 +90,8 @@ def load_state():
     s.setdefault("last_digest", "")
     s.setdefault("model", {"names": [], "checked": 0})
     s.setdefault("health", {"llm": 0, "src": {}, "alerted": []})
-    if s.get("version", 1) < 2:  # v2: 일본 관련 필터 도입 전 쌓인 다이제스트는 비움
-        s["digest"], s["version"] = [], 2
+    if s.get("version", 1) < 3:  # v3: 다이제스트 폐지, 쌓인 항목 비움
+        s["digest"], s["version"] = [], 3
     return s
 
 
@@ -649,10 +649,8 @@ def main():
                 ws = {}
             for it, a, rec in urgent:
                 w = ws.get(it["id"])
-                if not w or not w.get("bullets"):  # 요약을 못 만들면 다이제스트로
-                    state["digest"].append({"ko": rec["ko"], "url": it["url"], "label": it["label"],
-                                            "cat": a.get("category", "기타"), "score": a["score"], "ts": it["ts"]})
-                    continue
+                if not w or not w.get("bullets"):  # 요약을 못 만들면 제목·링크만 보냄
+                    w = {"ko_title": rec["ko"], "bullets": [], "insight": ""}
                 if tg_send(fmt_alert(it, a, w)):
                     state["daily"]["count"] += 1
                     rec["sent"] = True
