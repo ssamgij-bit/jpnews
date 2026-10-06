@@ -1,0 +1,31 @@
+name: refresh-tickers
+
+on:
+  schedule:
+    - cron: "17 21 1 * *"   # 매월 2일 06:17 JST
+  workflow_dispatch: {}
+
+concurrency:
+  group: jp-news-bot
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install requests openpyxl
+      - run: python refresh_tickers.py
+      - name: Commit lists
+        run: |
+          git config user.name "jp-news-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add data/
+          git diff --cached --quiet || (git commit -m "ticker lists update [skip ci]" && git pull --rebase -X theirs && git push)
