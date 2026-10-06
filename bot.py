@@ -3,15 +3,18 @@
 일본 언론(니케이·로이터·블룸버그·NHK)과 중국 언론(월스트리트견문·신랑재경·제일재경)의
 일본 관련 기사를 수집한다. GitHub Actions에서 주기 실행, 상태는 state.json(워크플로우가 커밋).
 환경변수: TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, GEMINI_API_KEY
-선택: SCORE_THRESHOLD(기본 4), GEMINI_MODELS, DRY_RUN=1
+선택: SCORE_THRESHOLD(기본 4), TELEGRAM_ADMIN_CHAT_ID(장애 알림 수신처), GEMINI_TRIAGE_MODELS,
+      GEMINI_WRITE_MODELS, DRY_RUN=1
 """
 import calendar
+import csv
 import html
 import json
 import os
 import re
 import sys
 import time
+import unicodedata
 import urllib.parse
 from datetime import datetime, timedelta, timezone
 
@@ -25,15 +28,20 @@ STATE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "state.jso
 
 THRESHOLD = int(os.getenv("SCORE_THRESHOLD", "4"))
 DIGEST_MIN_SCORE = 3
-DIGEST_HHMM = os.getenv("DIGEST_HHMM", "1545")  # JST, 장 마감(15:30) 이후
+DIGEST_SLOTS = [("0830", "아침 브리핑 · 밤사이"), ("1545", "장 마감 다이제스트")]  # JST, 평일
+FAIL_ALERT_N = 3       # 같은 실패가 연속 이 횟수에 이르면 경고 발송
 MAX_AGE_H = 6          # 이보다 오래된 기사는 무시(첫 실행·지연 대비)
 MAX_BATCH = 50         # LLM 1회 호출당 최대 기사 수
 RUN_BUDGET = 330       # 초. 이 시간을 넘기면 남은 기사는 다음 실행으로 넘김(워크플로우 타임아웃 방지)
 DRY_RUN = os.getenv("DRY_RUN") == "1"
-MODEL_PREF = [m.strip() for m in os.getenv(
-    "GEMINI_MODELS",
-    "gemini-3.8-flash,gemini-3.7-flash,gemini-3.6-flash,gemini-3.5-flash,gemini-3-flash-preview,"
-    "gemini-3.5-flash-lite,gemini-3.1-flash-lite,gemini-2.5-flash,gemini-2.5-flash-lite").split(",") if m.strip()]
+def _models(env, default):
+    return [m.strip() for m in os.getenv(env, default).split(",") if m.strip()]
+
+
+# 1단계(선별: 일본 관련·점수·중복)는 경량 모델, 2단계(★4 이상 요약)는 상위 모델
+TRIAGE_MODELS = _models("GEMINI_TRIAGE_MODELS", "gemini-3.5-flash-lite,gemini-3.1-flash-lite,gemini-2.5-flash-lite")
+WRITE_MODELS = _models("GEMINI_WRITE_MODELS", "gemini-3.8-flash,gemini-3.7-flash,gemini-3.6-flash,gemini-3.5-flash,"
+                                              "gemini-3-flash-preview,gemini-2.5-flash")
 T0 = time.time()
 
 GN = "https://news.google.com/rss/search?hl=ja&gl=JP&ceid=JP:ja&q="
@@ -80,7 +88,8 @@ def load_state():
     s.setdefault("pending", [])     # LLM 실패·시간 초과로 재시도 대기
     s.setdefault("daily", {"date": "", "count": 0})
     s.setdefault("last_digest", "")
-    s.setdefault("model", {"name": "", "list": [], "checked": 0})
+    s.setdefault("model", {"names": [], "checked": 0})
+    s.setdefault("health", {"llm": 0, "src": {}, "alerted": []})
     if s.get("version", 1) < 2:  # v2: 일본 관련 필터 도입 전 쌓인 다이제스트는 비움
         s["digest"], s["version"] = [], 2
     return s
@@ -170,14 +179,19 @@ def parse_source(key, label, mode, r, now):
     return out
 
 
-def fetch_sources():
+def fetch_sources(state):
     items, now = [], time.time()
+    src = state["health"]["src"]
     for key, label, url, mode in SOURCES:
+        sid = f"{label}|{url.split('?')[0][-40:]}"
         try:
             r = requests.get(url, headers=UA, timeout=20)
+            r.raise_for_status()
             parsed = parse_source(key, label, mode, r, now)
+            src[sid] = 0
         except Exception as ex:  # 소스 하나 실패해도 계속
-            print(f"[warn] {label} fetch 실패: {ex}", file=sys.stderr)
+            src[sid] = src.get(sid, 0) + 1
+            print(f"[warn] {label} fetch 실패({src[sid]}회 연속): {ex}", file=sys.stderr)
             continue
         for p in parsed:
             if not p["title"] or now - p["ts"] > MAX_AGE_H * 3600:
@@ -239,11 +253,68 @@ def gn_decode(link):
         return link
 
 
-# ───────────────────────── LLM ─────────────────────────
-PROMPT = """너는 한국 자산운용사의 일본 주식 담당 애널리스트를 돕는 뉴스 데스크다.
-NEW 기사들(일본어·중국어 제목과 본문 일부)을 평가해 JSON 배열만 출력하라.
+# ───────────────────────── 티커 대조표 ─────────────────────────
+DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
+_CO_SUFFIX = re.compile(r"(ホールディングス|ＨＤ|HD|グループ|株式会社|\(株\)|（株）|홀딩스|지주|\s)", re.I)
 
-[1. 일본 관련성: japan]
+
+def _cnorm(s):
+    return _CO_SUFFIX.sub("", unicodedata.normalize("NFKC", s or "")).lower()
+
+
+def _load_list(fname, has_suffix):
+    """{'exact': 정식명→종목, 'loose': 접미어 제거명→[종목들]}"""
+    path = os.path.join(DATA_DIR, fname)
+    exact, loose = {}, {}
+    try:
+        with open(path, encoding="utf-8") as f:
+            for row in csv.DictReader(f):
+                v = (row["code"], row["name"], row.get("suffix") if has_suffix else "JP")
+                exact.setdefault(unicodedata.normalize("NFKC", row["name"]).lower().replace(" ", ""), v)
+                lst = loose.setdefault(_cnorm(row["name"]), [])
+                if v not in lst:
+                    lst.append(v)
+    except FileNotFoundError:
+        print(f"[warn] {fname} 없음: 티커 표시 생략", file=sys.stderr)
+    return {"exact": exact, "loose": loose}
+
+
+JPX = _load_list("jpx_list.csv", False)
+KRX = _load_list("krx_list.csv", True)
+
+
+def lookup_ticker(name, table):
+    """상장사 목록에서만 티커를 찾는다. 정식명 일치 → 접미어 제거 후 유일 일치 → 앞부분 유일 일치 순."""
+    raw = unicodedata.normalize("NFKC", name or "").lower().replace(" ", "")
+    if len(raw) < 2:
+        return None
+    if raw in table["exact"]:
+        return table["exact"][raw]
+    q = _cnorm(name)
+    hits = table["loose"].get(q, [])
+    if len(hits) == 1:
+        return hits[0]
+    if hits or len(q) < 2:
+        return None  # 여러 종목과 겹치면 표시하지 않음
+    cands = {v for k, vs in table["loose"].items() for v in vs
+             if k.startswith(q) or (len(k) >= 3 and q.startswith(k))}
+    return cands.pop() if len(cands) == 1 else None
+
+
+def company_line(companies):
+    out, seen = [], set()
+    for c in companies or []:
+        table = KRX if (c.get("market") or "").upper() == "KR" else JPX
+        hit = lookup_ticker(c.get("official") or "", table) or lookup_ticker(c.get("ko") or "", table)
+        if not hit or hit[0] in seen:
+            continue  # 목록에서 확인되지 않은 기업은 표시하지 않음
+        seen.add(hit[0])
+        out.append(f"{c.get('ko') or hit[1]}({hit[0]} {hit[2]})")
+    return ", ".join(out[:6])
+
+
+# ───────────────────────── LLM ─────────────────────────
+RULES = """[1. 일본 관련성: japan]
 true = 일본 기업·일본 주식/채권/엔화 시장·일본 정부/일본은행/일본 정치·일본 경제지표,
        또는 일본을 명시적으로 겨냥하거나 일본에 직접 영향이 명시된 해외 조치(예: 미국의 대일 관세, 중국의 대일 수출 규제, 중일 관계).
 false = 일본이 언급되지 않거나 주변적으로만 언급된 해외 뉴스(미국 증시·유럽 정치·중동·브라질 선거 등),
@@ -260,23 +331,21 @@ false = 일본이 언급되지 않거나 주변적으로만 언급된 해외 뉴
 2 = 배경: 칼럼·인터뷰·해설, 지역 뉴스, 장중 시황(지수 등락·환율·채권 시세 틱), 주가 등락만 전하는 기사.
 1 = 무관: 스포츠, 날씨, 사건사고, 연예, 생활정보, 보도자료·신제품 홍보, 공시 목록.
 대부분의 기사는 1~3이다. 4 이상은 전체의 3% 안팎, 하루 10~20건이 되도록 엄격하게 매겨라.
-japan=false면 score와 무관하게 발송되지 않는다.
 
 [3. 중복: dup_of]
 RECENT(이미 처리한 사건)나 NEW 안의 다른 기사와 같은 사건이면 dup_of에 그 id를 넣어라.
 같은 사건의 후속 보도라도 새 숫자·공식 발표·결정·당사자 반응 등 실질적으로 새로운 사실이 없으면 중복이다.
 새 사실이 있으면 dup_of는 null로 두고 new_info에 무엇이 새로운지 한 구절로 쓴다.
-NEW 안에서 같은 사건을 다룬 기사가 여럿이면 정보가 가장 많은 하나만 남기고 나머지는 dup_of로 처리한다.
+NEW 안에서 같은 사건을 다룬 기사가 여럿이면 정보가 가장 많은 하나만 남기고 나머지는 dup_of로 처리한다."""
 
-[4. 출력 필드]
-모든 기사: id, japan(true/false), score(1~5 정수), category(시장|거시·정책|기업|정치|국제|사회), dup_of(id 또는 null),
-          ko_title(자연스러운 한국어 제목, 기사 핵심을 담은 한 줄), gist(핵심 사실 한 문장, 중복 판정용).
-japan=true, score 3 이상, dup_of=null인 기사만 추가로:
- bullets: 한국어 요약 2~3개. 각 항목은 '~함/~했음/~전망' 같은 보고서체 1~2문장.
-          기사 제목·본문에 있는 사실·숫자만 쓰고 없는 숫자를 만들지 마라. 열거는 1)…, 2)… 형식.
- insight: 투자 시사점 1~2문장. 반드시 '(추정)'으로 시작. 영향받을 일본 종목·섹터와, 관련 있으면 한국 연관 종목·섹터를 쓰고
-          반대 시나리오나 리스크를 한 구절 포함. 기업은 '영문명(티커 JP/KS)' 형식, 티커가 확실하지 않으면 기업명만.
-JSON 외 텍스트를 출력하지 마라.
+TRIAGE_PROMPT = """너는 한국 자산운용사의 일본 주식 담당 애널리스트를 돕는 뉴스 데스크다.
+NEW 기사들(일본어·중국어 제목과 본문 일부)을 선별해 JSON 배열만 출력하라.
+
+""" + RULES + """
+
+[4. 출력 필드] 기사마다: id, japan(true/false), score(1~5 정수), category(시장|거시·정책|기업|정치|국제|사회),
+dup_of(id 또는 null), new_info(문자열 또는 null), ko_title(정확한 한국어 제목 한 줄), gist(핵심 사실 한 문장).
+고유명사(지명·기관·인물)는 원문대로 정확히 옮겨라(예: 駐日米軍=주일미군). JSON 외 텍스트를 출력하지 마라.
 
 RECENT:
 {recent}
@@ -285,7 +354,26 @@ NEW:
 {new}
 """
 
-SCHEMA = {
+WRITE_PROMPT = """너는 한국 자산운용사의 일본 주식 담당 애널리스트를 돕는 뉴스 데스크다.
+아래 중요 기사들(일본어·중국어)을 한국어로 정리해 JSON 배열만 출력하라.
+
+기사마다 출력:
+ id
+ ko_title: 기사 핵심을 담은 정확한 한국어 제목 한 줄. 고유명사는 원문대로 정확히(예: 駐日米軍=주일미군).
+ bullets: 요약 2~3개. 각 항목은 '~함/~했음/~전망' 같은 보고서체 1~2문장.
+          기사 제목·본문에 있는 사실·숫자만 쓰고, 없는 숫자를 만들지 마라. 열거는 1)…, 2)… 형식.
+ insight: 투자 시사점 1~2문장. 반드시 '(추정)'으로 시작한다. 종목명·티커를 나열하지 말고,
+          이 뉴스가 시장·업종·투자 판단에 주는 의미를 쓴다. 반대 시나리오나 리스크를 한 구절 포함한다.
+ companies: 기사에 직접 등장하는 상장 기업 목록(최대 6개). 각 항목은
+          {{"ko": 한국어 통용 기업명, "official": 상장 정식 사명(일본 기업은 일본어 정식 사명, 한국 기업은 한국어 정식 사명),
+            "market": "JP" 또는 "KR"}}. 일본·한국 기업만, 확실하지 않으면 넣지 마라.
+JSON 외 텍스트를 출력하지 마라.
+
+기사:
+{items}
+"""
+
+TRIAGE_SCHEMA = {
     "type": "ARRAY",
     "items": {
         "type": "OBJECT",
@@ -294,18 +382,30 @@ SCHEMA = {
             "category": {"type": "STRING"}, "dup_of": {"type": "STRING", "nullable": True},
             "new_info": {"type": "STRING", "nullable": True},
             "ko_title": {"type": "STRING"}, "gist": {"type": "STRING"},
-            "bullets": {"type": "ARRAY", "items": {"type": "STRING"}}, "insight": {"type": "STRING"},
         },
         "required": ["id", "japan", "score", "category", "ko_title", "gist"],
     },
 }
+WRITE_SCHEMA = {
+    "type": "ARRAY",
+    "items": {
+        "type": "OBJECT",
+        "properties": {
+            "id": {"type": "STRING"}, "ko_title": {"type": "STRING"},
+            "bullets": {"type": "ARRAY", "items": {"type": "STRING"}}, "insight": {"type": "STRING"},
+            "companies": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {
+                "ko": {"type": "STRING"}, "official": {"type": "STRING"}, "market": {"type": "STRING"}}}},
+        },
+        "required": ["id", "ko_title", "bullets", "insight"],
+    },
+}
 
 
-def model_candidates(state, key):
-    """사용 가능한 모델 중 선호 순서대로 후보 목록. 하루 1회 목록 갱신."""
+def available_models(state, key):
+    """API 키로 쓸 수 있는 모델 목록. 하루 1회 갱신."""
     m = state["model"]
-    if m.get("list") and time.time() - m["checked"] < 86400:
-        return m["list"]
+    if m.get("names") and time.time() - m.get("checked", 0) < 86400:
+        return m["names"]
     try:
         r = requests.get(f"https://generativelanguage.googleapis.com/v1beta/models?key={key}&pageSize=200",
                          timeout=20)
@@ -313,10 +413,8 @@ def model_candidates(state, key):
                  if "generateContent" in x.get("supportedGenerationMethods", [])]
     except Exception:
         names = []
-    cands = [p for p in MODEL_PREF if p in names] or MODEL_PREF[:]
-    state["model"] = {"name": cands[0], "list": cands, "checked": time.time()}
-    print(f"[info] models = {cands}")
-    return cands
+    state["model"] = {"names": names, "checked": time.time() if names else 0}
+    return names
 
 
 def parse_json(txt):
@@ -333,23 +431,21 @@ def parse_json(txt):
     return data
 
 
-def call_llm(state, new_items):
+def gemini(state, prompt, schema, prefs, tag):
     key = os.getenv("GEMINI_API_KEY", "")
     if not key:
         raise RuntimeError("GEMINI_API_KEY 없음")
-    rec = state["recent"][-200:]
-    recent = "\n".join(f'{r["id"]}: {r["ko"]} — {r.get("gist", "")}' for r in rec) or "(없음)"
-    new = "\n".join(json.dumps({"id": it["id"], "src": it["label"], "title": it["title"],
-                                "body": it["lead"]}, ensure_ascii=False) for it in new_items)
-    body = {"contents": [{"parts": [{"text": PROMPT.format(recent=recent, new=new)}]}],
+    names = available_models(state, key)
+    cands = [p for p in prefs if p in names] if names else prefs
+    cands = cands or prefs
+    body = {"contents": [{"parts": [{"text": prompt}]}],
             "generationConfig": {"temperature": 0.2, "maxOutputTokens": 32768,
-                                 "responseMimeType": "application/json", "responseSchema": SCHEMA}}
-    cands = model_candidates(state, key)
+                                 "responseMimeType": "application/json", "responseSchema": schema}}
     last = None
     for attempt in range(2):  # 전 모델 혼잡(503)이면 잠시 후 한 바퀴 더
         for m in cands:
             if time.time() - T0 > RUN_BUDGET:
-                raise RuntimeError(f"실행 시간 초과, 남은 기사는 다음 실행으로 ({last})")
+                raise RuntimeError(f"실행 시간 초과 ({last})")
             try:
                 r = requests.post(
                     f"https://generativelanguage.googleapis.com/v1beta/models/{m}:generateContent?key={key}",
@@ -364,24 +460,41 @@ def call_llm(state, new_items):
                     data = parse_json(txt)
                 except Exception as ex:
                     last = f"{m}: 응답 파싱 실패 ({ex})"
-                    print(f"[warn] {last}", file=sys.stderr)
+                    print(f"[warn] [{tag}] {last}", file=sys.stderr)
                     continue
-                print(f"[info] LLM 성공: {m}, {len(data)}건")
+                print(f"[info] [{tag}] {m}: {len(data)}건")
                 return data
-            last = f"{m}: HTTP {r.status_code} {r.text[:150]}"
-            print(f"[warn] LLM 실패 {last}", file=sys.stderr)
+            last = f"{m}: HTTP {r.status_code} {r.text[:120]}"
+            print(f"[warn] [{tag}] {last}", file=sys.stderr)
             if r.status_code == 404:
                 state["model"]["checked"] = 0  # 다음 실행 때 모델 목록 재조회
-        time.sleep(10)
+        if attempt == 0:
+            time.sleep(8)
     raise RuntimeError(last)
 
 
+def triage(state, items):
+    rec = state["recent"][-200:]
+    recent = "\n".join(f'{r["id"]}: {r["ko"]} — {r.get("gist", "")}' for r in rec) or "(없음)"
+    new = "\n".join(json.dumps({"id": it["id"], "src": it["label"], "title": it["title"], "body": it["lead"]},
+                               ensure_ascii=False) for it in items)
+    return gemini(state, TRIAGE_PROMPT.format(recent=recent, new=new), TRIAGE_SCHEMA, TRIAGE_MODELS, "선별")
+
+
+def write_up(state, items):
+    body = "\n".join(json.dumps({"id": it["id"], "src": it["label"], "title": it["title"], "body": it["lead"]},
+                                ensure_ascii=False) for it in items)
+    # 상위 모델이 모두 실패하면 경량 모델로라도 작성
+    return gemini(state, WRITE_PROMPT.format(items=body), WRITE_SCHEMA, WRITE_MODELS + TRIAGE_MODELS, "요약")
+
+
 # ───────────────────────── 텔레그램 ─────────────────────────
-def tg_send(text):
+def tg_send(text, chat=None):
     if DRY_RUN:
         print("──── SEND ────\n" + text)
         return True
-    tok, chat = os.environ["TELEGRAM_BOT_TOKEN"], os.environ["TELEGRAM_CHAT_ID"]
+    tok = os.environ["TELEGRAM_BOT_TOKEN"]
+    chat = chat or os.environ["TELEGRAM_CHAT_ID"]
     for _ in range(3):
         r = requests.post(f"https://api.telegram.org/bot{tok}/sendMessage",
                           json={"chat_id": chat, "text": text, "parse_mode": "HTML",
@@ -397,32 +510,38 @@ def tg_send(text):
     return False
 
 
+def admin_send(text):
+    return tg_send(text, os.getenv("TELEGRAM_ADMIN_CHAT_ID") or None)
+
+
 def esc(s):
     return html.escape(s or "", quote=False)
 
 
-def fmt_alert(it, a):
-    """하나증권 중국 채널 형식: >>제목 (출처) / •요약 / >원제 링크"""
+def fmt_alert(it, tri, w):
+    """하나증권 중국 채널 형식: >>제목 (출처) / •요약 / •(추정) 시사점 / >원제 링크"""
     t = datetime.fromtimestamp(it["ts"], JST).strftime("%m-%d %H:%M")
-    lines = [f"<b>&gt;&gt;{esc(a.get('ko_title'))}</b> ({esc(it['label'])}) ★{a['score']}"]
-    if a.get("new_info"):
-        lines[0] = lines[0].replace("&gt;&gt;", "&gt;&gt;[후속] ", 1)
-    for b in (a.get("bullets") or [])[:3]:
+    head = "[후속] " if tri.get("new_info") else ""
+    lines = [f"<b>&gt;&gt;{head}{esc(w.get('ko_title') or tri.get('ko_title'))}</b> ({esc(it['label'])}) ★{tri['score']}"]
+    for b in (w.get("bullets") or [])[:3]:
         lines.append(f"\n•{esc(b.lstrip('•· ').strip())}")
-    if a.get("insight"):
-        lines.append(f"\n•{esc(a['insight'].strip())}")
+    if w.get("insight"):
+        lines.append(f"\n•{esc(w['insight'].strip())}")
+    cos = company_line(w.get("companies"))
+    if cos:
+        lines.append(f"\n언급 기업: {esc(cos)}")
     lines.append(f"\n&gt;{esc(it['title'])} <a href=\"{esc(it['url'])}\">원문</a> · {t} JST")
     return "\n".join(lines)
 
 
-def send_digest(state, today):
+def send_digest(state, slot_key, title):
     items = state["digest"]
     if not items:
-        state["last_digest"] = today
+        state["last_digest"] = slot_key
         return
     order = ["시장", "거시·정책", "기업", "정치", "국제", "사회"]
     items.sort(key=lambda x: (order.index(x["cat"]) if x["cat"] in order else 9, x["ts"]))
-    header = f"<b>&gt;&gt;일본 뉴스 다이제스트 {today}</b> (★3, {len(items)}건)\n"
+    header = f"<b>&gt;&gt;{esc(title)}</b> {slot_key[:10]} (★3, {len(items)}건)\n"
     chunks, cur, cat = [], header, None
     for x in items:
         line = ""
@@ -437,7 +556,29 @@ def send_digest(state, today):
     chunks.append(cur)
     if all(tg_send(c) for c in chunks):
         state["digest"] = []
-        state["last_digest"] = today
+        state["last_digest"] = slot_key
+
+
+def check_health(state, llm_ok):
+    """연속 실패 감지 → 경고 1회, 회복 시 1회 알림."""
+    h = state["health"]
+    if llm_ok is not None:
+        h["llm"] = 0 if llm_ok else h.get("llm", 0) + 1
+    problems = {}
+    if h.get("llm", 0) >= FAIL_ALERT_N:
+        problems["llm"] = f"Gemini 처리 {h['llm']}회 연속 실패(기사는 보관 중, 3시간 넘으면 폐기)"
+    for sid, n in h["src"].items():
+        if n >= FAIL_ALERT_N:
+            problems[sid] = f"소스 수집 {n}회 연속 실패: {sid.split('|')[0]}"
+    alerted = set(h.get("alerted", []))
+    new = [k for k in problems if k not in alerted]
+    fixed = [k for k in alerted if k not in problems]
+    if new:
+        admin_send("<b>[봇 경고]</b> 일본 뉴스봇\n" + "\n".join(f"• {esc(problems[k])}" for k in new)
+                   + "\n로그: GitHub Actions → jp-news-bot")
+    if fixed:
+        admin_send("<b>[복구]</b> 일본 뉴스봇\n" + "\n".join(f"• {'Gemini' if k == 'llm' else esc(k.split('|')[0])} 정상화" for k in fixed))
+    h["alerted"] = list(problems)
 
 
 # ───────────────────────── 메인 ─────────────────────────
@@ -449,7 +590,7 @@ def main():
         state["daily"] = {"date": today, "count": 0}
 
     first_run = not state["seen"]
-    fresh = dedupe_new(fetch_sources(), state)
+    fresh = dedupe_new(fetch_sources(state), state)
     if first_run:  # 첫 실행은 기존 기사를 '본 것'으로만 기록하고 보내지 않음
         print(f"[info] 첫 실행: {len(fresh)}건을 기준선으로 저장")
         save_state(state)
@@ -459,6 +600,7 @@ def main():
     save_state(state)  # 수집 결과를 먼저 저장(도중에 중단돼도 같은 기사를 다시 보내지 않도록)
     print(f"[info] 신규 {len(fresh)}건, 처리 대상 {len(batch)}건")
 
+    llm_ok = None
     for i in range(0, len(batch), MAX_BATCH):
         chunk = batch[i:i + MAX_BATCH]
         if time.time() - T0 > RUN_BUDGET:
@@ -468,10 +610,12 @@ def main():
             it["id"] = f"n{int(time.time()) % 1000000}_{i + j}"
             if it["source"] == "nikkei" and not it["lead"]:
                 it["lead"] = og_description(it["link"])
-        try:
-            res = {a["id"]: a for a in call_llm(state, chunk) if isinstance(a, dict) and "id" in a}
+        try:  # 1단계: 선별
+            res = {a["id"]: a for a in triage(state, chunk) if isinstance(a, dict) and "id" in a}
+            llm_ok = True if llm_ok is None else llm_ok
         except Exception as ex:
-            print(f"[warn] LLM 처리 실패, 다음 실행에 재시도: {ex}", file=sys.stderr)
+            llm_ok = False
+            print(f"[warn] 선별 실패, 다음 실행에 재시도: {ex}", file=sys.stderr)
             for it in chunk:
                 it.setdefault("first_try", time.time())
                 if time.time() - it["first_try"] < 3 * 3600:
@@ -479,30 +623,53 @@ def main():
             save_state(state)
             continue
 
+        urgent = []
         for it in sorted(chunk, key=lambda x: x["ts"]):
             a = res.get(it["id"])
             if not a or a.get("dup_of") or not a.get("japan"):
                 continue
             score = int(a.get("score") or 0)
-            ko = a.get("ko_title") or it["title"]
-            rec = {"id": it["id"], "ko": ko, "gist": a.get("gist", ""), "ts": time.time()}
+            rec = {"id": it["id"], "ko": a.get("ko_title") or it["title"], "gist": a.get("gist", ""), "ts": time.time()}
             state["recent"].append(rec)
             if score < DIGEST_MIN_SCORE:
                 continue
             it["url"] = gn_decode(it["link"]) if it["gn"] else it["link"]
-            if score >= THRESHOLD and a.get("bullets"):
-                if tg_send(fmt_alert(it, a)):
-                    state["daily"]["count"] += 1
-                    rec["sent"] = True
-                    save_state(state)  # 보낸 직후 저장
-                continue
-            state["digest"].append({"ko": ko, "url": it["url"], "label": it["label"],
-                                    "cat": a.get("category", "기타"), "score": score, "ts": it["ts"]})
+            if score >= THRESHOLD:
+                urgent.append((it, a, rec))
+            else:
+                state["digest"].append({"ko": rec["ko"], "url": it["url"], "label": it["label"],
+                                        "cat": a.get("category", "기타"), "score": score, "ts": it["ts"]})
         save_state(state)
 
-    if now.weekday() < 5 and now.strftime("%H%M") >= DIGEST_HHMM and state["last_digest"] != today:
-        send_digest(state, today)
+        if urgent:  # 2단계: ★4 이상만 상위 모델로 요약
+            try:
+                ws = {w["id"]: w for w in write_up(state, [u[0] for u in urgent]) if isinstance(w, dict) and "id" in w}
+            except Exception as ex:
+                print(f"[warn] 요약 실패: {ex}", file=sys.stderr)
+                ws = {}
+            for it, a, rec in urgent:
+                w = ws.get(it["id"])
+                if not w or not w.get("bullets"):  # 요약을 못 만들면 다이제스트로
+                    state["digest"].append({"ko": rec["ko"], "url": it["url"], "label": it["label"],
+                                            "cat": a.get("category", "기타"), "score": a["score"], "ts": it["ts"]})
+                    continue
+                if tg_send(fmt_alert(it, a, w)):
+                    state["daily"]["count"] += 1
+                    rec["sent"] = True
+                    if w.get("ko_title"):
+                        rec["ko"] = w["ko_title"]
+                    save_state(state)  # 보낸 직후 저장
 
+    # 다이제스트: 평일 08:30(밤사이)·15:45(장중). 가장 최근에 지난 시각 기준으로 한 번씩
+    if now.weekday() < 5:
+        due = [(s, t) for s, t in DIGEST_SLOTS if now.strftime("%H%M") >= s]
+        if due:
+            s, t = due[-1]
+            key = f"{today} {s}"
+            if state["last_digest"] != key:
+                send_digest(state, key, t)
+
+    check_health(state, llm_ok)
     save_state(state)
 
 
