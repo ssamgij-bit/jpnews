@@ -282,10 +282,11 @@ WRITE_PROMPT = """너는 한국 자산운용사의 일본 주식 담당 애널�
 글마다 출력:
  id
  ko_title: 정확한 한국어 제목 한 줄.
- body_points: 글 내용 요약 2~3개. '~함/~했음' 보고서체 1문장씩. 본문에 있는 사실만, 없는 숫자를 만들지 마라.
- comment_points: 댓글 반응 요약 2~3개. 다수 의견 → 공감(+·별)을 많이 받은 의견 → 소수·반대 의견 순.
-                 대표 댓글은 짧게 따옴표로 번역 인용해도 된다. 댓글이 없으면 빈 배열.
- note: 상장사·업종·소비 트렌드와 연결되는 투자 시사점이 있을 때만 '(추정)'으로 시작하는 1문장. 없으면 빈 문자열.
+ body_points: 글 내용 요약 최대 2개. 각 40자 이내의 짧은 1문장, '~함/~했음' 보고서체. 핵심만 쓰고 배경 설명은 빼라.
+              본문에 있는 사실만, 없는 숫자를 만들지 마라.
+ comment_points: 댓글 반응 요약 최대 2개. 각 40자 이내의 짧은 1문장. 첫째는 다수·공감(+·별) 많은 의견,
+                 둘째는 반대·소수 의견(없으면 생략). 인용은 하지 마라. 댓글이 없으면 빈 배열.
+ note: 상장사·업종·소비 트렌드와 연결되는 투자 시사점이 있을 때만 '(추정)'으로 시작하는 50자 이내 1문장. 없으면 빈 문자열.
  companies: 글에 직접 등장하는 일본·한국 상장 기업(최대 4개). 각 항목 {{"ko": 한국어 기업명,
             "official": 상장 정식 사명(일본 기업은 일본어 정식 사명), "market": "JP" 또는 "KR"}}. 확실하지 않으면 넣지 마라.
 JSON 외 텍스트 금지.
@@ -359,20 +360,20 @@ def fmt_item(c, w, idx=None):
     num = f"{idx}. " if idx else ""
     lines = [f"<b>{num}{esc(title)}</b> ({s['unit']} {metric(c):,})"]
     if w.get("body_points"):
-        lines.append("<i>내용</i>")
-        lines += [f"•{esc(b.lstrip('•· ').strip())}" for b in w["body_points"][:3]]
+        lines.append("\n<b>[내용]</b>")
+        lines += [f"• {esc(b.lstrip('•· ').strip())}" for b in w["body_points"][:2]]
     if w.get("comment_points"):
-        lines.append("<i>댓글 반응</i>")
-        lines += [f"•{esc(b.lstrip('•· ').strip())}" for b in w["comment_points"][:3]]
+        lines.append("\n<b>[댓글]</b>")
+        lines += [f"• {esc(b.lstrip('•· ').strip())}" for b in w["comment_points"][:2]]
     if (w.get("note") or "").strip():
-        lines.append(f"•{esc(w['note'].strip())}")
+        lines.append(f"\n{esc(w['note'].strip())}")
     cos = bot.company_line(w.get("companies"))
     if cos:
         lines.append(f"언급 기업: {esc(cos)}")
     links = f"<a href=\"{esc(c['url'])}\">원문</a>"
     if c["extra"].get("comments_url"):
         links += f" · <a href=\"{esc(c['extra']['comments_url'])}\">댓글</a>"
-    lines.append(f"&gt;{links}")
+    lines.append(f"\n&gt;{links}")
     return "\n".join(lines)
 
 
@@ -382,7 +383,7 @@ def send_chunks(header, blocks, silent):
         if len(cur) + len(b) + 2 > 3800:
             chunks.append(cur)
             cur = ""
-        cur += ("\n\n" if cur else "") + b
+        cur += ("\n\n━━━━━━━━━━\n" if cur else "") + b
     chunks.append(cur)
     return all(tg_send(x, silent) for x in chunks)
 
