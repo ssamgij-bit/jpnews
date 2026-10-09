@@ -413,7 +413,7 @@ def available_models(state, key):
                  if "generateContent" in x.get("supportedGenerationMethods", [])]
     except Exception:
         names = []
-    state["model"] = {"names": names, "checked": time.time() if names else 0}
+    m.update({"names": names, "checked": time.time() if names else 0})  # dead(퇴역 모델) 기록은 유지
     return names
 
 
@@ -431,45 +431,66 @@ def parse_json(txt):
     return data
 
 
+BUSY = set()  # 이번 실행에서 혼잡(503·429)이었던 모델: 같은 실행의 다음 호출에서는 뒤로 미룬다
+
+
+def _order(state, prefs, names):
+    """사용 가능 + 퇴역(404) 아님, 이번 실행에서 혼잡했던 모델은 맨 뒤."""
+    m = state["model"]
+    dead = {k: v for k, v in m.get("dead", {}).items() if time.time() - v < 7 * 86400}
+    m["dead"] = dead
+    cands = [p for p in prefs if (not names or p in names) and p not in dead] or \
+            [p for p in prefs if p not in dead] or list(prefs)
+    cands.sort(key=lambda p: p in BUSY)  # 우선순위는 유지(상위 모델 먼저), 이번 실행 혼잡 모델만 뒤로
+    return cands
+
+
+def _call(key, m, body):
+    r = requests.post(f"https://generativelanguage.googleapis.com/v1beta/models/{m}:generateContent?key={key}",
+                      json=body, timeout=120)
+    if r.status_code != 200:
+        return r.status_code, None, f"HTTP {r.status_code} {r.text[:120]}"
+    cand = (r.json().get("candidates") or [{}])[0]
+    txt = "".join(p.get("text", "") for p in (cand.get("content") or {}).get("parts", []) if not p.get("thought"))
+    try:
+        return 200, parse_json(txt), None
+    except Exception as ex:
+        return 200, None, f"응답 파싱 실패 ({ex}; finish={cand.get('finishReason')}, 길이={len(txt)})"
+
+
 def gemini(state, prompt, schema, prefs, tag):
     key = os.getenv("GEMINI_API_KEY", "")
     if not key:
         raise RuntimeError("GEMINI_API_KEY 없음")
     names = available_models(state, key)
-    cands = [p for p in prefs if p in names] if names else prefs
-    cands = cands or prefs
     body = {"contents": [{"parts": [{"text": prompt}]}],
             "generationConfig": {"temperature": 0.2, "maxOutputTokens": 32768,
                                  "responseMimeType": "application/json", "responseSchema": schema}}
     last = None
-    for attempt in range(2):  # 전 모델 혼잡(503)이면 잠시 후 한 바퀴 더
-        for m in cands:
+    for attempt in range(2):  # 전 모델 혼잡이면 잠시 후 한 바퀴 더
+        for m in _order(state, prefs, names):
             if time.time() - T0 > RUN_BUDGET:
                 raise RuntimeError(f"실행 시간 초과 ({last})")
-            try:
-                r = requests.post(
-                    f"https://generativelanguage.googleapis.com/v1beta/models/{m}:generateContent?key={key}",
-                    json=body, timeout=120)
-            except Exception as ex:
-                last = f"{m}: {ex}"
-                continue
-            if r.status_code == 200:
+            for retry in range(2):  # 응답 파싱 실패는 같은 모델로 1회 재시도
                 try:
-                    cand = r.json()["candidates"][0]
-                    txt = "".join(p.get("text", "") for p in cand["content"]["parts"] if not p.get("thought"))
-                    data = parse_json(txt)
+                    code, data, err = _call(key, m, body)
                 except Exception as ex:
-                    last = f"{m}: 응답 파싱 실패 ({ex})"
-                    print(f"[warn] [{tag}] {last}", file=sys.stderr)
-                    continue
-                print(f"[info] [{tag}] {m}: {len(data)}건")
-                return data
-            last = f"{m}: HTTP {r.status_code} {r.text[:120]}"
-            print(f"[warn] [{tag}] {last}", file=sys.stderr)
-            if r.status_code == 404:
-                state["model"]["checked"] = 0  # 다음 실행 때 모델 목록 재조회
+                    code, data, err = 0, None, str(ex)
+                if data is not None:
+                    print(f"[info] [{tag}] {m}: {len(data)}건")
+                    BUSY.discard(m)
+                    return data
+                last = f"{m}: {err}"
+                print(f"[warn] [{tag}] {last}", file=sys.stderr)
+                if code != 200:
+                    break
+            if code in (503, 429):
+                BUSY.add(m)
+            elif code == 404:  # 퇴역 모델: 7일간 제외하고 다음 실행 때 목록 재조회
+                state["model"].setdefault("dead", {})[m] = time.time()
+                state["model"]["checked"] = 0
         if attempt == 0:
-            time.sleep(8)
+            time.sleep(5)
     raise RuntimeError(last)
 
 
