@@ -295,6 +295,22 @@ JSON 외 텍스트 금지.
 {items}
 """
 
+OVERVIEW_PROMPT = """너는 한국 자산운용사의 일본 주식 담당 애널리스트를 돕는 데스크다.
+아래는 최근 6시간 동안 일본 커뮤니티(하테나 북마크·걸즈채널·토게터)에서 반응이 늘어난 글 제목과 반응 수다.
+(따로 상세 요약하는 상위 글은 제외했다.) 시황 정리처럼 '이번 6시간 커뮤니티 동향'을 정확히 5줄로 정리해 JSON 문자열 배열만 출력하라.
+
+규칙:
+- 각 줄은 '[주제] 내용' 형식, 50자 이내 1문장, '~함/~이어짐' 보고서체. 주제 예: 사회, 정치·정책, 기업·소비, IT, 연예, 생활.
+- 개별 글 나열이 아니라 비슷한 글을 묶어 흐름을 써라. 반응 수가 많은 흐름부터 쓴다.
+- 여러 사이트에서 함께 화제인 주제는 그렇게 밝혀라.
+- 제목에 있는 사실만 쓰고 추측하지 마라. 일본어를 쓰지 말고 고유명사도 한글로 옮겨라.
+JSON 외 텍스트 금지.
+
+글 목록:
+{items}
+"""
+OVERVIEW_SCHEMA = {"type": "ARRAY", "items": {"type": "STRING"}}
+
 TRIAGE_SCHEMA = {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {
     "id": {"type": "STRING"}, "score": {"type": "INTEGER"}, "ko_title": {"type": "STRING"}},
     "required": ["id", "score", "ko_title"]}}
@@ -330,6 +346,27 @@ def write_up(state, pairs):
                      bot.WRITE_MODELS + bot.TRIAGE_MODELS, "커뮤니티 요약")
     by = {r["id"]: r for r in res if isinstance(r, dict) and "id" in r}
     return [by.get(f"w{i}") or {} for i in range(len(pairs))]
+
+
+def overview(state, picks, now):
+    """상위 글 외에 지난 6시간 동안 반응이 늘어난 글들을 5줄 동향으로 정리. 실패하면 빈 목록."""
+    picked = {k for k, _ in picks}
+    rows = []
+    for src in SRC:
+        pool = [c for k, c in state["cands"].items()
+                if c["src"] == src and k not in picked and now - c["last"] < 2 * 3600 and heat(c, now) > 0]
+        pool.sort(key=lambda c: -heat(c, now))
+        rows += [json.dumps({"src": SRC[src]["name"], "title": c["title"], SRC[src]["unit"]: heat(c, now)},
+                            ensure_ascii=False) for c in pool[:25]]
+    if len(rows) < 5:
+        return []
+    try:
+        res = bot.gemini(state, OVERVIEW_PROMPT.format(items="\n".join(rows)), OVERVIEW_SCHEMA,
+                         bot.WRITE_MODELS + bot.TRIAGE_MODELS, "커뮤니티 동향")
+        return [str(x).strip() for x in res if str(x).strip()][:5]
+    except Exception as ex:
+        print(f"[warn] 동향 정리 실패(생략하고 발송): {ex}", file=sys.stderr)
+        return []
 
 
 # ───────────────────────── 텔레그램 ─────────────────────────
@@ -457,6 +494,9 @@ def digest_pass(state, now_dt, force):
     header = (f"<b>&gt;&gt;[커뮤니티] 일본 커뮤니티 화제글</b> {slot_dt.strftime('%m-%d %H:%M')} ({len(picks)}건)"
               + ("" if ok_llm else "\n(요약 생성 실패: 원제와 링크만 보냅니다)"))
     blocks, cur_src, n = [], None, 0
+    trend = overview(state, picks, now) if ok_llm else []
+    if trend:
+        blocks.append("<b>[6시간 동향]</b>\n" + "\n".join(f"• {esc(t.lstrip('•· '))}" for t in trend))
     for (k, c), w in zip(picks, ws):
         if c["src"] != cur_src:
             cur_src, n = c["src"], 0
