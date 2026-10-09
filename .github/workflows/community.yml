@@ -9,6 +9,10 @@ on:
         description: "지금 바로 다이제스트 보내기(테스트용)"
         type: boolean
         default: false
+      weekly_now:
+        description: "지금 바로 주간 기업·브랜드 순위 보내기(테스트용)"
+        type: boolean
+        default: false
 
 concurrency:
   group: jp-community-bot
@@ -19,11 +23,11 @@ permissions:
 
 jobs:
   run:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 8
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
           cache: pip
@@ -40,6 +44,7 @@ jobs:
           TOGETTER_MIN: ${{ vars.TOGETTER_MIN || '20000' }}
           PER_SOURCE: ${{ vars.PER_SOURCE || '2' }}
           DIGEST_NOW: ${{ github.event.inputs.digest_now == 'true' && '1' || '0' }}
+          WEEKLY_NOW: ${{ github.event.inputs.weekly_now == 'true' && '1' || '0' }}
         run: python community.py
       - name: Save state
         if: always()
