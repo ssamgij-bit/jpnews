@@ -6,7 +6,7 @@
 상태는 community_state.json(워크플로우가 커밋). 뉴스봇(bot.py)의 Gemini·티커 대조 함수를 재사용한다.
 환경변수: TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, GEMINI_API_KEY
 선택: TELEGRAM_ADMIN_CHAT_ID, COMMUNITY_THRESHOLD(기본 4), HATENA_MIN(100), GIRLS_MIN(300), TOGETTER_MIN(20000),
-      PER_SOURCE(2),
+      PER_SOURCE(3),
       DIGEST_NOW=1(지금 바로 다이제스트), WEEKLY_NOW=1(지금 바로 주간 순위), DRY_RUN=1
 일요일 19:30 회차에 주간 기업·브랜드 언급 순위와 투자 아이디어·인사이트.
 다이제스트 회차마다 X 트렌드(trends24 일본) 최근 12시간 상위 10과 화제 이유를 별도 메시지로. X_NOW=1(지금 바로)
@@ -90,7 +90,7 @@ def company_line(companies, with_link=False):
 STATE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "community_state.json")
 DRY_RUN = os.getenv("DRY_RUN") == "1"
 THRESHOLD = int(os.getenv("COMMUNITY_THRESHOLD", "4"))
-PER_SOURCE = int(os.getenv("PER_SOURCE", "2"))
+PER_SOURCE = int(os.getenv("PER_SOURCE", "3"))
 SLOTS = [(7, 30), (19, 30)]      # 다이제스트 시각(JST, 시·분)
 SILENT_SLOTS = set()             # 무음 발송 회차(없음)
 LEAD_MIN = 15                    # 회차 15분 전 실행분부터 해당 회차로 간주(워크플로우는 매시 20분 실행)
