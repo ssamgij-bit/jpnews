@@ -1,0 +1,59 @@
+name: jp-community-bot
+
+on:
+  schedule:
+    - cron: "50 * * * *"   # 매시 50분(화제도 수집). 05:50·11:50·17:50·23:50 KST 실행분이 다이제스트 발송
+  workflow_dispatch:
+    inputs:
+      digest_now:
+        description: "지금 바로 다이제스트 보내기(테스트용)"
+        type: boolean
+        default: false
+
+concurrency:
+  group: jp-community-bot
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Run community bot
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          TELEGRAM_ADMIN_CHAT_ID: ${{ secrets.TELEGRAM_ADMIN_CHAT_ID }}
+          COMMUNITY_THRESHOLD: ${{ vars.COMMUNITY_THRESHOLD || '4' }}
+          HATENA_MIN: ${{ vars.HATENA_MIN || '100' }}
+          GIRLS_MIN: ${{ vars.GIRLS_MIN || '300' }}
+          TOGETTER_MIN: ${{ vars.TOGETTER_MIN || '20000' }}
+          PER_SOURCE: ${{ vars.PER_SOURCE || '2' }}
+          DIGEST_NOW: ${{ github.event.inputs.digest_now == 'true' && '1' || '0' }}
+        run: python community.py
+      - name: Save state
+        if: always()
+        run: |
+          git config user.name "jp-community-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add community_state.json
+          git diff --cached --quiet || (git commit -m "community state update [skip ci]" && git pull --rebase -X theirs && git push)
+      - name: Notify crash
+        if: failure()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          CHAT: ${{ secrets.TELEGRAM_ADMIN_CHAT_ID || secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            --data-urlencode "chat_id=${CHAT}" \
+            --data-urlencode "text=[봇 경고] 일본 커뮤니티봇 실행이 중단됐습니다. 로그: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" > /dev/null
