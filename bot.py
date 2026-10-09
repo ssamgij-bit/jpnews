@@ -284,7 +284,8 @@ KRX = _load_list("krx_list.csv", True)
 
 
 def lookup_ticker(name, table):
-    """상장사 목록에서만 티커를 찾는다. 정식명 일치 → 접미어 제거 후 유일 일치 → 앞부분 유일 일치 순."""
+    """상장사 목록에서만 티커를 찾는다. 정식명 일치 → 접미어 제거 후 유일 일치.
+    (앞부분만 비슷한 이름으로 맞추던 방식은 다른 회사로 잘못 연결돼 폐지)"""
     raw = unicodedata.normalize("NFKC", name or "").lower().replace(" ", "")
     if len(raw) < 2:
         return None
@@ -294,18 +295,20 @@ def lookup_ticker(name, table):
     hits = table["loose"].get(q, [])
     if len(hits) == 1:
         return hits[0]
-    if hits or len(q) < 2:
-        return None  # 여러 종목과 겹치면 표시하지 않음
-    cands = {v for k, vs in table["loose"].items() for v in vs
-             if k.startswith(q) or (len(k) >= 3 and q.startswith(k))}
-    return cands.pop() if len(cands) == 1 else None
+    return None  # 여러 종목과 겹치거나 목록에 없으면 표시하지 않음
 
 
 def company_line(companies):
     out, seen = [], set()
     for c in companies or []:
-        table = KRX if (c.get("market") or "").upper() == "KR" else JPX
-        hit = lookup_ticker(c.get("official") or "", table) or lookup_ticker(c.get("ko") or "", table)
+        kr = (c.get("market") or "").upper() == "KR"
+        table = KRX if kr else JPX
+        hit = lookup_ticker(c.get("official") or "", table)
+        if not hit and kr:  # 한국 기업은 한국어 이름으로도 대조
+            hit = lookup_ticker(c.get("ko") or "", table)
+        code = (c.get("code") or "").strip().upper()
+        if hit and code and code != hit[0]:
+            hit = None  # 모델이 준 종목코드와 사명이 서로 맞지 않으면 버림
         if not hit or hit[0] in seen:
             continue  # 목록에서 확인되지 않은 기업은 표시하지 않음
         seen.add(hit[0])
@@ -366,7 +369,8 @@ WRITE_PROMPT = """너는 한국 자산운용사의 일본 주식 담당 애널�
           이 뉴스가 시장·업종·투자 판단에 주는 의미를 쓴다. 반대 시나리오나 리스크를 한 구절 포함한다.
  companies: 기사에 직접 등장하는 상장 기업 목록(최대 6개). 각 항목은
           {{"ko": 한국어 통용 기업명, "official": 상장 정식 사명(일본 기업은 일본어 정식 사명, 한국 기업은 한국어 정식 사명),
-            "market": "JP" 또는 "KR"}}. 일본·한국 기업만, 확실하지 않으면 넣지 마라.
+            "code": 종목코드(일본 4자리·한국 6자리, 모르면 빈 문자열), "market": "JP" 또는 "KR"}}.
+          일본·한국 기업만, 확실하지 않으면 넣지 마라. 비슷한 이름의 다른 회사를 넣지 마라.
 JSON 외 텍스트를 출력하지 마라.
 
 기사:
@@ -394,7 +398,8 @@ WRITE_SCHEMA = {
             "id": {"type": "STRING"}, "ko_title": {"type": "STRING"},
             "bullets": {"type": "ARRAY", "items": {"type": "STRING"}}, "insight": {"type": "STRING"},
             "companies": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {
-                "ko": {"type": "STRING"}, "official": {"type": "STRING"}, "market": {"type": "STRING"}}}},
+                "ko": {"type": "STRING"}, "official": {"type": "STRING"}, "code": {"type": "STRING"},
+                "market": {"type": "STRING"}}}},
         },
         "required": ["id", "ko_title", "bullets", "insight"],
     },
