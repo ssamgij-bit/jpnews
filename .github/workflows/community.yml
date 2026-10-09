@@ -13,6 +13,10 @@ on:
         description: "지금 바로 주간 기업·브랜드 순위 보내기(테스트용)"
         type: boolean
         default: false
+      x_now:
+        description: "지금 바로 X 트렌드 보내기(테스트용)"
+        type: boolean
+        default: false
 
 concurrency:
   group: jp-community-bot
@@ -45,6 +49,7 @@ jobs:
           PER_SOURCE: ${{ vars.PER_SOURCE || '2' }}
           DIGEST_NOW: ${{ github.event.inputs.digest_now == 'true' && '1' || '0' }}
           WEEKLY_NOW: ${{ github.event.inputs.weekly_now == 'true' && '1' || '0' }}
+          X_NOW: ${{ github.event.inputs.x_now == 'true' && '1' || '0' }}
         run: python community.py
       - name: Save state
         if: always()
