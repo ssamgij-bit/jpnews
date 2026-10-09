@@ -9,6 +9,7 @@
       PER_SOURCE(2), WATCH_SEARCH_N(6), WATCH_HATENA_MIN(10), WATCH_GIRLS_MIN(30),
       DIGEST_NOW=1(지금 바로 다이제스트), WEEKLY_NOW=1(지금 바로 주간 순위), DRY_RUN=1
 관심 종목: watchlist.csv(티커, 추가 키워드). 일요일 18시 회차에 주간 기업·브랜드 언급 순위.
+다이제스트 회차마다 X 트렌드(trends24 일본) 최근 6시간 상위 10과 화제 이유를 별도 메시지로. X_NOW=1(지금 바로)
 """
 import calendar
 import csv
@@ -790,6 +791,118 @@ def weekly_pass(state, slot_dt, force=False):
     return True
 
 
+# ───────────────────────── X(트위터) 트렌드 ─────────────────────────
+X_TREND_URL = "https://trends24.in/japan/"
+X_TOP_N = int(os.getenv("X_TOP_N", "10"))
+
+
+def fetch_x_trends(now):
+    """trends24 일본 페이지의 시간대별 트렌드(각 50위)를 최근 6시간 동안 합산해 상위 키워드를 고른다.
+    점수 = Σ(51 - 순위). 반환: [(키워드, 점수, 등장 시간대 수, 최고 순위)]"""
+    h = get(X_TREND_URL).text
+    cards = re.findall(r"<h3 class=title data-timestamp=([\d.]+)>.*?</h3><ol class=trend-card__list>(.*?)</ol>", h, re.S)
+    if not cards:
+        raise RuntimeError("트렌드 카드 0개(페이지 구조 변경 가능성)")
+    score, hours, best = {}, {}, {}
+    recent = sorted(cards, key=lambda c: -float(c[0]))[:6]  # 최신 시간대 카드 6개(=최근 6시간)
+    for ts, body in recent:
+        if now - float(ts) > 7 * 3600:
+            continue
+        for rank, name in enumerate(re.findall(r"class=trend-link>([^<]*)</a>", body), 1):
+            name = html.unescape(name).strip()
+            score[name] = score.get(name, 0) + 51 - rank
+            hours[name] = hours.get(name, 0) + 1
+            best[name] = min(best.get(name, 99), rank)
+    top = sorted(score, key=lambda k: -score[k])[:X_TOP_N]
+    return [(k, score[k], hours[k], best[k]) for k in top]
+
+
+def news_context(kw):
+    """키워드의 최근 1일 구글 뉴스 제목 최대 3개(트렌드 이유 파악용)."""
+    try:
+        q = urllib.parse.quote(f"{kw.lstrip('#')} when:1d")
+        f = feedparser.parse(get(f"https://news.google.com/rss/search?hl=ja&gl=JP&ceid=JP:ja&q={q}").content)
+        return [bot.SUFFIX_RE.sub("", html.unescape(e.title)).strip()[:90] for e in f.entries[:3]]
+    except Exception:
+        return []
+
+
+X_PROMPT = """너는 한국 자산운용사의 일본 주식 담당 애널리스트를 돕는 데스크다.
+아래는 최근 6시간 일본 X(트위터) 트렌드 상위 키워드와, 키워드별 최근 1일 일본 뉴스 제목(있으면)이다.
+키워드마다 JSON 배열 항목 하나를 출력하라.
+
+ id
+ ko: 키워드의 한국어 표기. 해시태그는 #을 유지. 일본어를 쓰지 말고 고유명사도 한글로(영문은 그대로).
+ category: 연예·방송, 애니·게임, 스포츠, 사회·사건, 정치·경제, 기업·상품, 기타 중 하나.
+ reason: 왜 화제인지 1~2문장(60자 이내), '~함' 보고서체. 뉴스 제목에 근거가 있으면 그것을 쓰고,
+         근거가 없으면 키워드로 짐작한 내용을 쓰되 문장 앞에 '(추정)'을 붙여라. 모르면 '(추정) 이유 불명확함'.
+ company: 이유가 일본·한국 상장 기업과 직접 관련되면 {{"ko": 한국어 기업명, "official": 일본어 정식 사명, "market": "JP" 또는 "KR"}},
+          아니면 빈 객체.
+JSON 외 텍스트 금지.
+
+{items}
+"""
+X_SCHEMA = {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {
+    "id": {"type": "STRING"}, "ko": {"type": "STRING"}, "category": {"type": "STRING"}, "reason": {"type": "STRING"},
+    "company": {"type": "OBJECT", "properties": {
+        "ko": {"type": "STRING"}, "official": {"type": "STRING"}, "market": {"type": "STRING"}}}},
+    "required": ["id", "ko", "category", "reason"]}}
+
+
+def x_trend_pass(state, now_dt, force):
+    """다이제스트 회차마다 X 트렌드 상위 10과 화제 이유를 별도 메시지로 보낸다."""
+    key, slot_dt = due_slot(now_dt)
+    if "last_xslot" not in state and not force:  # 기능 추가 직후: 지난 회차는 건너뛰고 다음 회차부터
+        state["last_xslot"] = key
+        return None
+    if state.get("last_xslot") == key and not force:
+        return None
+    now = time.time()
+    hs = state["health"]["src"]
+    try:
+        top = fetch_x_trends(now)
+        hs["x"] = 0
+    except Exception as ex:
+        hs["x"] = hs.get("x", 0) + 1
+        print(f"[warn] X 트렌드 수집 실패({hs['x']}회 연속): {ex}", file=sys.stderr)
+        return None
+    if not top:
+        state["last_xslot"] = key
+        return None
+    items = []
+    for i, (kw, sc, hrs, best) in enumerate(top):
+        items.append(json.dumps({"id": f"x{i}", "keyword": kw, "news": news_context(kw)}, ensure_ascii=False))
+        time.sleep(1)
+    try:
+        res = bot.gemini(state, X_PROMPT.format(items="\n".join(items)), X_SCHEMA,
+                         bot.WRITE_MODELS + bot.TRIAGE_MODELS, "X 트렌드")
+        by = {r["id"]: r for r in res if isinstance(r, dict) and "id" in r}
+        ok = True
+    except Exception as ex:
+        print(f"[warn] X 트렌드 정리 실패: {ex}", file=sys.stderr)
+        since = state.setdefault("x_fail_since", 0) or now
+        state["x_fail_since"] = since
+        if now - since < FALLBACK_AFTER_H * 3600 and not force:
+            return False  # 다음 실행에 재시도
+        by, ok = {}, False
+    lines = [f"<b>&gt;&gt;[X 트렌드] 일본 최근 6시간 상위 {len(top)}</b> {slot_dt.strftime('%m-%d %H:%M')}"]
+    if not ok:
+        lines.append("(이유 정리 실패: 키워드와 링크만 보냅니다)")
+    for i, (kw, sc, hrs, best) in enumerate(top, 1):
+        r = by.get(f"x{i - 1}", {})
+        url = "https://x.com/search?q=" + urllib.parse.quote(kw)
+        cat = f"[{esc(r['category'])}] " if r.get("category") else ""
+        lines.append(f"\n<b>{i}. {cat}{esc(r.get('ko') or kw)}</b> (최고 {best}위 · 6시간 중 {hrs}시간 순위권)")
+        if r.get("reason"):
+            lines.append(f"• {esc(r['reason'])}")
+        co = r.get("company") or {}
+        tick = bot.company_line([co]) if co.get("ko") else ""
+        lines.append(f"&gt;<a href=\"{esc(url)}\">X에서 보기</a>" + (f" · 관련 기업: {esc(tick)}" if tick else ""))
+    if send_chunks(lines[0], lines[1:], slot_dt.hour in SILENT_SLOTS, sep="\n"):
+        state["last_xslot"], state["x_fail_since"] = key, 0
+    return ok
+
+
 # ───────────────────────── 장애 알림 ─────────────────────────
 def check_health(state, llm_ok):
     h = state["health"]
@@ -800,7 +913,7 @@ def check_health(state, llm_ok):
         problems["llm"] = f"Gemini 처리 {h['llm']}회 연속 실패"
     for src, n in h["src"].items():
         if n >= FAIL_ALERT_N:
-            problems[src] = f"{SRC[src]['name']} 목록 수집 {n}회 연속 실패(사이트 구조 변경 가능성)"
+            problems[src] = f"{SRC.get(src, {}).get('name', 'X 트렌드(trends24)')} 수집 {n}회 연속 실패(사이트 구조 변경 가능성)"
     alerted = set(h.get("alerted", []))
     new = [k for k in problems if k not in alerted]
     fixed = [k for k in alerted if k not in problems]
@@ -810,7 +923,7 @@ def check_health(state, llm_ok):
                 + "\n로그: GitHub Actions → jp-community-bot", chat=admin)
     if fixed:
         tg_send("<b>[복구]</b> 일본 커뮤니티봇\n" + "\n".join(
-            f"• {'Gemini' if k == 'llm' else SRC.get(k, {}).get('name', k)} 정상화" for k in fixed), chat=admin)
+            f"• {'Gemini' if k == 'llm' else SRC.get(k, {}).get('name', 'X 트렌드')} 정상화" for k in fixed), chat=admin)
     h["alerted"] = list(problems)
 
 
@@ -830,8 +943,10 @@ def main():
     save_state(state)
     r2 = digest_pass(state, now_dt, os.getenv("DIGEST_NOW") == "1")
     save_state(state)
+    r5 = x_trend_pass(state, now_dt, os.getenv("DIGEST_NOW") == "1" or os.getenv("X_NOW") == "1")
+    save_state(state)
     r4 = weekly_pass(state, due_slot(now_dt)[1], os.getenv("WEEKLY_NOW") == "1")
-    results = [r for r in (r1, r2, r3, r4) if r is not None]
+    results = [r for r in (r1, r2, r3, r4, r5) if r is not None]
     check_health(state, all(results) if results else None)
     save_state(state)
 
