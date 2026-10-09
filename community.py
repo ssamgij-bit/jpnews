@@ -29,6 +29,9 @@ import requests
 import bot  # 같은 저장소의 뉴스봇: gemini(), company_line(), esc(), JST, UA 재사용
 from bot import JST, UA, esc
 
+# 커뮤니티봇은 다이제스트·동향·X 트렌드·주간 정리까지 한 번에 돌 수 있어 시간 예산을 넉넉히(워크플로우 제한 12분)
+bot.RUN_BUDGET = int(os.getenv("RUN_BUDGET", "560"))
+
 STATE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "community_state.json")
 DRY_RUN = os.getenv("DRY_RUN") == "1"
 THRESHOLD = int(os.getenv("COMMUNITY_THRESHOLD", "4"))
@@ -67,6 +70,7 @@ def load_state():
     s.setdefault("watch_seen", {})  # 관심 종목 매칭으로 이미 처리한 글 key -> ts
     s.setdefault("watch_kw", [])    # 한 번이라도 검색한 키워드(첫 검색 결과는 기준선으로만 저장)
     s.setdefault("watch_pos", 0)    # 검색 순환 위치
+    s.setdefault("xweek", [])       # 주간 정리용 X 트렌드 기록 [{ts, ko, cat, reason}]
     return s
 
 
@@ -78,6 +82,7 @@ def save_state(s):
     s["sent"] = {k: v for k, v in s["sent"].items() if now - v < 14 * 86400}
     s["week"] = {k: v for k, v in s["week"].items() if now - v["ts"] < 8 * 86400}
     s["watch_seen"] = {k: v for k, v in s["watch_seen"].items() if now - v < 14 * 86400}
+    s["xweek"] = [x for x in s["xweek"] if now - x["ts"] < 8 * 86400][-400:]
     with open(STATE_PATH, "w", encoding="utf-8") as f:
         json.dump(s, f, ensure_ascii=False, indent=0)
 
@@ -788,7 +793,76 @@ def weekly_pass(state, slot_dt, force=False):
         lines.append("\n이번 주에는 기업·브랜드 화제가 뚜렷하지 않았습니다.")
     if send_chunks("\n".join(lines[:2]), lines[2:], False, sep="\n"):
         state["last_weekly"] = key
+        weekly_insight(state, rows, ranked, ids, start, slot_dt)
     return True
+
+
+INSIGHT_PROMPT = """너는 한국 자산운용사 주식운용본부의 일본 주식 담당 애널리스트를 돕는 리서치 데스크다.
+아래는 지난 7일 일본 커뮤니티(하테나 북마크·걸즈채널·토게터) 화제글, 기업·브랜드 언급 순위, X(트위터) 트렌드다.
+사람들의 관심 변화에서 나올 수 있는 투자 아이디어·인사이트를 3~5개 정리해 JSON 배열만 출력하라.
+소비재에 한정하지 말고 산업재·IT·금융·정책·인바운드·엔터테인먼트 등 어디든 좋다.
+
+항목마다:
+ theme: 아이디어 제목(25자 이내).
+ observation: 관찰된 사실 1~2문장. 위 데이터에 실제로 있는 화제만 근거로 쓰고, 몇 건·어느 사이트인지 밝혀라.
+ implication: 투자 시사점 1~2문장. 반드시 '(추정)'으로 시작한다. 수혜·피해 방향과 이유를 쓴다.
+ companies: 관련 일본·한국 상장 기업(최대 4개) [{{"ko": 한국어 기업명, "official": 일본어 정식 사명(한국 기업은 한국어), "market": "JP" 또는 "KR"}}]. 확실하지 않으면 빈 배열.
+ sectors: 관련 업종 한국어 1~3개.
+ counter: 반대 논거·리스크 1문장(일시적 유행, 표본 편향, 이미 주가 반영 등).
+규칙: 커뮤니티·SNS 반응은 표본이 편향된 보조 지표임을 전제로 과장하지 마라. 데이터에 없는 수치를 만들지 마라.
+일본어를 쓰지 말고 고유명사도 한글로 옮겨라. JSON 외 텍스트 금지.
+
+[기업·브랜드 언급 순위]
+{brands}
+
+[화제글 상위(반응 수 순)]
+{posts}
+
+[X 트렌드(주간 등장 횟수 순)]
+{xtrends}
+"""
+INSIGHT_SCHEMA = {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {
+    "theme": {"type": "STRING"}, "observation": {"type": "STRING"}, "implication": {"type": "STRING"},
+    "companies": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {
+        "ko": {"type": "STRING"}, "official": {"type": "STRING"}, "market": {"type": "STRING"}}}},
+    "sectors": {"type": "ARRAY", "items": {"type": "STRING"}}, "counter": {"type": "STRING"}},
+    "required": ["theme", "observation", "implication", "counter"]}}
+
+
+def weekly_insight(state, rows, ranked, ids, start, slot_dt):
+    """주간 순위 뒤에 '이번 주 투자 아이디어·인사이트'를 별도 메시지로. 실패하면 생략."""
+    now = time.time()
+    brands = "\n".join(f"- {b['name_ko']}: {cnt}건, {b.get('tone', '')}, {b.get('gist', '')}"
+                       for cnt, _, b in ranked[:15]) or "(없음)"
+    posts = "\n".join(f"- [{SRC[r['s']]['name']} {SRC[r['s']]['unit']} {r['m']}] {r['t']}" for r in rows[:150])
+    cnt = {}
+    for x in state["xweek"]:
+        if now - x["ts"] < 7 * 86400:
+            c = cnt.setdefault(x["ko"], {"n": 0, "cat": x.get("cat", ""), "reason": x.get("reason", "")})
+            c["n"] += 1
+    xtrends = "\n".join(f"- {k} ({v['n']}회, {v['cat']}): {v['reason']}"
+                         for k, v in sorted(cnt.items(), key=lambda kv: -kv[1]["n"])[:40]) or "(기록 없음)"
+    try:
+        res = bot.gemini(state, INSIGHT_PROMPT.format(brands=brands, posts=posts, xtrends=xtrends), INSIGHT_SCHEMA,
+                         bot.WRITE_MODELS + bot.TRIAGE_MODELS, "주간 인사이트")
+    except Exception as ex:
+        print(f"[warn] 주간 인사이트 실패(생략): {ex}", file=sys.stderr)
+        return
+    ideas = [x for x in res if isinstance(x, dict) and x.get("theme")][:5]
+    if not ideas:
+        return
+    head = f"<b>&gt;&gt;[커뮤니티 주간] 투자 아이디어·인사이트</b> {start}~{slot_dt.strftime('%m/%d')}"
+    blocks = []
+    for n, x in enumerate(ideas, 1):
+        lines = [f"<b>{n}. {esc(x['theme'])}</b>", f"• 관찰: {esc(x['observation'])}", f"• {esc(x['implication'])}"]
+        rel = bot.company_line(x.get("companies"))
+        secs = ", ".join(x.get("sectors") or [])
+        if rel or secs:
+            lines.append("• 관련: " + esc(" / ".join(s for s in (rel, secs) if s)))
+        lines.append(f"• 반대 논거·리스크: {esc(x['counter'])}")
+        blocks.append("\n".join(lines))
+    blocks.append("<i>커뮤니티·SNS 반응에서 나온 가설입니다. 판단 전 공시·IR 등 1차 자료로 확인이 필요합니다.</i>")
+    send_chunks(head, blocks, False, sep="\n\n")
 
 
 # ───────────────────────── X(트위터) 트렌드 ─────────────────────────
@@ -900,6 +974,11 @@ def x_trend_pass(state, now_dt, force):
         lines.append(f"&gt;<a href=\"{esc(url)}\">X에서 보기</a>" + (f" · 관련 기업: {esc(tick)}" if tick else ""))
     if send_chunks(lines[0], lines[1:], slot_dt.hour in SILENT_SLOTS, sep="\n"):
         state["last_xslot"], state["x_fail_since"] = key, 0
+        for i in range(len(top)):  # 주간 정리용 기록
+            r = by.get(f"x{i}", {})
+            if r.get("ko"):
+                state["xweek"].append({"ts": now, "ko": r["ko"], "cat": r.get("category", ""),
+                                       "reason": r.get("reason", "")})
     return ok
 
 

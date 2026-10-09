@@ -447,7 +447,7 @@ def _order(state, prefs, names):
 
 def _call(key, m, body):
     r = requests.post(f"https://generativelanguage.googleapis.com/v1beta/models/{m}:generateContent?key={key}",
-                      json=body, timeout=120)
+                      json=body, timeout=75)
     if r.status_code != 200:
         return r.status_code, None, f"HTTP {r.status_code} {r.text[:120]}"
     cand = (r.json().get("candidates") or [{}])[0]
