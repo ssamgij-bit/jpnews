@@ -11,12 +11,14 @@
 일요일 18시 회차에 주간 기업·브랜드 언급 순위와 투자 아이디어·인사이트.
 다이제스트 회차마다 X 트렌드(trends24 일본) 최근 6시간 상위 10과 화제 이유를 별도 메시지로. X_NOW=1(지금 바로)
 """
+import csv
 import html
 import json
 import os
 import re
 import sys
 import time
+import unicodedata
 import urllib.parse
 from datetime import datetime, timedelta
 
@@ -28,6 +30,62 @@ from bot import JST, UA, esc
 
 # 커뮤니티봇은 다이제스트·동향·X 트렌드·주간 정리까지 한 번에 돌 수 있어 시간 예산을 넉넉히(워크플로우 제한 12분)
 bot.RUN_BUDGET = int(os.getenv("RUN_BUDGET", "560"))
+
+
+# ───────────────────────── 종목 매핑(엄격) ─────────────────────────
+def _ln(s):
+    return re.sub(r"\s+", "", unicodedata.normalize("NFKC", s or "")).lower()
+
+
+def _load_codes(fname):
+    try:
+        with open(os.path.join(bot.DATA_DIR, fname), encoding="utf-8") as f:
+            return {r["code"].strip().upper(): (r["name"], r.get("suffix") or "JP") for r in csv.DictReader(f)}
+    except FileNotFoundError:
+        return {}
+
+
+CODES = {"JP": _load_codes("jpx_list.csv"), "KR": _load_codes("krx_list.csv")}
+NAMES = {m: {_ln(n): (c, n, sfx) for c, (n, sfx) in tbl.items()} for m, tbl in CODES.items()}
+
+
+def company_tag(c):
+    """LLM이 준 기업 → (표시명, 종목코드, 거래소) 또는 None.
+    뉴스봇의 느슨한(앞부분 일치) 대조와 달리, 상장 목록의 정식 사명과 정확히 맞을 때만 인정한다.
+    LLM이 코드도 줬으면 코드의 사명과 정식 사명이 서로 맞아야 한다(맞지 않으면 버림)."""
+    m = "KR" if (c.get("market") or "").upper() == "KR" else "JP"
+    off = _ln(_CO_STRIP.sub("", unicodedata.normalize("NFKC", c.get("official") or "")))
+    code = (c.get("code") or "").strip().upper()
+    hit = None
+    for name_n, v in NAMES[m].items():
+        if off and _ln(_CO_STRIP.sub("", unicodedata.normalize("NFKC", v[1]))) == off:
+            hit = v
+            break
+    if code:
+        if code not in CODES[m] or (hit and hit[0] != code):
+            return None
+        if not hit:  # 코드는 맞고 사명 표기만 조금 다른 경우: 서로 포함(4자 이상)이면 인정
+            cn = _ln(_CO_STRIP.sub("", unicodedata.normalize("NFKC", CODES[m][code][0])))
+            if len(off) >= 4 and (off in cn or cn in off):
+                hit = (code, CODES[m][code][0], CODES[m][code][1])
+    if not hit:
+        return None
+    return (c.get("ko") or hit[1], hit[0], hit[2])
+
+
+_CO_STRIP = re.compile(r"(株式会社|\(株\)|（株）|\s)")
+
+
+def company_line(companies, with_link=False):
+    out, seen = [], set()
+    for c in companies or []:
+        t = company_tag(c)
+        if not t or t[1] in seen:
+            continue  # 상장 목록과 정확히 맞지 않는 기업은 표시하지 않음
+        seen.add(t[1])
+        link = f", {c['link']}" if with_link and c.get("link") else ""
+        out.append(f"{t[0]}({t[1]} {t[2]}{link})")
+    return ", ".join(out[:4])
 
 STATE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "community_state.json")
 DRY_RUN = os.getenv("DRY_RUN") == "1"
@@ -443,7 +501,7 @@ def fmt_item(c, w, idx=None):
         lines.append(f"\n{esc(w['note'].strip())}")
     if w.get("news_title"):
         lines.append(f"\n<b>[뉴스 연계]</b> {esc(w['news_title'])}")
-    cos = bot.company_line(w.get("companies"))
+    cos = company_line(w.get("companies"))
     if cos:
         lines.append(f"언급 기업: {esc(cos)}")
     links = f"<a href=\"{esc(c['url'])}\">원문</a>"
@@ -556,7 +614,8 @@ WEEKLY_PROMPT = """너는 한국 자산운용사의 일본 소비재·산업재 
 
 항목마다:
  name_ko: 한국어 이름. 브랜드면 '브랜드(모회사)' 형식(예: 유니클로(패스트리테일링)).
- official: 상장 모회사의 일본어 정식 사명(비상장이거나 모르면 빈 문자열). market: "JP" 또는 "KR".
+ official: 상장 모회사의 일본어 정식 사명(비상장이거나 모르면 빈 문자열). code: 그 상장사의 종목코드(모르면 빈 문자열). market: "JP" 또는 "KR".
+ 브랜드의 모회사가 확실하지 않으면 official·code를 비워라. 비슷한 이름의 다른 회사를 넣지 마라.
  ids: 그 기업·브랜드가 제목에 실제로 등장하는 글 id 목록. 제목에 없는 글은 넣지 마라.
  tone: 여론 분위기. '긍정', '부정', '혼재' 중 하나.
  gist: 무엇이 화제였는지 40자 이내 1문장, '~함' 보고서체. 일본어 금지. 일본 고유명사는 일본어 발음대로 한글 표기하라(예: 第一興商=다이이치코쇼, 한자의 한국식 독음 금지).
@@ -566,7 +625,7 @@ WEEKLY_PROMPT = """너는 한국 자산운용사의 일본 소비재·산업재 
 {items}
 """
 WEEKLY_SCHEMA = {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {
-    "name_ko": {"type": "STRING"}, "official": {"type": "STRING"}, "market": {"type": "STRING"},
+    "name_ko": {"type": "STRING"}, "official": {"type": "STRING"}, "code": {"type": "STRING"}, "market": {"type": "STRING"},
     "ids": {"type": "ARRAY", "items": {"type": "STRING"}}, "tone": {"type": "STRING"}, "gist": {"type": "STRING"}},
     "required": ["name_ko", "ids", "tone", "gist"]}}
 
@@ -602,7 +661,8 @@ def weekly_pass(state, slot_dt, force=False):
     lines = [f"<b>&gt;&gt;[커뮤니티 주간] 기업·브랜드 언급 순위</b> {start}~{slot_dt.strftime('%m/%d')}",
              f"(화제글 {len(rows)}건 기준)"]
     for n, (cnt, nsrc, b) in enumerate(ranked[:10], 1):
-        tick = bot.company_line([{"ko": b["name_ko"], "official": b.get("official", ""), "market": b.get("market", "JP")}])
+        tick = company_line([{"ko": b["name_ko"], "official": b.get("official", ""), "code": b.get("code", ""),
+                              "market": b.get("market", "JP")}])
         name = tick or b["name_ko"]
         lines.append(f"\n<b>{n}. {esc(name)}</b> — {cnt}건 · {esc(b.get('tone', ''))}")
         lines.append(f"• {esc(b.get('gist', ''))}")
@@ -622,8 +682,15 @@ INSIGHT_PROMPT = """너는 한국 자산운용사 주식운용본부의 일본 �
 항목마다:
  theme: 아이디어 제목(25자 이내).
  observation: 관찰된 사실 1~2문장, '~함' 보고서체. 위 데이터에 실제로 있는 화제만 근거로 쓰고, 몇 건·어느 사이트인지 밝혀라.
+              '관심·인지 확산'과 '구매·판매 증가'를 구분하라. 판매 증가 근거가 없으면 관심 확산으로만 쓴다.
+              데이터에 없는 신제품 출시·리뉴얼·회사 전략 변화를 사실처럼 쓰지 마라.
  implication: 투자 시사점 1~2문장, '~함' 보고서체. 반드시 '(추정)'으로 시작한다. 수혜·피해 방향과 이유를 쓴다.
- companies: 관련 일본·한국 상장 기업(최대 4개) [{{"ko": 한국어 기업명, "official": 일본어 정식 사명(한국 기업은 한국어), "market": "JP" 또는 "KR"}}]. 확실하지 않으면 빈 배열.
+              그 사업이 회사 전체 매출·이익에서 차지하는 비중은 데이터에 없으므로 실적 기여를 단정하지 마라.
+ companies: 관련 상장 기업(최대 3개) [{{"ko": 한국어 기업명, "official": 일본어 정식 사명(한국 기업은 한국어), "code": 종목코드,
+            "market": "JP" 또는 "KR", "link": 이 기업과 화제의 관계(20자 이내, 예: 슌소쿠 제조사)}}].
+            데이터 속 글에 회사명이 직접 나오거나, 화제가 된 브랜드·제품을 실제로 만드는 상장사만 넣어라.
+            업종 수혜주를 추측해 넣지 마라. 모회사·종목코드가 확실하지 않으면 빈 배열.
+ check: 투자 판단 전 1차 자료(결산단신·IR)에서 확인할 점 1문장(예: 신발 부문의 매출 비중과 손익 추이).
  sectors: 관련 업종 한국어 1~3개.
  counter: 반대 논거·리스크 1문장, '~함' 보고서체(일시적 유행, 표본 편향, 이미 주가 반영 등).
 규칙: 커뮤니티·SNS 반응은 표본이 편향된 보조 지표임을 전제로 과장하지 마라. 데이터에 없는 수치를 만들지 마라.
@@ -641,8 +708,10 @@ INSIGHT_PROMPT = """너는 한국 자산운용사 주식운용본부의 일본 �
 INSIGHT_SCHEMA = {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {
     "theme": {"type": "STRING"}, "observation": {"type": "STRING"}, "implication": {"type": "STRING"},
     "companies": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {
-        "ko": {"type": "STRING"}, "official": {"type": "STRING"}, "market": {"type": "STRING"}}}},
-    "sectors": {"type": "ARRAY", "items": {"type": "STRING"}}, "counter": {"type": "STRING"}},
+        "ko": {"type": "STRING"}, "official": {"type": "STRING"}, "code": {"type": "STRING"},
+        "market": {"type": "STRING"}, "link": {"type": "STRING"}}}},
+    "sectors": {"type": "ARRAY", "items": {"type": "STRING"}}, "counter": {"type": "STRING"},
+    "check": {"type": "STRING"}},
     "required": ["theme", "observation", "implication", "counter"]}}
 
 
@@ -673,7 +742,9 @@ def weekly_insight(state, rows, ranked, ids, start, slot_dt):
     for n, x in enumerate(ideas, 1):
         lines = [f"<b>&gt;{n}. {esc(x['theme'])}</b>", f"•관찰: {esc(x['observation'])}", f"•{esc(x['implication'])}"]
         lines.append(f"•반대 논거·리스크: {esc(x['counter'])}")
-        rel = bot.company_line(x.get("companies"))
+        if (x.get("check") or "").strip():
+            lines.append(f"•확인할 점: {esc(x['check'].strip())}")
+        rel = company_line(x.get("companies"), with_link=True)
         secs = ", ".join(x.get("sectors") or [])
         if rel or secs:
             lines.append("관련: " + esc(" / ".join(s for s in (rel, secs) if s)))
@@ -787,7 +858,7 @@ def x_trend_pass(state, now_dt, force):
         if r.get("reason"):
             lines.append(f"• {esc(r['reason'])}")
         co = r.get("company") or {}
-        tick = bot.company_line([co]) if co.get("ko") else ""
+        tick = company_line([co]) if co.get("ko") else ""
         lines.append(f"&gt;<a href=\"{esc(url)}\">X에서 보기</a>" + (f" · 관련 기업: {esc(tick)}" if tick else ""))
     if send_chunks(lines[0], lines[1:], slot_dt.hour in SILENT_SLOTS, sep="\n"):
         state["last_xslot"], state["x_fail_since"] = key, 0
