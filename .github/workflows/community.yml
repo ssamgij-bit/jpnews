@@ -2,7 +2,7 @@ name: jp-community-bot
 
 on:
   schedule:
-    - cron: "50 * * * *"   # 매시 50분(화제도 수집). 05:50·11:50·17:50·23:50 KST 실행분이 다이제스트 발송
+    - cron: "20 * * * *"   # 매시 20분(화제도 수집). 07:20·19:20 KST 실행분이 07:30·19:30 다이제스트 발송
   workflow_dispatch:
     inputs:
       digest_now:
