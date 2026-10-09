@@ -297,7 +297,7 @@ JSON 외 텍스트 금지.
 
 OVERVIEW_PROMPT = """너는 한국 자산운용사의 일본 주식 담당 애널리스트를 돕는 데스크다.
 아래는 최근 6시간 동안 일본 커뮤니티(하테나 북마크·걸즈채널·토게터)에서 반응이 늘어난 글 제목과 반응 수다.
-(따로 상세 요약하는 상위 글은 제외했다.) 시황 정리처럼 '이번 6시간 커뮤니티 동향'을 정확히 5줄로 정리해 JSON 문자열 배열만 출력하라.
+(따로 상세 요약하는 상위 글은 제외했다.) 시황 정리처럼 '이번 6시간 커뮤니티 동향'을 정확히 10줄로 정리해 JSON 문자열 배열만 출력하라.
 
 규칙:
 - 각 줄은 '[주제] 내용' 형식, 50자 이내 1문장, '~함/~이어짐' 보고서체. 주제 예: 사회, 정치·정책, 기업·소비, IT, 연예, 생활.
@@ -349,7 +349,7 @@ def write_up(state, pairs):
 
 
 def overview(state, picks, now):
-    """상위 글 외에 지난 6시간 동안 반응이 늘어난 글들을 5줄 동향으로 정리. 실패하면 빈 목록."""
+    """상위 글 외에 지난 6시간 동안 반응이 늘어난 글들을 10줄 동향으로 정리. 실패하면 빈 목록."""
     picked = {k for k, _ in picks}
     rows = []
     for src in SRC:
@@ -357,13 +357,13 @@ def overview(state, picks, now):
                 if c["src"] == src and k not in picked and now - c["last"] < 2 * 3600 and heat(c, now) > 0]
         pool.sort(key=lambda c: -heat(c, now))
         rows += [json.dumps({"src": SRC[src]["name"], "title": c["title"], SRC[src]["unit"]: heat(c, now)},
-                            ensure_ascii=False) for c in pool[:25]]
-    if len(rows) < 5:
+                            ensure_ascii=False) for c in pool[:40]]
+    if len(rows) < 10:
         return []
     try:
         res = bot.gemini(state, OVERVIEW_PROMPT.format(items="\n".join(rows)), OVERVIEW_SCHEMA,
                          bot.WRITE_MODELS + bot.TRIAGE_MODELS, "커뮤니티 동향")
-        return [str(x).strip() for x in res if str(x).strip()][:5]
+        return [str(x).strip() for x in res if str(x).strip()][:10]
     except Exception as ex:
         print(f"[warn] 동향 정리 실패(생략하고 발송): {ex}", file=sys.stderr)
         return []
