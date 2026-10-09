@@ -6,20 +6,17 @@
 상태는 community_state.json(워크플로우가 커밋). 뉴스봇(bot.py)의 Gemini·티커 대조 함수를 재사용한다.
 환경변수: TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, GEMINI_API_KEY
 선택: TELEGRAM_ADMIN_CHAT_ID, COMMUNITY_THRESHOLD(기본 4), HATENA_MIN(100), GIRLS_MIN(300), TOGETTER_MIN(20000),
-      PER_SOURCE(2), WATCH_SEARCH_N(6), WATCH_HATENA_MIN(10), WATCH_GIRLS_MIN(30),
+      PER_SOURCE(2),
       DIGEST_NOW=1(지금 바로 다이제스트), WEEKLY_NOW=1(지금 바로 주간 순위), DRY_RUN=1
-관심 종목: watchlist.csv(티커, 추가 키워드). 일요일 18시 회차에 주간 기업·브랜드 언급 순위.
+일요일 18시 회차에 주간 기업·브랜드 언급 순위와 투자 아이디어·인사이트.
 다이제스트 회차마다 X 트렌드(trends24 일본) 최근 6시간 상위 10과 화제 이유를 별도 메시지로. X_NOW=1(지금 바로)
 """
-import calendar
-import csv
 import html
 import json
 import os
 import re
 import sys
 import time
-import unicodedata
 import urllib.parse
 from datetime import datetime, timedelta
 
@@ -67,9 +64,8 @@ def load_state():
     s.setdefault("health", {"llm": 0, "src": {}, "alerted": []})
     s.setdefault("week", {})        # key -> {t,s,m,ts} 주간 브랜드 순위용 화제글 기록(8일 보관)
     s.setdefault("last_weekly", "")
-    s.setdefault("watch_seen", {})  # 관심 종목 매칭으로 이미 처리한 글 key -> ts
-    s.setdefault("watch_kw", [])    # 한 번이라도 검색한 키워드(첫 검색 결과는 기준선으로만 저장)
-    s.setdefault("watch_pos", 0)    # 검색 순환 위치
+    for k in ("watch_seen", "watch_kw", "watch_pos"):  # 관심 종목 기능 폐지: 남은 기록 삭제
+        s.pop(k, None)
     s.setdefault("xweek", [])       # 주간 정리용 X 트렌드 기록 [{ts, ko, cat, reason}]
     return s
 
@@ -81,7 +77,6 @@ def save_state(s):
         v["hist"] = v["hist"][-10:]
     s["sent"] = {k: v for k, v in s["sent"].items() if now - v < 14 * 86400}
     s["week"] = {k: v for k, v in s["week"].items() if now - v["ts"] < 8 * 86400}
-    s["watch_seen"] = {k: v for k, v in s["watch_seen"].items() if now - v < 14 * 86400}
     s["xweek"] = [x for x in s["xweek"] if now - x["ts"] < 8 * 86400][-400:]
     with open(STATE_PATH, "w", encoding="utf-8") as f:
         json.dump(s, f, ensure_ascii=False, indent=0)
@@ -553,185 +548,6 @@ def digest_pass(state, now_dt, force):
     return ok_llm
 
 
-# ───────────────────────── 관심 종목 키워드 알림 ─────────────────────────
-WATCH_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "watchlist.csv")
-WATCH_SEARCH_N = int(os.getenv("WATCH_SEARCH_N", "6"))   # 실행 1회당 검색할 키워드 수(순환)
-WATCH_MIN = {"hb": int(os.getenv("WATCH_HATENA_MIN", "10")), "gc": int(os.getenv("WATCH_GIRLS_MIN", "30")), "tg": 0}
-WATCH_MAX_AGE_H = 48
-QUIET_HOURS = range(0, 7)        # 이 시간대(KST) 관심 종목 알림은 무음
-_NAME_SUFFIX = re.compile(r"(ホールディングス|ホールディング|ＨＤ|HD|holdings|holding|グループ|group|株式会社|\(株\)|（株）|"
-                          r"コーポレーション|corporation|inc\.?|co\.,?ltd\.?)", re.I)
-
-
-def wnorm(s):
-    return re.sub(r"\s+", "", unicodedata.normalize("NFKC", s or "")).lower()
-
-
-def load_watch():
-    """watchlist.csv → [(티커, 정식 사명, [정규화 키워드])]. 키워드 칸이 비면 상장 사명에서 자동 생성."""
-    names = {}
-    try:
-        with open(os.path.join(bot.DATA_DIR, "jpx_list.csv"), encoding="utf-8") as f:
-            names = {r["code"]: r["name"] for r in csv.DictReader(f)}
-    except FileNotFoundError:
-        pass
-    out = []
-    try:
-        with open(WATCH_PATH, encoding="utf-8") as f:
-            lines = [ln for ln in f if ln.strip() and not ln.lstrip().startswith("#")]
-    except FileNotFoundError:
-        return out
-    for row in csv.DictReader(lines):
-        code = (row.get("ticker") or "").strip().upper()
-        if not code:
-            continue
-        official = names.get(code, "")
-        kws = [k.strip() for k in (row.get("keywords") or "").split("|") if k.strip()]
-        auto = wnorm(_NAME_SUFFIX.sub("", unicodedata.normalize("NFKC", official)))
-        if auto and len(auto) >= 2:
-            kws.insert(0, auto)
-        kws = list(dict.fromkeys(wnorm(k) for k in kws if len(wnorm(k)) >= 2))
-        if kws:
-            out.append((code, official, kws))
-        else:
-            print(f"[warn] 관심 종목 {code}: 상장 목록에 없고 키워드도 없어 건너뜀", file=sys.stderr)
-    return out
-
-
-def search_hatena(kw):
-    q = urllib.parse.quote(kw)
-    f = feedparser.parse(get(f"https://b.hatena.ne.jp/q/{q}?target=entry&sort=recent&users=3&mode=rss").content)
-    out = []
-    for e in f.entries:
-        t = e.get("updated_parsed") or e.get("published_parsed")
-        out.append({"key": "hb:" + e.link, "src": "hb", "title": html.unescape(e.title), "url": e.link,
-                    "metric": int(e.get("hatena_bookmarkcount", 0) or 0),
-                    "ts": calendar.timegm(t) if t else time.time()})
-    return out
-
-
-def search_girls(kw):
-    h = get(f"https://girlschannel.net/topics/search/?q={urllib.parse.quote(kw)}").text
-    a = h.find('<ul class="topic-list">')
-    seg = h[a:h.find("</ul>", a)] if a >= 0 else ""
-    out = []
-    for tid, n, dt, title in re.findall(
-            r'href="/topics/(\d+)/".*?(\d+)コメント.*?<span class="datetime">([^<]*)</span>.*?<p class="title">(.*?)</p>',
-            seg, re.S):
-        # 검색 목록의 시각은 마지막 댓글 시각이라 작성 시각은 매칭된 글만 따로 확인(girls_created)
-        out.append({"key": "gc:" + tid, "src": "gc", "title": text_of(title),
-                    "url": f"https://girlschannel.net/topics/{tid}/", "metric": int(n), "ts": None})
-    return out
-
-
-def girls_created(url):
-    """걸즈채널 토픽 작성 시각(1번 글 시각). 실패하면 None."""
-    try:
-        h = get(url).text
-        i = h.find('id="comment1"')
-        m = re.search(r"(\d{4})/(\d{2})/(\d{2})\([^)]*\)\s*(\d{2}):(\d{2})", h[i:i + 600])
-        return datetime(*map(int, m.groups()), tzinfo=JST).timestamp() if m else None
-    except Exception:
-        return None
-
-
-WATCH_PROMPT = """일본 커뮤니티 글 제목을 한국어로 옮겨 JSON 배열만 출력하라. 독자는 일본어를 못 읽는다.
-글마다: id, ko_title(정확한 한국어 제목 한 줄, 고유명사도 한글로), company_ko(해당 기업의 한국어 통용명).
-JSON 외 텍스트 금지.
-
-{items}
-"""
-WATCH_SCHEMA = {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {
-    "id": {"type": "STRING"}, "ko_title": {"type": "STRING"}, "company_ko": {"type": "STRING"}},
-    "required": ["id", "ko_title"]}}
-
-
-def watch_pass(state, now_dt, first_run):
-    watch = load_watch()
-    if not watch:
-        return None
-    now = time.time()
-    hits = {}  # key -> (글, 티커, 사명)
-
-    def check(row):
-        if row["key"] in state["watch_seen"] or row["key"] in hits:
-            return
-        if row["metric"] < WATCH_MIN[row["src"]]:
-            return
-        if row.get("ts") is not None and now - row["ts"] > WATCH_MAX_AGE_H * 3600:
-            return
-        t = wnorm(row["title"])
-        for code, official, kws in watch:
-            if any(k in t for k in kws):
-                if row.get("ts") is None:  # 작성 시각 확인이 필요한 글(걸즈채널 검색 결과)
-                    row["ts"] = girls_created(row["url"])
-                    if row["ts"] is None or now - row["ts"] > WATCH_MAX_AGE_H * 3600:
-                        state["watch_seen"][row["key"]] = now  # 오래된 글: 다시 확인하지 않음
-                        return
-                hits[row["key"]] = (row, code, official)
-                return
-
-    # 1) 이번에 수집한 인기 목록 전체(기준 미달 글 포함)
-    for k, c in state["cands"].items():
-        if now - c["last"] < 600:
-            check({"key": k, "src": c["src"], "title": c["title"], "url": c["url"], "metric": metric(c),
-                   "ts": c["first"]})
-    if first_run:  # 첫 실행: 지금 떠 있는 글은 기준선
-        for k in hits:
-            state["watch_seen"][k] = now
-        hits.clear()
-    # 2) 키워드 검색(하테나·걸즈채널), 실행마다 몇 개씩 순환
-    allkw = [(code, k) for code, _, kws in watch for k in kws]
-    pos = state["watch_pos"] % len(allkw)
-    batch = (allkw[pos:] + allkw[:pos])[:WATCH_SEARCH_N]
-    state["watch_pos"] = pos + len(batch)
-    for code, kw in batch:
-        baseline = kw not in state["watch_kw"]
-        rows = []
-        for fn in (search_hatena, search_girls):
-            try:
-                rows += fn(kw)
-            except Exception as ex:
-                print(f"[warn] 관심 종목 검색 실패({fn.__name__}, {kw}): {ex}", file=sys.stderr)
-            time.sleep(1)
-        before = set(hits)
-        for r in rows:
-            check(r)
-        if baseline:  # 처음 검색한 키워드는 기존 글을 기준선으로만 저장
-            for k in set(hits) - before:
-                state["watch_seen"][k] = now
-                del hits[k]
-            state["watch_kw"].append(kw)
-    if not hits:
-        return None
-    items = list(hits.values())
-    try:
-        res = bot.gemini(state, WATCH_PROMPT.format(items="\n".join(
-            json.dumps({"id": f"k{i}", "title": r["title"], "company": off or code}, ensure_ascii=False)
-            for i, (r, code, off) in enumerate(items))), WATCH_SCHEMA, bot.TRIAGE_MODELS, "관심 종목")
-        by = {x["id"]: x for x in res if isinstance(x, dict) and "id" in x}
-        ok = True
-    except Exception as ex:
-        print(f"[warn] 관심 종목 번역 실패(원제로 발송): {ex}", file=sys.stderr)
-        by, ok = {}, False
-    groups = {}
-    for i, (r, code, off) in enumerate(items):
-        x = by.get(f"k{i}", {})
-        groups.setdefault(code, {"name": x.get("company_ko") or off or code, "rows": []})
-        groups[code]["rows"].append((r, x.get("ko_title") or r["title"]))
-    lines = [f"<b>&gt;&gt;[관심 종목] 커뮤니티 언급 {len(items)}건</b>"]
-    for code, g in groups.items():
-        lines.append(f"\n<b>{esc(g['name'])}({esc(code)} JP)</b>")
-        for r, ko in sorted(g["rows"], key=lambda z: -z[0]["metric"]):
-            s = SRC[r["src"]]
-            lines.append(f"• <a href=\"{esc(r['url'])}\">{esc(ko)}</a> ({s['name']} · {s['unit']} {r['metric']:,})")
-    blocks = ["\n".join(lines[i:i + 1]) for i in range(1, len(lines))]
-    if send_chunks(lines[0], blocks, now_dt.hour in QUIET_HOURS, sep="\n"):
-        for k in hits:
-            state["watch_seen"][k] = now
-    return ok
-
-
 # ───────────────────────── 주간 브랜드·기업 언급 순위 ─────────────────────────
 WEEKLY_PROMPT = """너는 한국 자산운용사의 일본 소비재·산업재 담당 애널리스트를 돕는 데스크다.
 아래는 지난 7일 동안 일본 커뮤니티(하테나 북마크·걸즈채널·토게터)에서 화제가 된 글 제목과 반응 수다.
@@ -1018,14 +834,12 @@ def main():
         state["last_slot"] = due_slot(now_dt)[0]  # 첫 실행 직후 바로 다이제스트를 보내지 않음
     r1 = urgent_pass(state, now, first_run)
     save_state(state)
-    r3 = watch_pass(state, now_dt, first_run)
-    save_state(state)
     r2 = digest_pass(state, now_dt, os.getenv("DIGEST_NOW") == "1")
     save_state(state)
     r5 = x_trend_pass(state, now_dt, os.getenv("DIGEST_NOW") == "1" or os.getenv("X_NOW") == "1")
     save_state(state)
     r4 = weekly_pass(state, due_slot(now_dt)[1], os.getenv("WEEKLY_NOW") == "1")
-    results = [r for r in (r1, r2, r3, r4, r5) if r is not None]
+    results = [r for r in (r1, r2, r4, r5) if r is not None]
     check_health(state, all(results) if results else None)
     save_state(state)
 
