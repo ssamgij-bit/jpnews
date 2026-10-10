@@ -761,20 +761,58 @@ def weekly_insight(state, rows, ranked, ids, start, slot_dt):
 # ───────────────────────── X(트위터) 트렌드 ─────────────────────────
 X_TOP_N = int(os.getenv("X_TOP_N", "10"))
 X_COUNTRIES = [  # 나라마다 별도 메시지. week=True면 주간 인사이트용으로 기록
-    {"src": "x", "name": "일본", "url": "https://trends24.in/japan/", "news": "hl=ja&gl=JP&ceid=JP:ja",
+    {"src": "x", "name": "일본", "slug": "japan", "news": "hl=ja&gl=JP&ceid=JP:ja",
      "slot": "last_xslot", "fail": "x_fail_since", "week": True},
-    {"src": "x_kr", "name": "한국", "url": "https://trends24.in/korea/", "news": "hl=ko&gl=KR&ceid=KR:ko",
+    {"src": "x_kr", "name": "한국", "slug": "korea", "news": "hl=ko&gl=KR&ceid=KR:ko",
      "slot": "last_xslot_kr", "fail": "x_kr_fail_since", "week": False},
-    {"src": "x_us", "name": "미국", "url": "https://trends24.in/united-states/", "news": "hl=en-US&gl=US&ceid=US:en",
+    {"src": "x_us", "name": "미국", "slug": "united-states", "news": "hl=en-US&gl=US&ceid=US:en",
      "slot": "last_xslot_us", "fail": "x_us_fail_since", "week": False},
 ]
 XNAMES = {c["src"]: f"X 트렌드 {c['name']}(trends24)" for c in X_COUNTRIES}
 
 
-def fetch_x_trends(url, now):
-    """trends24 나라별 페이지의 시간대별 트렌드(각 50위)를 최근 12시간 동안 합산해 상위 키워드를 고른다.
-    점수 = Σ(51 - 순위). 반환: [(키워드, 점수, 등장 시간대 수, 최고 순위)]"""
-    h = get(url).text
+X_HEADERS = {**UA, "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+             "Accept-Language": "ko,en;q=0.8,ja;q=0.7"}
+
+
+def _get_retry(url, referer):
+    """trends24·getdaytrends는 GitHub 서버에서 가끔 403(차단)을 돌려준다: 잠시 쉬고 두 번 더 시도."""
+    last = None
+    for wait in (0, 12, 30):
+        time.sleep(wait)
+        try:
+            r = requests.get(url, headers={**X_HEADERS, "Referer": referer}, timeout=20)
+            if r.status_code == 200:
+                r.encoding = "utf-8"  # 두 사이트 모두 UTF-8(헤더에 charset이 없어 깨지는 것 방지)
+                return r.text
+            last = f"HTTP {r.status_code}"
+        except Exception as ex:
+            last = str(ex)
+    raise RuntimeError(f"{url}: {last}")
+
+
+def fetch_x_trends(cfg, now):
+    """나라별 X 트렌드 상위 키워드. 반환: ([(키워드, 점수, 등장 시간대 수, 최고 순위)], 출처)
+    1순위 trends24: 시간대별 순위(각 50위)를 최근 12시간 합산(점수 = Σ(51 - 순위)).
+    trends24가 막히면 getdaytrends의 현재 순위로 대신한다(이때 시간대 수는 None)."""
+    try:
+        return _trends24(_get_retry(f"https://trends24.in/{cfg['slug']}/", "https://trends24.in/"), now), "trends24"
+    except Exception as ex:
+        print(f"[warn] trends24 {cfg['name']} 실패, getdaytrends로 대체: {ex}", file=sys.stderr)
+    h = _get_retry(f"https://getdaytrends.com/{cfg['slug']}/", "https://getdaytrends.com/")
+    rows = re.findall(r'<th scope="row" class="pos">(\d+)</th><td class="main"><a class="string"[^>]*>([^<]*)</a>', h)
+    if not rows:
+        raise RuntimeError("getdaytrends 순위 0개(페이지 구조 변경 가능성)")
+    out, seen = [], set()
+    for pos, name in rows:
+        name = html.unescape(name).strip()
+        if name and name not in seen:
+            seen.add(name)
+            out.append((name, 51 - int(pos), None, int(pos)))
+    return out[:X_TOP_N], "getdaytrends"
+
+
+def _trends24(h, now):
     cards = re.findall(r"<h3 class=title data-timestamp=([\d.]+)>.*?</h3><ol class=trend-card__list>(.*?)</ol>", h, re.S)
     if not cards:
         raise RuntimeError("트렌드 카드 0개(페이지 구조 변경 가능성)")
@@ -853,7 +891,7 @@ def x_trend_one(state, now_dt, force, cfg):
     now = time.time()
     hs = state["health"]["src"]
     try:
-        top = fetch_x_trends(cfg["url"], now)
+        top, source = fetch_x_trends(cfg, now)
         hs[cfg["src"]] = 0
     except Exception as ex:
         hs[cfg["src"]] = hs.get(cfg["src"], 0) + 1
@@ -880,14 +918,19 @@ def x_trend_one(state, now_dt, force, cfg):
         if now - since < FALLBACK_AFTER_H * 3600 and not force:
             return False  # 다음 실행에 재시도
         by, ok = {}, False
-    lines = [f"<b>&gt;&gt;[X 트렌드] {cfg['name']} 최근 12시간 상위 {len(top)}</b> {slot_dt.strftime('%m-%d %H:%M')}"]
+    if source == "trends24":
+        lines = [f"<b>&gt;&gt;[X 트렌드] {cfg['name']} 최근 12시간 상위 {len(top)}</b> {slot_dt.strftime('%m-%d %H:%M')}"]
+    else:
+        lines = [f"<b>&gt;&gt;[X 트렌드] {cfg['name']} 현재 상위 {len(top)}</b> {slot_dt.strftime('%m-%d %H:%M')}",
+                 "(trends24 접속 실패로 getdaytrends 현재 순위 기준)"]
     if not ok:
         lines.append("(이유 정리 실패: 키워드와 링크만 보냅니다)")
     for i, (kw, sc, hrs, best) in enumerate(top, 1):
         r = by.get(f"x{i - 1}", {})
         url = "https://x.com/search?q=" + urllib.parse.quote(kw)
         cat = f"[{esc(r['category'])}] " if r.get("category") else ""
-        lines.append(f"\n<b>{i}. {cat}{esc(r.get('ko') or kw)}</b> (최고 {best}위 · 12시간 중 {hrs}시간 순위권)")
+        rank = f"최고 {best}위 · 12시간 중 {hrs}시간 순위권" if hrs is not None else f"현재 {best}위"
+        lines.append(f"\n<b>{i}. {cat}{esc(r.get('ko') or kw)}</b> ({rank})")
         if r.get("reason"):
             lines.append(f"• {esc(r['reason'])}")
         co = r.get("company") or {}
