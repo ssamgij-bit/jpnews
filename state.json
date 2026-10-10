@@ -1,6 +1,5 @@
 {
 "seen": {
-"日本での在外投票ボルソナロ氏への支持7割ブラジル大統領選": 1791394627.6703362,
 "ロンドン外為7日ユーロ売り再開フランス懸念や原油上昇が重荷": 1791396860.305661,
 "ミューズが促すai相場cpu関連に恩恵サブスク銘柄には脅威": 1791396860.3098528,
 "国債バブルは続くのか": 1791396860.3127332,
@@ -2168,19 +2167,6 @@
 "ベトナム介護ビジネスの需要高まる課題抱えつつ高齢化に対応": 1791653169.1541483
 },
 "recent": [
-{
-"id": "n480931_1",
-"ko": "막부 말기 영국 외교에서 배우다",
-"gist": "다카이치 사나에 총리의 소신 표명 연설을 바탕으로 급변하는 국제 질서 속 일본의 외교적 대응 방향을 고찰하는 칼럼이다.",
-"ts": 1791480935.8135133
-},
-{
-"id": "n480932_2",
-"ko": "JFE스틸, 강관 가격 5% 인상…지난해 말 이후 4번째",
-"gist": "JFE스틸이 에너지·물류·인건비 상승분을 반영해 11월 계약분부터 강관 유통 가격을 5% 인상한다.",
-"ts": 1791480935.8135164,
-"sent": true
-},
 {
 "id": "n482038_1",
 "ko": "세계유도선수권, 무라오 산시로 2연패 달성",
@@ -5277,8 +5263,8 @@
 "니케이|assets.wor.jp/rss/rdf/nikkei/economy.rdf": 0,
 "니케이|ssets.wor.jp/rss/rdf/nikkei/business.rdf": 0,
 "니케이|.wor.jp/rss/rdf/nikkei/international.rdf": 0,
-"로이터|https://news.google.com/rss/search": 0,
-"블룸버그|https://news.google.com/rss/search": 0,
+"로이터|https://news.google.com/rss/search": 1,
+"블룸버그|https://news.google.com/rss/search": 1,
 "NHK|news.web.nhk/n-data/conf/na/rss/cat5.xml": 0,
 "NHK|news.web.nhk/n-data/conf/na/rss/cat4.xml": 0,
 "NHK|news.web.nhk/n-data/conf/na/rss/cat6.xml": 0,
