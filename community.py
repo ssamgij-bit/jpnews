@@ -9,7 +9,7 @@
       PER_SOURCE(3),
       DIGEST_NOW=1(지금 바로 다이제스트), WEEKLY_NOW=1(지금 바로 주간 순위), DRY_RUN=1
 일요일 19:30 회차에 주간 기업·브랜드 언급 순위와 투자 아이디어·인사이트.
-다이제스트 회차마다 X 트렌드(trends24 일본·한국·미국 각각) 최근 12시간 상위 10과 화제 이유를 별도 메시지로. X_NOW=1(지금 바로)
+다이제스트 회차마다 X 트렌드(trends24 일본·미국 각각) 최근 12시간 상위 10과 화제 이유를 별도 메시지로. X_NOW=1(지금 바로)
 """
 import csv
 import html
@@ -763,8 +763,6 @@ X_TOP_N = int(os.getenv("X_TOP_N", "10"))
 X_COUNTRIES = [  # 나라마다 별도 메시지. week=True면 주간 인사이트용으로 기록
     {"src": "x", "name": "일본", "slug": "japan", "news": "hl=ja&gl=JP&ceid=JP:ja",
      "slot": "last_xslot", "fail": "x_fail_since", "week": True},
-    {"src": "x_kr", "name": "한국", "slug": "korea", "news": "hl=ko&gl=KR&ceid=KR:ko",
-     "slot": "last_xslot_kr", "fail": "x_kr_fail_since", "week": False},
     {"src": "x_us", "name": "미국", "slug": "united-states", "news": "hl=en-US&gl=US&ceid=US:en",
      "slot": "last_xslot_us", "fail": "x_us_fail_since", "week": False},
 ]
@@ -862,7 +860,6 @@ JSON 외 텍스트 금지.
 X_NAMING = {
     "일본": "키워드의 한국어 표기. 해시태그는 #을 유지. 일본어를 쓰지 말고 고유명사도 한글로(영문은 그대로). "
             "일본 고유명사는 일본어 발음대로 한글 표기하라(예: 第一興商=다이이치코쇼, 한자의 한국식 독음 금지).",
-    "한국": "키워드 표기. 한국어 키워드는 그대로 쓰고, 해시태그는 #을 유지하며, 영문은 그대로 둔다.",
     "미국": "키워드 표기. 영문 키워드는 원문 그대로 두고, 뜻이 바로 안 보이면 괄호로 한국어 뜻을 붙인다"
             "(예: Valkyries(골든스테이트 발키리스, WNBA 팀)). 해시태그는 #을 유지.",
 }
@@ -875,7 +872,7 @@ X_SCHEMA = {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {
 
 
 def x_trend_pass(state, now_dt, force):
-    """다이제스트 회차마다 나라별(일본·한국·미국) X 트렌드 상위 10과 화제 이유를 각각 별도 메시지로 보낸다."""
+    """다이제스트 회차마다 나라별(일본·미국) X 트렌드 상위 10과 화제 이유를 각각 별도 메시지로 보낸다."""
     results = [x_trend_one(state, now_dt, force, c) for c in X_COUNTRIES]
     results = [r for r in results if r is not None]
     return all(results) if results else None
