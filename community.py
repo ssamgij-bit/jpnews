@@ -9,7 +9,7 @@
       PER_SOURCE(3),
       DIGEST_NOW=1(지금 바로 다이제스트), WEEKLY_NOW=1(지금 바로 주간 순위), DRY_RUN=1
 일요일 19:30 회차에 주간 기업·브랜드 언급 순위와 투자 아이디어·인사이트.
-다이제스트 회차마다 X 트렌드(trends24 일본·미국 각각) 최근 12시간 상위 10과 화제 이유를 별도 메시지로. X_NOW=1(지금 바로)
+다이제스트 회차마다 X 트렌드(trends24 일본) 최근 12시간 상위 10과 화제 이유를 별도 메시지로. X_NOW=1(지금 바로)
 """
 import csv
 import html
@@ -376,11 +376,12 @@ NEWS:
 
 OVERVIEW_PROMPT = """너는 한국 자산운용사의 일본 주식 담당 애널리스트를 돕는 데스크다.
 아래는 최근 12시간 동안 일본 커뮤니티(하테나 북마크·걸즈채널·토게터)에서 반응이 늘어난 글 제목과 반응 수다.
-(따로 상세 요약하는 상위 글은 제외했다.) 시황 정리처럼 '이번 12시간 커뮤니티 동향'을 정확히 10줄로 정리해 JSON 문자열 배열만 출력하라.
+(따로 상세 요약하는 상위 글은 제외했다.) 시황 정리처럼 '이번 12시간 커뮤니티 동향'을 정확히 20줄로 정리해 JSON 문자열 배열만 출력하라.
 
 규칙:
 - 각 줄은 '[주제] 내용' 형식, 50자 이내 1문장, '~함/~이어짐' 보고서체. 주제 예: 사회, 정치·정책, 기업·소비, IT, 연예, 생활.
-- 개별 글 나열이 아니라 비슷한 글을 묶어 흐름을 써라. 반응 수가 많은 흐름부터 쓴다.
+- 개별 글 나열이 아니라 비슷한 글을 묶어 흐름을 써라.
+- 같은 [주제]의 줄은 반드시 연달아 붙여 써라(주제별로 묶음). 주제 묶음은 반응 수가 많은 주제부터, 묶음 안에서도 반응이 큰 흐름부터 쓴다.
 - 여러 사이트에서 함께 화제인 주제는 그렇게 밝혀라.
 - 제목에 있는 사실만 쓰고 추측하지 마라. 일본어를 쓰지 말고 고유명사도 한글로 옮겨라. 일본 고유명사는 일본어 발음대로 한글 표기하라(예: 第一興商=다이이치코쇼, 한자의 한국식 독음 금지).
 JSON 외 텍스트 금지.
@@ -444,7 +445,7 @@ def recent_news():
 
 
 def overview(state, picks, now):
-    """상위 글 외에 지난 12시간 동안 반응이 늘어난 글들을 10줄 동향으로 정리. 실패하면 빈 목록."""
+    """상위 글 외에 지난 12시간 동안 반응이 늘어난 글들을 20줄 동향으로 정리. 실패하면 빈 목록."""
     picked = {k for k, _ in picks}
     rows = []
     for src in SRC:
@@ -452,13 +453,13 @@ def overview(state, picks, now):
                 if c["src"] == src and k not in picked and now - c["last"] < 2 * 3600 and heat(c, now) > 0]
         pool.sort(key=lambda c: -heat(c, now))
         rows += [json.dumps({"src": SRC[src]["name"], "title": c["title"], SRC[src]["unit"]: heat(c, now)},
-                            ensure_ascii=False) for c in pool[:40]]
-    if len(rows) < 10:
+                            ensure_ascii=False) for c in pool[:60]]
+    if len(rows) < 20:
         return []
     try:
         res = bot.gemini(state, OVERVIEW_PROMPT.format(items="\n".join(rows)), OVERVIEW_SCHEMA,
                          bot.WRITE_MODELS + bot.TRIAGE_MODELS, "커뮤니티 동향")
-        return [str(x).strip() for x in res if str(x).strip()][:10]
+        return [str(x).strip() for x in res if str(x).strip()][:20]
     except Exception as ex:
         print(f"[warn] 동향 정리 실패(생략하고 발송): {ex}", file=sys.stderr)
         return []
@@ -598,7 +599,15 @@ def digest_pass(state, now_dt, force):
     blocks, cur_src, n = [], None, 0
     trend = overview(state, picks, now) if ok_llm else []
     if trend:
-        blocks.append("<b>[12시간 동향]</b>\n" + "\n".join(f"• {esc(t.lstrip('•· '))}" for t in trend))
+        out, prev = [], None
+        for line in trend:  # 주제([..])가 바뀔 때마다 한 줄 띄움
+            m = re.match(r"\s*[•·]?\s*\[([^\]]+)\]", line)
+            topic = m.group(1).strip() if m else None
+            if out and topic != prev:
+                out.append("")
+            out.append(f"• {esc(line.lstrip('•· '))}")
+            prev = topic
+        blocks.append("<b>[12시간 동향]</b>\n" + "\n".join(out))
     for (k, c), w in zip(picks, ws):
         if c["src"] != cur_src:
             cur_src, n = c["src"], 0
@@ -763,8 +772,6 @@ X_TOP_N = int(os.getenv("X_TOP_N", "10"))
 X_COUNTRIES = [  # 나라마다 별도 메시지. week=True면 주간 인사이트용으로 기록
     {"src": "x", "name": "일본", "slug": "japan", "news": "hl=ja&gl=JP&ceid=JP:ja",
      "slot": "last_xslot", "fail": "x_fail_since", "week": True},
-    {"src": "x_us", "name": "미국", "slug": "united-states", "news": "hl=en-US&gl=US&ceid=US:en",
-     "slot": "last_xslot_us", "fail": "x_us_fail_since", "week": False},
 ]
 XNAMES = {c["src"]: f"X 트렌드 {c['name']}(trends24)" for c in X_COUNTRIES}
 
@@ -860,8 +867,6 @@ JSON 외 텍스트 금지.
 X_NAMING = {
     "일본": "키워드의 한국어 표기. 해시태그는 #을 유지. 일본어를 쓰지 말고 고유명사도 한글로(영문은 그대로). "
             "일본 고유명사는 일본어 발음대로 한글 표기하라(예: 第一興商=다이이치코쇼, 한자의 한국식 독음 금지).",
-    "미국": "키워드 표기. 영문 키워드는 원문 그대로 두고, 뜻이 바로 안 보이면 괄호로 한국어 뜻을 붙인다"
-            "(예: Valkyries(골든스테이트 발키리스, WNBA 팀)). 해시태그는 #을 유지.",
 }
 X_SCHEMA = {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {
     "id": {"type": "STRING"}, "ko": {"type": "STRING"}, "category": {"type": "STRING"}, "reason": {"type": "STRING"},
@@ -872,7 +877,7 @@ X_SCHEMA = {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {
 
 
 def x_trend_pass(state, now_dt, force):
-    """다이제스트 회차마다 나라별(일본·미국) X 트렌드 상위 10과 화제 이유를 각각 별도 메시지로 보낸다."""
+    """다이제스트 회차마다 X 트렌드 상위 10과 화제 이유를 별도 메시지로 보낸다(나라 추가는 X_COUNTRIES)."""
     results = [x_trend_one(state, now_dt, force, c) for c in X_COUNTRIES]
     results = [r for r in results if r is not None]
     return all(results) if results else None
