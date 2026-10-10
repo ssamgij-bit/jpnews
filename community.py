@@ -9,7 +9,7 @@
       PER_SOURCE(3),
       DIGEST_NOW=1(지금 바로 다이제스트), WEEKLY_NOW=1(지금 바로 주간 순위), DRY_RUN=1
 일요일 19:30 회차에 주간 기업·브랜드 언급 순위와 투자 아이디어·인사이트.
-다이제스트 회차마다 X 트렌드(trends24 일본) 최근 12시간 상위 10과 화제 이유를 별도 메시지로. X_NOW=1(지금 바로)
+다이제스트 회차마다 X 트렌드(trends24 일본·한국·미국 각각) 최근 12시간 상위 10과 화제 이유를 별도 메시지로. X_NOW=1(지금 바로)
 """
 import csv
 import html
@@ -759,14 +759,22 @@ def weekly_insight(state, rows, ranked, ids, start, slot_dt):
 
 
 # ───────────────────────── X(트위터) 트렌드 ─────────────────────────
-X_TREND_URL = "https://trends24.in/japan/"
 X_TOP_N = int(os.getenv("X_TOP_N", "10"))
+X_COUNTRIES = [  # 나라마다 별도 메시지. week=True면 주간 인사이트용으로 기록
+    {"src": "x", "name": "일본", "url": "https://trends24.in/japan/", "news": "hl=ja&gl=JP&ceid=JP:ja",
+     "slot": "last_xslot", "fail": "x_fail_since", "week": True},
+    {"src": "x_kr", "name": "한국", "url": "https://trends24.in/korea/", "news": "hl=ko&gl=KR&ceid=KR:ko",
+     "slot": "last_xslot_kr", "fail": "x_kr_fail_since", "week": False},
+    {"src": "x_us", "name": "미국", "url": "https://trends24.in/united-states/", "news": "hl=en-US&gl=US&ceid=US:en",
+     "slot": "last_xslot_us", "fail": "x_us_fail_since", "week": False},
+]
+XNAMES = {c["src"]: f"X 트렌드 {c['name']}(trends24)" for c in X_COUNTRIES}
 
 
-def fetch_x_trends(now):
-    """trends24 일본 페이지의 시간대별 트렌드(각 50위)를 최근 12시간 동안 합산해 상위 키워드를 고른다.
+def fetch_x_trends(url, now):
+    """trends24 나라별 페이지의 시간대별 트렌드(각 50위)를 최근 12시간 동안 합산해 상위 키워드를 고른다.
     점수 = Σ(51 - 순위). 반환: [(키워드, 점수, 등장 시간대 수, 최고 순위)]"""
-    h = get(X_TREND_URL).text
+    h = get(url).text
     cards = re.findall(r"<h3 class=title data-timestamp=([\d.]+)>.*?</h3><ol class=trend-card__list>(.*?)</ol>", h, re.S)
     if not cards:
         raise RuntimeError("트렌드 카드 0개(페이지 구조 변경 가능성)")
@@ -775,8 +783,12 @@ def fetch_x_trends(now):
     for ts, body in recent:
         if now - float(ts) > 13 * 3600:
             continue
+        seen = set()
         for rank, name in enumerate(re.findall(r"class=trend-link>([^<]*)</a>", body), 1):
             name = html.unescape(name).strip()
+            if name in seen:  # 같은 시간대에 중복 표기된 키워드는 한 번만
+                continue
+            seen.add(name)
             score[name] = score.get(name, 0) + 51 - rank
             hours[name] = hours.get(name, 0) + 1
             best[name] = min(best.get(name, 99), rank)
@@ -784,75 +796,91 @@ def fetch_x_trends(now):
     return [(k, score[k], hours[k], best[k]) for k in top]
 
 
-def news_context(kw):
+def news_context(kw, params):
     """키워드의 최근 1일 구글 뉴스 제목 최대 3개(트렌드 이유 파악용)."""
     try:
         q = urllib.parse.quote(f"{kw.lstrip('#')} when:1d")
-        f = feedparser.parse(get(f"https://news.google.com/rss/search?hl=ja&gl=JP&ceid=JP:ja&q={q}").content)
+        f = feedparser.parse(get(f"https://news.google.com/rss/search?{params}&q={q}").content)
         return [bot.SUFFIX_RE.sub("", html.unescape(e.title)).strip()[:90] for e in f.entries[:3]]
     except Exception:
         return []
 
 
-X_PROMPT = """너는 한국 자산운용사의 일본 주식 담당 애널리스트를 돕는 데스크다.
-아래는 최근 12시간 일본 X(트위터) 트렌드 상위 키워드와, 키워드별 최근 1일 일본 뉴스 제목(있으면)이다.
+X_PROMPT = """너는 한국 자산운용사의 주식 담당 애널리스트를 돕는 데스크다.
+아래는 최근 12시간 {country} X(트위터) 트렌드 상위 키워드와, 키워드별 최근 1일 {country} 뉴스 제목(있으면)이다.
 키워드마다 JSON 배열 항목 하나를 출력하라.
 
  id
- ko: 키워드의 한국어 표기. 해시태그는 #을 유지. 일본어를 쓰지 말고 고유명사도 한글로(영문은 그대로). 일본 고유명사는 일본어 발음대로 한글 표기하라(예: 第一興商=다이이치코쇼, 한자의 한국식 독음 금지).
+ ko: {naming}
  category: 연예·방송, 애니·게임, 스포츠, 사회·사건, 정치·경제, 기업·상품, 기타 중 하나.
  reason: 왜 화제인지 1~2문장(60자 이내), '~함' 보고서체. 뉴스 제목에 근거가 있으면 그것을 쓰고,
          근거가 없으면 키워드로 짐작한 내용을 쓰되 문장 앞에 '(추정)'을 붙여라. 모르면 '(추정) 이유 불명확함'.
- company: 이유가 일본·한국 상장 기업과 직접 관련되면 {{"ko": 한국어 기업명, "official": 일본어 정식 사명, "market": "JP" 또는 "KR"}},
-          아니면 빈 객체.
+ company: 이유가 일본·한국 상장 기업과 직접 관련되면 {{"ko": 한국어 기업명, "official": 정식 사명(일본 기업은 일본어, 한국 기업은 한국어),
+          "code": 종목코드(모르면 빈 문자열), "market": "JP" 또는 "KR"}}, 아니면 빈 객체. 확실하지 않으면 빈 객체.
 JSON 외 텍스트 금지.
 
 {items}
 """
+X_NAMING = {
+    "일본": "키워드의 한국어 표기. 해시태그는 #을 유지. 일본어를 쓰지 말고 고유명사도 한글로(영문은 그대로). "
+            "일본 고유명사는 일본어 발음대로 한글 표기하라(예: 第一興商=다이이치코쇼, 한자의 한국식 독음 금지).",
+    "한국": "키워드 표기. 한국어 키워드는 그대로 쓰고, 해시태그는 #을 유지하며, 영문은 그대로 둔다.",
+    "미국": "키워드 표기. 영문 키워드는 원문 그대로 두고, 뜻이 바로 안 보이면 괄호로 한국어 뜻을 붙인다"
+            "(예: Valkyries(골든스테이트 발키리스, WNBA 팀)). 해시태그는 #을 유지.",
+}
 X_SCHEMA = {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {
     "id": {"type": "STRING"}, "ko": {"type": "STRING"}, "category": {"type": "STRING"}, "reason": {"type": "STRING"},
     "company": {"type": "OBJECT", "properties": {
-        "ko": {"type": "STRING"}, "official": {"type": "STRING"}, "market": {"type": "STRING"}}}},
+        "ko": {"type": "STRING"}, "official": {"type": "STRING"}, "code": {"type": "STRING"},
+        "market": {"type": "STRING"}}}},
     "required": ["id", "ko", "category", "reason"]}}
 
 
 def x_trend_pass(state, now_dt, force):
-    """다이제스트 회차마다 X 트렌드 상위 10과 화제 이유를 별도 메시지로 보낸다."""
+    """다이제스트 회차마다 나라별(일본·한국·미국) X 트렌드 상위 10과 화제 이유를 각각 별도 메시지로 보낸다."""
+    results = [x_trend_one(state, now_dt, force, c) for c in X_COUNTRIES]
+    results = [r for r in results if r is not None]
+    return all(results) if results else None
+
+
+def x_trend_one(state, now_dt, force, cfg):
     key, slot_dt = due_slot(now_dt)
-    if "last_xslot" not in state and not force:  # 기능 추가 직후: 지난 회차는 건너뛰고 다음 회차부터
-        state["last_xslot"] = key
+    if cfg["slot"] not in state and not force:  # 기능 추가 직후: 지난 회차는 건너뛰고 다음 회차부터
+        state[cfg["slot"]] = key
         return None
-    if state.get("last_xslot") == key and not force:
+    if state.get(cfg["slot"]) == key and not force:
         return None
     now = time.time()
     hs = state["health"]["src"]
     try:
-        top = fetch_x_trends(now)
-        hs["x"] = 0
+        top = fetch_x_trends(cfg["url"], now)
+        hs[cfg["src"]] = 0
     except Exception as ex:
-        hs["x"] = hs.get("x", 0) + 1
-        print(f"[warn] X 트렌드 수집 실패({hs['x']}회 연속): {ex}", file=sys.stderr)
+        hs[cfg["src"]] = hs.get(cfg["src"], 0) + 1
+        print(f"[warn] {XNAMES[cfg['src']]} 수집 실패({hs[cfg['src']]}회 연속): {ex}", file=sys.stderr)
         return None
     if not top:
-        state["last_xslot"] = key
+        state[cfg["slot"]] = key
         return None
     items = []
     for i, (kw, sc, hrs, best) in enumerate(top):
-        items.append(json.dumps({"id": f"x{i}", "keyword": kw, "news": news_context(kw)}, ensure_ascii=False))
+        items.append(json.dumps({"id": f"x{i}", "keyword": kw, "news": news_context(kw, cfg["news"])},
+                                ensure_ascii=False))
         time.sleep(1)
     try:
-        res = bot.gemini(state, X_PROMPT.format(items="\n".join(items)), X_SCHEMA,
-                         bot.WRITE_MODELS + bot.TRIAGE_MODELS, "X 트렌드")
+        res = bot.gemini(state, X_PROMPT.format(country=cfg["name"], naming=X_NAMING[cfg["name"]],
+                                                items="\n".join(items)), X_SCHEMA,
+                         bot.WRITE_MODELS + bot.TRIAGE_MODELS, f"X 트렌드 {cfg['name']}")
         by = {r["id"]: r for r in res if isinstance(r, dict) and "id" in r}
         ok = True
     except Exception as ex:
-        print(f"[warn] X 트렌드 정리 실패: {ex}", file=sys.stderr)
-        since = state.setdefault("x_fail_since", 0) or now
-        state["x_fail_since"] = since
+        print(f"[warn] X 트렌드 {cfg['name']} 정리 실패: {ex}", file=sys.stderr)
+        since = state.get(cfg["fail"]) or now
+        state[cfg["fail"]] = since
         if now - since < FALLBACK_AFTER_H * 3600 and not force:
             return False  # 다음 실행에 재시도
         by, ok = {}, False
-    lines = [f"<b>&gt;&gt;[X 트렌드] 일본 최근 12시간 상위 {len(top)}</b> {slot_dt.strftime('%m-%d %H:%M')}"]
+    lines = [f"<b>&gt;&gt;[X 트렌드] {cfg['name']} 최근 12시간 상위 {len(top)}</b> {slot_dt.strftime('%m-%d %H:%M')}"]
     if not ok:
         lines.append("(이유 정리 실패: 키워드와 링크만 보냅니다)")
     for i, (kw, sc, hrs, best) in enumerate(top, 1):
@@ -866,12 +894,13 @@ def x_trend_pass(state, now_dt, force):
         tick = company_line([co]) if co.get("ko") else ""
         lines.append(f"&gt;<a href=\"{esc(url)}\">X에서 보기</a>" + (f" · 관련 기업: {esc(tick)}" if tick else ""))
     if send_chunks(lines[0], lines[1:], slot_dt.hour in SILENT_SLOTS, sep="\n"):
-        state["last_xslot"], state["x_fail_since"] = key, 0
-        for i in range(len(top)):  # 주간 정리용 기록
-            r = by.get(f"x{i}", {})
-            if r.get("ko"):
-                state["xweek"].append({"ts": now, "ko": r["ko"], "cat": r.get("category", ""),
-                                       "reason": r.get("reason", "")})
+        state[cfg["slot"]], state[cfg["fail"]] = key, 0
+        if cfg["week"]:
+            for i in range(len(top)):  # 주간 정리용 기록
+                r = by.get(f"x{i}", {})
+                if r.get("ko"):
+                    state["xweek"].append({"ts": now, "ko": r["ko"], "cat": r.get("category", ""),
+                                           "reason": r.get("reason", "")})
     return ok
 
 
@@ -885,7 +914,7 @@ def check_health(state, llm_ok):
         problems["llm"] = f"Gemini 처리 {h['llm']}회 연속 실패"
     for src, n in h["src"].items():
         if n >= FAIL_ALERT_N:
-            problems[src] = f"{SRC.get(src, {}).get('name', 'X 트렌드(trends24)')} 수집 {n}회 연속 실패(사이트 구조 변경 가능성)"
+            problems[src] = f"{SRC.get(src, {}).get('name') or XNAMES.get(src, src)} 수집 {n}회 연속 실패(사이트 구조 변경 가능성)"
     alerted = set(h.get("alerted", []))
     new = [k for k in problems if k not in alerted]
     fixed = [k for k in alerted if k not in problems]
@@ -895,7 +924,7 @@ def check_health(state, llm_ok):
                 + "\n로그: GitHub Actions → jp-community-bot", chat=admin)
     if fixed:
         tg_send("<b>[복구]</b> 일본 커뮤니티봇\n" + "\n".join(
-            f"• {'Gemini' if k == 'llm' else SRC.get(k, {}).get('name', 'X 트렌드')} 정상화" for k in fixed), chat=admin)
+            f"• {'Gemini' if k == 'llm' else SRC.get(k, {}).get('name') or XNAMES.get(k, k)} 정상화" for k in fixed), chat=admin)
     h["alerted"] = list(problems)
 
 
