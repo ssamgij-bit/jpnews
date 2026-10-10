@@ -599,15 +599,8 @@ def digest_pass(state, now_dt, force):
     blocks, cur_src, n = [], None, 0
     trend = overview(state, picks, now) if ok_llm else []
     if trend:
-        out, prev = [], None
-        for line in trend:  # 주제([..])가 바뀔 때마다 한 줄 띄움
-            m = re.match(r"\s*[•·]?\s*\[([^\]]+)\]", line)
-            topic = m.group(1).strip() if m else None
-            if out and topic != prev:
-                out.append("")
-            out.append(f"• {esc(line.lstrip('•· '))}")
-            prev = topic
-        blocks.append("<b>[12시간 동향]</b>\n" + "\n".join(out))
+        # 같은 주제끼리 묶어서 나오고(지시문), 줄마다 한 줄씩 띄워 가독성 확보
+        blocks.append("<b>[12시간 동향]</b>\n" + "\n\n".join(f"• {esc(t.lstrip('•· '))}" for t in trend))
     for (k, c), w in zip(picks, ws):
         if c["src"] != cur_src:
             cur_src, n = c["src"], 0
