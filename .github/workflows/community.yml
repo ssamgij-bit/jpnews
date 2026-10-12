@@ -2,7 +2,7 @@ name: jp-community-bot
 
 on:
   schedule:
-    - cron: "20 * * * *"   # 매시 20분(화제도 수집). 07:20·19:20 KST 실행분이 07:30·19:30 다이제스트 발송
+    - cron: "50 * * * *"   # 매시 50분(화제도 수집). 06:50·18:50 KST 실행분이 07:00·19:00 다이제스트 발송
   workflow_dispatch:
     inputs:
       digest_now:
@@ -15,6 +15,10 @@ on:
         default: false
       x_now:
         description: "지금 바로 X 트렌드 보내기(테스트용)"
+        type: boolean
+        default: false
+      note_now:
+        description: "지금 바로 note 급상승 주제 보내기(테스트용)"
         type: boolean
         default: false
 
@@ -46,10 +50,12 @@ jobs:
           HATENA_MIN: ${{ vars.HATENA_MIN || '100' }}
           GIRLS_MIN: ${{ vars.GIRLS_MIN || '300' }}
           TOGETTER_MIN: ${{ vars.TOGETTER_MIN || '20000' }}
+          NOTE_MIN: ${{ vars.NOTE_MIN || '50' }}
           PER_SOURCE: ${{ vars.PER_SOURCE || '3' }}
           DIGEST_NOW: ${{ github.event.inputs.digest_now == 'true' && '1' || '0' }}
           WEEKLY_NOW: ${{ github.event.inputs.weekly_now == 'true' && '1' || '0' }}
           X_NOW: ${{ github.event.inputs.x_now == 'true' && '1' || '0' }}
+          NOTE_NOW: ${{ github.event.inputs.note_now == 'true' && '1' || '0' }}
         run: python community.py
       - name: Save state
         if: always()
