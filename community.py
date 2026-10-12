@@ -1,15 +1,16 @@
 """일본 커뮤니티 화제글 → 한국어 요약(본문·댓글) → 텔레그램 채널 다이제스트.
 
-소스: 하테나 북마크 인기 엔트리(종합), 걸즈채널 오늘의 인기 토픽, 토게터 주목 정리.
-매시 실행(GitHub Actions)으로 화제도 스냅샷을 쌓고, 07:30·19:30(JST=KST)에 다이제스트를 보낸다.
+소스: 하테나 북마크 인기 엔트리(종합), 걸즈채널 오늘의 인기 토픽, 토게터 주목 정리, note 주목 글.
+매시 실행(GitHub Actions)으로 화제도 스냅샷을 쌓고, 07:00·19:00(JST=KST)에 다이제스트를 보낸다.
 상장사·증시 관련성 ★4 이상은 다이제스트를 기다리지 않고 즉시 보낸다.
 상태는 community_state.json(워크플로우가 커밋). 뉴스봇(bot.py)의 Gemini·티커 대조 함수를 재사용한다.
 환경변수: TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, GEMINI_API_KEY
-선택: TELEGRAM_ADMIN_CHAT_ID, COMMUNITY_THRESHOLD(기본 4), HATENA_MIN(100), GIRLS_MIN(300), TOGETTER_MIN(20000),
+선택: TELEGRAM_ADMIN_CHAT_ID, COMMUNITY_THRESHOLD(기본 4), HATENA_MIN(100), GIRLS_MIN(300), TOGETTER_MIN(20000), NOTE_MIN(50),
       PER_SOURCE(3),
       DIGEST_NOW=1(지금 바로 다이제스트), WEEKLY_NOW=1(지금 바로 주간 순위), DRY_RUN=1
-일요일 19:30 회차에 주간 기업·브랜드 언급 순위와 투자 아이디어·인사이트.
+일요일 19:00 회차에 주간 기업·브랜드 언급 순위와 투자 아이디어·인사이트.
 다이제스트 회차마다 X 트렌드(trends24 일본) 최근 12시간 상위 10과 화제 이유를 별도 메시지로. X_NOW=1(지금 바로)
+다이제스트 회차마다 note 급상승 주제(note.com/trend) 상위 10과 화제 이유를 별도 메시지로. NOTE_NOW=1(지금 바로)
 """
 import csv
 import html
@@ -91,9 +92,9 @@ STATE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "community
 DRY_RUN = os.getenv("DRY_RUN") == "1"
 THRESHOLD = int(os.getenv("COMMUNITY_THRESHOLD", "4"))
 PER_SOURCE = int(os.getenv("PER_SOURCE", "3"))
-SLOTS = [(7, 30), (19, 30)]      # 다이제스트 시각(JST, 시·분)
+SLOTS = [(7, 0), (19, 0)]        # 다이제스트 시각(JST, 시·분)
 SILENT_SLOTS = set()             # 무음 발송 회차(없음)
-LEAD_MIN = 15                    # 회차 15분 전 실행분부터 해당 회차로 간주(워크플로우는 매시 20분 실행)
+LEAD_MIN = 15                    # 회차 15분 전 실행분부터 해당 회차로 간주(워크플로우는 매시 50분 실행)
 WINDOW_H = 12.5                  # 화제도(증가량) 계산 구간
 FALLBACK_AFTER_H = 2             # 요약이 이 시간 넘게 계속 실패하면 제목·링크만으로 발송
 FAIL_ALERT_N = 3
@@ -102,6 +103,7 @@ SRC = {
     "hb": {"name": "하테나 북마크", "unit": "북마크", "min": int(os.getenv("HATENA_MIN", "100"))},
     "gc": {"name": "걸즈채널", "unit": "댓글", "min": int(os.getenv("GIRLS_MIN", "300"))},
     "tg": {"name": "토게터", "unit": "조회", "min": int(os.getenv("TOGETTER_MIN", "20000"))},
+    "nt": {"name": "note", "unit": "좋아요", "min": int(os.getenv("NOTE_MIN", "50"))},
 }
 # 걸즈채널의 상시 잡담·실황 토픽(시리즈물)은 화제글로 보지 않는다
 GC_SKIP = re.compile(r"[pP]art\s*\.?\s*\d+|【実況|実況・感想|集まれ|語ろう|語りたい|トピ$")
@@ -125,6 +127,7 @@ def load_state():
     for k in ("watch_seen", "watch_kw", "watch_pos"):  # 관심 종목 기능 폐지: 남은 기록 삭제
         s.pop(k, None)
     s.setdefault("xweek", [])       # 주간 정리용 X 트렌드 기록 [{ts, ko, cat, reason}]
+    s.setdefault("nweek", [])       # 주간 정리용 note 급상승 주제 기록 [{ts, ko, cat, reason}]
     return s
 
 
@@ -136,6 +139,7 @@ def save_state(s):
     s["sent"] = {k: v for k, v in s["sent"].items() if now - v < 14 * 86400}
     s["week"] = {k: v for k, v in s["week"].items() if now - v["ts"] < 8 * 86400}
     s["xweek"] = [x for x in s["xweek"] if now - x["ts"] < 8 * 86400][-400:]
+    s["nweek"] = [x for x in s["nweek"] if now - x["ts"] < 8 * 86400][-400:]
     with open(STATE_PATH, "w", encoding="utf-8") as f:
         json.dump(s, f, ensure_ascii=False, indent=0)
 
@@ -205,7 +209,29 @@ def list_togetter():
     return out
 
 
-LISTERS = {"hb": list_hatena, "gc": list_girls, "tg": list_togetter}
+NOTE_API = "https://note.com/api/v3"
+
+
+def list_note():
+    """note '주목 글' RSS(10건) + 좋아요 수(일괄 조회). 화제도 = 좋아요 증가량."""
+    f = feedparser.parse(get("https://note.com/rss").content)
+    rows = []
+    for e in f.entries:
+        key = e.link.rstrip("/").rsplit("/", 1)[-1]
+        if key.startswith("n"):
+            rows.append((key, html.unescape(e.title), e.link))
+    if not rows:
+        return []
+    likes = {}
+    d = get(f"{NOTE_API}/notes/lookup", params={"keys": ",".join(k for k, _, _ in rows),
+                                                "fields": "key,like_count"}).json()
+    for x in d.get("data") or []:
+        likes[x.get("key")] = int(x.get("like_count") or 0)
+    return [{"key": "nt:" + k, "src": "nt", "title": t, "url": u, "metric": likes.get(k, 0), "extra": {"nkey": k}}
+            for k, t, u in rows]
+
+
+LISTERS = {"hb": list_hatena, "gc": list_girls, "tg": list_togetter, "nt": list_note}
 
 
 def collect(state):
@@ -317,7 +343,37 @@ def detail_togetter(c):
     return body, comments
 
 
-DETAIL = {"hb": detail_hatena, "gc": detail_girls, "tg": detail_togetter}
+def _rich_text(node):
+    """note 댓글(리치 텍스트 트리) → 평문."""
+    if isinstance(node, dict):
+        return (node.get("value") or "") + "".join(_rich_text(x) for x in node.get("children") or [])
+    if isinstance(node, list):
+        return "".join(_rich_text(x) for x in node)
+    return str(node or "")
+
+
+def detail_note(c):
+    k = c["extra"].get("nkey") or c["url"].rstrip("/").rsplit("/", 1)[-1]
+    d = get(f"{NOTE_API}/notes/{k}").json().get("data") or {}
+    body = text_of(d.get("body") or "")
+    if d.get("price") and not d.get("can_read"):
+        body = "(유료 글: 무료 미리보기 부분만)\n" + body
+    body = body[:1800]
+    comments = []
+    if d.get("comment_count"):
+        try:
+            cd = get(f"{NOTE_API}/notes/{k}/note_comments").json().get("data") or []
+            cd.sort(key=lambda x: -(x.get("like_count") or 0))
+            for x in cd[:30]:
+                t = re.sub(r"\s+", " ", _rich_text(x.get("comment"))).strip()
+                if len(t) >= 4:
+                    comments.append(f"[좋아요{x.get('like_count') or 0}] {clip(t, 150)}")
+        except Exception as ex:
+            print(f"[warn] note 댓글 실패: {ex}", file=sys.stderr)
+    return body, comments
+
+
+DETAIL = {"hb": detail_hatena, "gc": detail_girls, "tg": detail_togetter, "nt": detail_note}
 
 
 def fetch_detail(c):
@@ -332,7 +388,7 @@ def fetch_detail(c):
 
 # ───────────────────────── LLM ─────────────────────────
 TRIAGE_PROMPT = """너는 한국 자산운용사의 일본 주식 담당 애널리스트를 돕는 데스크다.
-일본 커뮤니티(하테나 북마크·걸즈채널·토게터)에서 화제인 글 제목들이다. 각 글의 '주식 투자 관련성'을 매겨 JSON 배열만 출력하라.
+일본 커뮤니티(하테나 북마크·걸즈채널·토게터·note)에서 화제인 글 제목들이다. 각 글의 '주식 투자 관련성'을 매겨 JSON 배열만 출력하라.
 
 score 기준:
 5 = 상장사 주가를 직접 움직일 만한 사안이 커뮤니티에서 확산: 대형 불매운동, 대규모 리콜·식품 안전 사고,
@@ -375,7 +431,7 @@ NEWS:
 """
 
 OVERVIEW_PROMPT = """너는 한국 자산운용사의 일본 주식 담당 애널리스트를 돕는 데스크다.
-아래는 최근 12시간 동안 일본 커뮤니티(하테나 북마크·걸즈채널·토게터)에서 반응이 늘어난 글 제목과 반응 수다.
+아래는 최근 12시간 동안 일본 커뮤니티(하테나 북마크·걸즈채널·토게터·note)에서 반응이 늘어난 글 제목과 반응 수다.
 (따로 상세 요약하는 상위 글은 제외했다.) 시황 정리처럼 '이번 12시간 커뮤니티 동향'을 정확히 10줄로 정리해 JSON 문자열 배열만 출력하라.
 
 규칙:
@@ -616,7 +672,7 @@ def digest_pass(state, now_dt, force):
 
 # ───────────────────────── 주간 브랜드·기업 언급 순위 ─────────────────────────
 WEEKLY_PROMPT = """너는 한국 자산운용사의 일본 소비재·산업재 담당 애널리스트를 돕는 데스크다.
-아래는 지난 7일 동안 일본 커뮤니티(하테나 북마크·걸즈채널·토게터)에서 화제가 된 글 제목과 반응 수다.
+아래는 지난 7일 동안 일본 커뮤니티(하테나 북마크·걸즈채널·토게터·note)에서 화제가 된 글 제목과 반응 수다.
 제목에 등장하는 기업·브랜드를 뽑아 JSON 배열만 출력하라(최대 15개).
 
 항목마다:
@@ -638,7 +694,7 @@ WEEKLY_SCHEMA = {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {
 
 
 def weekly_pass(state, slot_dt, force=False):
-    """일요일 19:30 회차에 지난 7일 브랜드·기업 언급 순위를 보낸다."""
+    """일요일 19:00 회차에 지난 7일 브랜드·기업 언급 순위를 보낸다."""
     key = slot_dt.strftime("%Y-%m-%d")
     if not force and (slot_dt.weekday() != 6 or slot_dt.hour != 19 or state["last_weekly"] == key):
         return None
@@ -682,7 +738,7 @@ def weekly_pass(state, slot_dt, force=False):
 
 
 INSIGHT_PROMPT = """너는 한국 자산운용사 주식운용본부의 일본 주식 담당 애널리스트를 돕는 리서치 데스크다.
-아래는 지난 7일 일본 커뮤니티(하테나 북마크·걸즈채널·토게터) 화제글, 기업·브랜드 언급 순위, X(트위터) 트렌드다.
+아래는 지난 7일 일본 커뮤니티(하테나 북마크·걸즈채널·토게터·note) 화제글, 기업·브랜드 언급 순위, X(트위터) 트렌드, note 급상승 주제다.
 사람들의 관심 변화에서 나올 수 있는 투자 아이디어·인사이트를 3~5개 정리해 JSON 배열만 출력하라.
 소비재에 한정하지 말고 산업재·IT·금융·정책·인바운드·엔터테인먼트 등 어디든 좋다.
 
@@ -711,6 +767,9 @@ INSIGHT_PROMPT = """너는 한국 자산운용사 주식운용본부의 일본 �
 
 [X 트렌드(주간 등장 횟수 순)]
 {xtrends}
+
+[note 급상승 주제(주간 등장 횟수 순)]
+{ntrends}
 """
 INSIGHT_SCHEMA = {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {
     "theme": {"type": "STRING"}, "observation": {"type": "STRING"}, "implication": {"type": "STRING"},
@@ -728,15 +787,17 @@ def weekly_insight(state, rows, ranked, ids, start, slot_dt):
     brands = "\n".join(f"- {b['name_ko']}: {cnt}건, {b.get('tone', '')}, {b.get('gist', '')}"
                        for cnt, _, b in ranked[:15]) or "(없음)"
     posts = "\n".join(f"- [{SRC[r['s']]['name']} {SRC[r['s']]['unit']} {r['m']}] {r['t']}" for r in rows[:150])
-    cnt = {}
-    for x in state["xweek"]:
-        if now - x["ts"] < 7 * 86400:
-            c = cnt.setdefault(x["ko"], {"n": 0, "cat": x.get("cat", ""), "reason": x.get("reason", "")})
-            c["n"] += 1
-    xtrends = "\n".join(f"- {k} ({v['n']}회, {v['cat']}): {v['reason']}"
+    def tally(recs):
+        cnt = {}
+        for x in recs:
+            if now - x["ts"] < 7 * 86400:
+                c = cnt.setdefault(x["ko"], {"n": 0, "cat": x.get("cat", ""), "reason": x.get("reason", "")})
+                c["n"] += 1
+        return "\n".join(f"- {k} ({v['n']}회, {v['cat']}): {v['reason']}"
                          for k, v in sorted(cnt.items(), key=lambda kv: -kv[1]["n"])[:40]) or "(기록 없음)"
     try:
-        res = bot.gemini(state, INSIGHT_PROMPT.format(brands=brands, posts=posts, xtrends=xtrends), INSIGHT_SCHEMA,
+        res = bot.gemini(state, INSIGHT_PROMPT.format(brands=brands, posts=posts, xtrends=tally(state["xweek"]),
+                                                      ntrends=tally(state["nweek"])), INSIGHT_SCHEMA,
                          bot.WRITE_MODELS + bot.TRIAGE_MODELS, "주간 인사이트")
     except Exception as ex:
         print(f"[warn] 주간 인사이트 실패(생략): {ex}", file=sys.stderr)
@@ -942,6 +1003,103 @@ def x_trend_one(state, now_dt, force, cfg):
     return ok
 
 
+# ───────────────────────── note 급상승 주제 ─────────────────────────
+NOTE_TOP_N = int(os.getenv("NOTE_TOP_N", "10"))
+XNAMES["ntr"] = "note 급상승 주제"
+
+
+def fetch_note_topics():
+    """note.com/trend의 급상승 주제(순위순). 반환: [(주제명, 주제 링크, [(글 제목, 좋아요)])]"""
+    out = []
+    for page in range(1, 6):
+        d = get(f"{NOTE_API}/mkit_layouts/json", params={"context": "gtt_hot_topics_trend", "page": page}).json()
+        d = d.get("data") or {}
+        for sec in d.get("sections") or []:
+            name = (sec.get("label_name") or "").strip()
+            notes = sec.get("notes") or []
+            if sec.get("type") != "gtt_notes" or not name or not notes:
+                continue
+            posts = sorted(((n.get("name") or "", int(n.get("like_count") or 0)) for n in notes), key=lambda x: -x[1])
+            out.append((name, sec.get("url") or "https://note.com/trend", posts))
+        if len(out) >= NOTE_TOP_N or d.get("isLast"):
+            break
+        time.sleep(1)
+    return out[:NOTE_TOP_N]
+
+
+NOTE_PROMPT = """너는 한국 자산운용사의 주식 담당 애널리스트를 돕는 데스크다.
+아래는 일본 블로그 플랫폼 note의 '급상승 주제' 상위 목록과, 주제별 관련 글 제목(좋아요 많은 순)이다.
+주제마다 JSON 배열 항목 하나를 출력하라.
+
+ id
+ ko: 주제의 한국어 표기. 일본어를 쓰지 말고 고유명사도 한글로(영문은 그대로).
+     일본 고유명사는 일본어 발음대로 한글 표기하라(예: 第一興商=다이이치코쇼, 한자의 한국식 독음 금지).
+ category: 연예·방송, 애니·게임, 스포츠, 사회·사건, 정치·경제, 기업·상품, IT·AI, 생활·문화, 기타 중 하나.
+ reason: 왜 화제인지 1~2문장(60자 이내), '~함' 보고서체. 글 제목에 근거해 쓰고, 제목만으로 불분명하면 문장 앞에 '(추정)'을 붙여라.
+ company: 이유가 일본·한국 상장 기업과 직접 관련되면 {{"ko": 한국어 기업명, "official": 정식 사명(일본 기업은 일본어, 한국 기업은 한국어),
+          "code": 종목코드(모르면 빈 문자열), "market": "JP" 또는 "KR"}}, 아니면 빈 객체. 확실하지 않으면 빈 객체.
+JSON 외 텍스트 금지.
+
+{items}
+"""
+
+
+def note_trend_pass(state, now_dt, force):
+    """다이제스트 회차마다 note 급상승 주제 상위 10과 화제 이유를 별도 메시지로 보낸다."""
+    key, slot_dt = due_slot(now_dt)
+    if "last_nslot" not in state and not force:  # 기능 추가 직후: 지난 회차는 건너뛰고 다음 회차부터
+        state["last_nslot"] = key
+        return None
+    if state.get("last_nslot") == key and not force:
+        return None
+    now = time.time()
+    hs = state["health"]["src"]
+    try:
+        top = fetch_note_topics()
+        if not top:
+            raise RuntimeError("급상승 주제 0개(페이지 구조 변경 가능성)")
+        hs["ntr"] = 0
+    except Exception as ex:
+        hs["ntr"] = hs.get("ntr", 0) + 1
+        print(f"[warn] note 급상승 주제 수집 실패({hs['ntr']}회 연속): {ex}", file=sys.stderr)
+        return None
+    items = [json.dumps({"id": f"n{i}", "topic": name, "posts": [t for t, _ in posts[:5]]}, ensure_ascii=False)
+             for i, (name, _, posts) in enumerate(top)]
+    try:
+        res = bot.gemini(state, NOTE_PROMPT.format(items="\n".join(items)), X_SCHEMA,
+                         bot.WRITE_MODELS + bot.TRIAGE_MODELS, "note 급상승 주제")
+        by = {r["id"]: r for r in res if isinstance(r, dict) and "id" in r}
+        ok = True
+    except Exception as ex:
+        print(f"[warn] note 급상승 주제 정리 실패: {ex}", file=sys.stderr)
+        since = state.get("n_fail_since") or now
+        state["n_fail_since"] = since
+        if now - since < FALLBACK_AFTER_H * 3600 and not force:
+            return False  # 다음 실행에 재시도
+        by, ok = {}, False
+    lines = [f"<b>&gt;&gt;[note 트렌드] 급상승 주제 상위 {len(top)}</b> {slot_dt.strftime('%m-%d %H:%M')}"]
+    if not ok:
+        lines.append("(이유 정리 실패: 주제와 링크만 보냅니다)")
+    for i, (name, url, posts) in enumerate(top, 1):
+        r = by.get(f"n{i - 1}", {})
+        cat = f"[{esc(r['category'])}] " if r.get("category") else ""
+        likes = sum(n for _, n in posts)
+        lines.append(f"\n<b>{i}. {cat}{esc(r.get('ko') or name)}</b> (관련 글 {len(posts)}건 · 좋아요 {likes:,})")
+        if r.get("reason"):
+            lines.append(f"• {esc(r['reason'])}")
+        co = r.get("company") or {}
+        tick = company_line([co]) if co.get("ko") else ""
+        lines.append(f"&gt;<a href=\"{esc(url)}\">note에서 보기</a>" + (f" · 관련 기업: {esc(tick)}" if tick else ""))
+    if send_chunks(lines[0], lines[1:], slot_dt.hour in SILENT_SLOTS, sep="\n"):
+        state["last_nslot"], state["n_fail_since"] = key, 0
+        for i in range(len(top)):  # 주간 정리용 기록
+            r = by.get(f"n{i}", {})
+            if r.get("ko"):
+                state["nweek"].append({"ts": now, "ko": r["ko"], "cat": r.get("category", ""),
+                                       "reason": r.get("reason", "")})
+    return ok
+
+
 # ───────────────────────── 장애 알림 ─────────────────────────
 def check_health(state, llm_ok):
     h = state["health"]
@@ -976,17 +1134,19 @@ def main():
     now = time.time()
     if first_run:
         state["last_slot"] = due_slot(now_dt)[0]  # 첫 실행 직후 바로 다이제스트를 보내지 않음
-    if state.get("slot_v") != 2:  # 회차 변경(4회→07:30·19:30): 지난 회차를 소급 발송하지 않도록 기준만 맞춤
-        state["last_slot"] = state["last_xslot"] = due_slot(now_dt)[0]
-        state["slot_v"] = 2
+    if state.get("slot_v") != 3:  # 회차 변경(07:30·19:30→07:00·19:00): 지난 회차를 소급 발송하지 않도록 기준만 맞춤
+        state["last_slot"] = state["last_xslot"] = state["last_nslot"] = due_slot(now_dt)[0]
+        state["slot_v"] = 3
     r1 = urgent_pass(state, now, first_run)
     save_state(state)
     r2 = digest_pass(state, now_dt, os.getenv("DIGEST_NOW") == "1")
     save_state(state)
     r5 = x_trend_pass(state, now_dt, os.getenv("DIGEST_NOW") == "1" or os.getenv("X_NOW") == "1")
     save_state(state)
+    r6 = note_trend_pass(state, now_dt, os.getenv("DIGEST_NOW") == "1" or os.getenv("NOTE_NOW") == "1")
+    save_state(state)
     r4 = weekly_pass(state, due_slot(now_dt)[1], os.getenv("WEEKLY_NOW") == "1")
-    results = [r for r in (r1, r2, r4, r5) if r is not None]
+    results = [r for r in (r1, r2, r4, r5, r6) if r is not None]
     check_health(state, all(results) if results else None)
     save_state(state)
 
