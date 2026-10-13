@@ -1,7 +1,5 @@
 {
 "seen": {
-"ロシアがウクライナの住宅を爆撃17人死亡米ロディーゼル合意後": 1791640698.4267244,
-"eu中国製ハイブリッド車輸入の半減目指すセーフガード措置を計画": 1791641772.2423067,
 "インドゴキブリ人民党創設者抗議活動前に拘束": 1791642849.737409,
 "茂木外相米国ルビオ国務長官にicc制裁への日本の立場伝達": 1791643841.8385801,
 "j2大宮が開幕10戦負けなし大分は横浜fcに競り勝つ": 1791645006.8330512,
@@ -1367,15 +1365,16 @@
 "snapnstockprice&latestnews": 1791897687.2520812,
 "米jpモルガン79月期6%増益ダイモンceo顧客活動やや鈍化": 1791899546.8176908,
 "ローマ教皇が入院肺結節の切除手術へバチカン発表": 1791899546.818645,
-"paypay証券日本株とetf全銘柄の取引停止みずほ証券の障害で": 1791899546.8253398
+"paypay証券日本株とetf全銘柄の取引停止みずほ証券の障害で": 1791899546.8253398,
+"人事外務省": 1791901012.6589983,
+"人事警察庁": 1791901012.6624463,
+"人事日銀": 1791901012.665785,
+"サッカーacle京都が初勝利g大阪は2連勝": 1791901012.6706493,
+"13日の高市首相の動静": 1791901012.6707575,
+"シティの債券トレーディング収入79月に市場予想を上回る": 1791901012.676137,
+"frbウォラー理事やブラックストーン社長フランス発の財政懸念に警鐘": 1791901012.6821926
 },
 "recent": [
-{
-"id": "n728279_0",
-"ko": "작가이자 승려인 사사쿠라 아키라 씨 별세",
-"gist": "작가이자 승려인 사사쿠라 아키라 씨가 간질성 폐렴으로 향년 77세로 별세했다.",
-"ts": 1791728282.6390846
-},
 {
 "id": "n730381_1",
 "ko": "J2 센다이 선두 유지, 니가타는 무승부",
@@ -3816,7 +3815,80 @@
 }
 ],
 "digest": [],
-"pending": [],
+"pending": [
+{
+"source": "nikkei",
+"label": "니케이",
+"gn": false,
+"title": "人事、外務省",
+"lead": "外務省（12日）アラブ首長国連邦公使、甲木浩",
+"link": "https://www.nikkei.com/article/DGXZQOH1132EC0T11C26A0000000/",
+"ts": 1791894114,
+"key": "人事外務省",
+"id": "n901012_0",
+"first_try": 1791901091.1029985
+},
+{
+"source": "nikkei",
+"label": "니케이",
+"gn": false,
+"title": "人事、警察庁",
+"lead": "警察庁（26日、地名は県警本部長）公安課",
+"link": "https://www.nikkei.com/article/DGXZQOH1136BX0T11C26A0000000/",
+"ts": 1791894177,
+"key": "人事警察庁",
+"id": "n901013_1",
+"first_try": 1791901091.1030028
+},
+{
+"source": "nikkei",
+"label": "니케이",
+"gn": false,
+"title": "人事、日銀",
+"lead": "日銀（13日）静岡支店長（松山支店長）佐々木",
+"link": "https://www.nikkei.com/article/DGXZQOH1132F40T11C26A0000000/",
+"ts": 1791894272,
+"key": "人事日銀",
+"id": "n901014_2",
+"first_try": 1791901091.1030042
+},
+{
+"source": "nikkei",
+"label": "니케이",
+"gn": false,
+"title": "サッカーACLE、京都が初勝利　G大阪は2連勝",
+"lead": "サッカーのアジア・チャンピオンズリーグ・エリート（ACLE）は13日、サンガスタジアムbyKYOCERAなどで東地区1次リーグ第2戦が行われ、京都はホームでラチャブリ（タイ）を1-0で下し",
+"link": "https://www.nikkei.com/article/DGXZQODH13A4E0T11C26A0000000/",
+"ts": 1791896080,
+"key": "サッカーacle京都が初勝利g大阪は2連勝",
+"id": "n901014_3",
+"first_try": 1791901091.1030047
+},
+{
+"source": "bloomberg",
+"label": "블룸버그",
+"gn": true,
+"title": "シティの債券トレーディング収入、7－9月に市場予想を上回る",
+"lead": "",
+"link": "https://news.google.com/rss/articles/CBMijgFBVV95cUxOdG9INEdlamJtOGpwTGhMLVVIYnpHa0x0QTQwRzJWQXVzLXpHUkY0SkpRQzc2SHJqdXh6S0VRdGx6b2liYzV1am9FVWtPNWlHcTVaUS1tSDZUcTRVY2oyZWxoc1NUa1VwT0NlSEJ0bDczYUJsNFhoQ2FFNWVkOW82UzRhaWg2S014blg2VWRn?oc=5",
+"ts": 1791899989,
+"key": "シティの債券トレーディング収入79月に市場予想を上回る",
+"id": "n901015_4",
+"first_try": 1791901091.1030052
+},
+{
+"source": "bloomberg",
+"label": "블룸버그",
+"gn": true,
+"title": "FRBウォラー理事やブラックストーン社長、フランス発の財政懸念に警鐘",
+"lead": "",
+"link": "https://news.google.com/rss/articles/CBMid0FVX3lxTFBSMTNzYUJmbnNTVHV6RW1EdzlLTVI2cFNyNzBmZGhQZ0dXUm9ZVmU1WWdRYTU2QklyVm5DenVJX2tLSlhfbXo1RGRUeFBCM2ZjMDNXUnR0aWV1NVFNc1Q0WWZzNThyQm1DWk1kTG9DRXg3RXZzZ2xR?oc=5",
+"ts": 1791900374,
+"key": "frbウォラー理事やブラックストーン社長フランス発の財政懸念に警鐘",
+"id": "n901015_5",
+"first_try": 1791901091.1030056
+}
+],
 "daily": {
 "date": "2026-10-13",
 "count": 102
@@ -3878,7 +3950,7 @@
 },
 "version": 3,
 "health": {
-"llm": 0,
+"llm": 1,
 "src": {
 "니케이|://assets.wor.jp/rss/rdf/nikkei/news.rdf": 0,
 "니케이|assets.wor.jp/rss/rdf/nikkei/markets.rdf": 0,
