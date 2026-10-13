@@ -1,6 +1,5 @@
 {
 "seen": {
-"インドゴキブリ人民党創設者抗議活動前に拘束": 1791642849.737409,
 "茂木外相米国ルビオ国務長官にicc制裁への日本の立場伝達": 1791643841.8385801,
 "j2大宮が開幕10戦負けなし大分は横浜fcに競り勝つ": 1791645006.8330512,
 "張本美和早田ひな組は準v佐藤瞳が決勝進出卓球中国スマッシュ": 1791645006.8353908,
@@ -1372,7 +1371,11 @@
 "サッカーacle京都が初勝利g大阪は2連勝": 1791901012.6706493,
 "13日の高市首相の動静": 1791901012.6707575,
 "シティの債券トレーディング収入79月に市場予想を上回る": 1791901012.676137,
-"frbウォラー理事やブラックストーン社長フランス発の財政懸念に警鐘": 1791901012.6821926
+"frbウォラー理事やブラックストーン社長フランス発の財政懸念に警鐘": 1791901012.6821926,
+"北海道でマフグの漁獲量増加一方で養殖ホタテに被害か": 1791902655.058682,
+"米中古住宅販売9月は4カ月ぶりに増加年内は低迷続く見通し": 1791902655.0656085,
+"米ゴールドマン第3四半期利益が予想上回る株式部門収入が72％増": 1791902655.0728161,
+"アップル新型デバイスhomeview発表スマートホーム市場で攻勢": 1791902655.0800688
 },
 "recent": [
 {
@@ -3812,83 +3815,40 @@
 "gist": "후지필름그룹이 반도체 소재 사업 강화를 위해 미국 내 구리 상호연결 화학 기계적 연마(CMP) 생산 시설을 업그레이드한다.",
 "ts": 1791897715.6345367,
 "sent": true
+},
+{
+"id": "n902655_0",
+"ko": "일본 외무성 인사 발표",
+"gist": "일본 외무성이 아랍에미리트 공사로 카츠키 히로시를 임명하는 등 인사를 단행했다.",
+"ts": 1791902721.056455
+},
+{
+"id": "n902655_1",
+"ko": "일본 경찰청 인사 발표",
+"gist": "일본 경찰청이 공안과 등 주요 보직에 대한 인사를 발표했다.",
+"ts": 1791902721.0564694
+},
+{
+"id": "n902655_2",
+"ko": "일본은행 인사 발표",
+"gist": "일본은행이 시즈오카 지점장 등 지점장급 인사를 단행했다.",
+"ts": 1791902721.056471
+},
+{
+"id": "n902655_3",
+"ko": "축구 ACLE, 교토 상가 첫 승리 및 감바 오사카 2연승",
+"gist": "아시아 챔피언스리그 엘리트(ACLE) 동부지구 조별리그에서 교토 상가가 첫 승을 거두고 감바 오사카가 2연승을 기록했다.",
+"ts": 1791902721.056472
+},
+{
+"id": "n902655_6",
+"ko": "홋카이도 마복어 어획량 증가, 양식 가리비 피해 우려",
+"gist": "홋카이도에서 해수온 상승으로 마복어 어획량이 늘고 있으나, 양식 가리비에 피해를 주고 있어 대책이 요구된다.",
+"ts": 1791902721.0564747
 }
 ],
 "digest": [],
-"pending": [
-{
-"source": "nikkei",
-"label": "니케이",
-"gn": false,
-"title": "人事、外務省",
-"lead": "外務省（12日）アラブ首長国連邦公使、甲木浩",
-"link": "https://www.nikkei.com/article/DGXZQOH1132EC0T11C26A0000000/",
-"ts": 1791894114,
-"key": "人事外務省",
-"id": "n901012_0",
-"first_try": 1791901091.1029985
-},
-{
-"source": "nikkei",
-"label": "니케이",
-"gn": false,
-"title": "人事、警察庁",
-"lead": "警察庁（26日、地名は県警本部長）公安課",
-"link": "https://www.nikkei.com/article/DGXZQOH1136BX0T11C26A0000000/",
-"ts": 1791894177,
-"key": "人事警察庁",
-"id": "n901013_1",
-"first_try": 1791901091.1030028
-},
-{
-"source": "nikkei",
-"label": "니케이",
-"gn": false,
-"title": "人事、日銀",
-"lead": "日銀（13日）静岡支店長（松山支店長）佐々木",
-"link": "https://www.nikkei.com/article/DGXZQOH1132F40T11C26A0000000/",
-"ts": 1791894272,
-"key": "人事日銀",
-"id": "n901014_2",
-"first_try": 1791901091.1030042
-},
-{
-"source": "nikkei",
-"label": "니케이",
-"gn": false,
-"title": "サッカーACLE、京都が初勝利　G大阪は2連勝",
-"lead": "サッカーのアジア・チャンピオンズリーグ・エリート（ACLE）は13日、サンガスタジアムbyKYOCERAなどで東地区1次リーグ第2戦が行われ、京都はホームでラチャブリ（タイ）を1-0で下し",
-"link": "https://www.nikkei.com/article/DGXZQODH13A4E0T11C26A0000000/",
-"ts": 1791896080,
-"key": "サッカーacle京都が初勝利g大阪は2連勝",
-"id": "n901014_3",
-"first_try": 1791901091.1030047
-},
-{
-"source": "bloomberg",
-"label": "블룸버그",
-"gn": true,
-"title": "シティの債券トレーディング収入、7－9月に市場予想を上回る",
-"lead": "",
-"link": "https://news.google.com/rss/articles/CBMijgFBVV95cUxOdG9INEdlamJtOGpwTGhMLVVIYnpHa0x0QTQwRzJWQXVzLXpHUkY0SkpRQzc2SHJqdXh6S0VRdGx6b2liYzV1am9FVWtPNWlHcTVaUS1tSDZUcTRVY2oyZWxoc1NUa1VwT0NlSEJ0bDczYUJsNFhoQ2FFNWVkOW82UzRhaWg2S014blg2VWRn?oc=5",
-"ts": 1791899989,
-"key": "シティの債券トレーディング収入79月に市場予想を上回る",
-"id": "n901015_4",
-"first_try": 1791901091.1030052
-},
-{
-"source": "bloomberg",
-"label": "블룸버그",
-"gn": true,
-"title": "FRBウォラー理事やブラックストーン社長、フランス発の財政懸念に警鐘",
-"lead": "",
-"link": "https://news.google.com/rss/articles/CBMid0FVX3lxTFBSMTNzYUJmbnNTVHV6RW1EdzlLTVI2cFNyNzBmZGhQZ0dXUm9ZVmU1WWdRYTU2QklyVm5DenVJX2tLSlhfbXo1RGRUeFBCM2ZjMDNXUnR0aWV1NVFNc1Q0WWZzNThyQm1DWk1kTG9DRXg3RXZzZ2xR?oc=5",
-"ts": 1791900374,
-"key": "frbウォラー理事やブラックストーン社長フランス発の財政懸念に警鐘",
-"id": "n901015_5",
-"first_try": 1791901091.1030056
-}
-],
+"pending": [],
 "daily": {
 "date": "2026-10-13",
 "count": 102
@@ -3950,7 +3910,7 @@
 },
 "version": 3,
 "health": {
-"llm": 1,
+"llm": 0,
 "src": {
 "니케이|://assets.wor.jp/rss/rdf/nikkei/news.rdf": 0,
 "니케이|assets.wor.jp/rss/rdf/nikkei/markets.rdf": 0,
