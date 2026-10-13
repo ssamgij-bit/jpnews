@@ -1409,7 +1409,13 @@
 "米債利回りに上昇余地ｆｒｂあと12回利上げもｐｉｍｃｏのｃｉｏ": 1791909625.2894883,
 "スペースx年最大456回のスターシップ打ち上げ計画faaが審査": 1791909625.2965646,
 "米半導体株が5日続落ai投資の持続性懸念が再燃長期金利は低下": 1791909625.3035843,
-"米国はウクライナと情報共有継続終戦へロシアとも協議トランプ氏": 1791909625.3106434
+"米国はウクライナと情報共有継続終戦へロシアとも協議トランプ氏": 1791909625.3106434,
+"米jpモルガン79月6%増益ダイモンceo｢顧客の動きやや鈍化｣": 1791911046.2218142,
+"米シティ79月4割増益決済業務や債券トレーディング好調": 1791911046.2263331,
+"ロシア当局北海道新聞記者をスパイ容疑で拘束極東サハリンで": 1791911046.2306788,
+"ロンドン外為13日ユーロ対ドルで上昇米長期金利が低下": 1791911046.2350762,
+"消えるny市の飲食店コスト高で生き残り必死冷房停止日曜休業も": 1791911046.239862,
+"イランの船舶攻撃が激化ホルムズ海峡の石油輸出回復脅かす恐れ": 1791911046.2445023
 },
 "recent": [
 {
@@ -3928,7 +3934,56 @@
 }
 ],
 "digest": [],
-"pending": [],
+"pending": [
+{
+"source": "nikkei",
+"label": "니케이",
+"gn": false,
+"title": "米シティ7〜9月、4割増益　決済業務や債券トレーディング好調",
+"lead": "【ニューヨーク=秋田咲】米金融大手シティグループが13日発表した2026年7〜9月期決算は、純利益が前年同期比40%増の52億4500万ドル（約8300億円）だった。資金決済や管理を担う主力の法人向け銀行サービスの収入が15%増だった。市場取引では債券関連のトレーディング収入が競合よりも好調だった。1株利益は2.85ドルとアナリスト予想（2.65ドル）を上回った。融資業務などから得る純金利収",
+"link": "https://www.nikkei.com/article/DGXZQOGN130YV0T11C26A0000000/",
+"ts": 1791905232,
+"key": "米シティ79月4割増益決済業務や債券トレーディング好調",
+"id": "n911046_0",
+"first_try": 1791911065.6252642
+},
+{
+"source": "nikkei",
+"label": "니케이",
+"gn": false,
+"title": "ロンドン外為13日　ユーロ、対ドルで上昇　米長期金利が低下",
+"lead": "【NQNロンドン=蔭山道子】13日のロンドン外国為替市場で、ユーロは対ドルで上昇している。英国時間16時時点は1ユーロ=1.1190〜1.1120ドルと前日の同時点に比べ0.0020ドルのユーロ高・ドル安だった。フランスの財政悪化を警戒したユーロ売りの圧力がひとまず和らいでいる。一方、13日の米債券市場で長期金利が水準を切り下げる場面があり、ドル買いの勢いは弱まっている。前日に1年5カ月ぶり",
+"link": "https://www.nikkei.com/article/DGXZQOFL13ARF0T11C26A0000000/",
+"ts": 1791907463,
+"key": "ロンドン外為13日ユーロ対ドルで上昇米長期金利が低下",
+"id": "n911046_1",
+"first_try": 1791911065.625269
+},
+{
+"source": "bloomberg",
+"label": "블룸버그",
+"gn": true,
+"title": "消えるNY市の飲食店、コスト高で生き残り必死－冷房停止・日曜休業も",
+"lead": "",
+"link": "https://news.google.com/rss/articles/CBMijgFBVV95cUxNZWI0V210YXgyT2hhRENSNXdfdVpUNkpRcmlVM3JjRUtmSDQtU1FXWmJKcWxrQVdPcnFXLWV3eTBXamI5cHpLdEotVHFYdUNyZ2pLcGVtRG1HUFdPeXVMNVFLaDlMb1RtMUlZdEpBSWI2cDFNbWliTWpYNkpHVVdWUUI4T1hVZXZrNnlFdmJR?oc=5",
+"ts": 1791909715,
+"key": "消えるny市の飲食店コスト高で生き残り必死冷房停止日曜休業も",
+"id": "n911046_2",
+"first_try": 1791911065.6252706
+},
+{
+"source": "bloomberg",
+"label": "블룸버그",
+"gn": true,
+"title": "イランの船舶攻撃が激化、ホルムズ海峡の石油輸出回復脅かす恐れ",
+"lead": "",
+"link": "https://news.google.com/rss/articles/CBMijgFBVV95cUxNNU13cU1IZXhlRWZoM01LVmpWNFVzM3JHODVpTWNXV1VMZGhmdnlsM2d3Y3M1X1paV2p6d05Bc1Bsbk9peG9wMG1ucjF0TWJ0c3JGVDZ5Q0lzalhjT3YwX181SjVFTWZIM2tNeGJSclYzVTllekJSQkd2TElFLUMzV0U0SzNHY21naGpkTE1n?oc=5",
+"ts": 1791910255,
+"key": "イランの船舶攻撃が激化ホルムズ海峡の石油輸出回復脅かす恐れ",
+"id": "n911046_3",
+"first_try": 1791911065.6252713
+}
+],
 "daily": {
 "date": "2026-10-14",
 "count": 4
@@ -3990,7 +4045,7 @@
 },
 "version": 3,
 "health": {
-"llm": 0,
+"llm": 1,
 "src": {
 "니케이|://assets.wor.jp/rss/rdf/nikkei/news.rdf": 0,
 "니케이|assets.wor.jp/rss/rdf/nikkei/markets.rdf": 0,
