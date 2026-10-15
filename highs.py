@@ -94,12 +94,18 @@ def num(s):
         return None
 
 
-def google_news(q, params, days=3):
+NOISE = re.compile(r"52週|年初来高値|上場来高値|新高値|52-week high|all-time high|신고가|목표주가|目標株価|price target", re.I)
+
+
+def google_news(q, params, days=7, n=5):
+    """최근 days일 구글 뉴스 제목. '신고가 경신'·'목표가' 같은 결과성 제목은 뒤로 돌린다(사업 동인이 담긴 제목 우선)."""
     try:
         f = feedparser.parse(requests.get(
             f"https://news.google.com/rss/search?{params}&q={urllib.parse.quote(f'{q} when:{days}d')}",
             headers=UA, timeout=20).content)
-        return ["[구글뉴스] " + bot.SUFFIX_RE.sub("", html.unescape(e.title)).strip()[:90] for e in f.entries[:3]]
+        titles = [bot.SUFFIX_RE.sub("", html.unescape(e.title)).strip()[:110] for e in f.entries[:12]]
+        titles.sort(key=lambda t: bool(NOISE.search(t)))
+        return ["[구글뉴스] " + t for t in titles[:n]]
     except Exception:
         return []
 
@@ -361,7 +367,8 @@ def kr_news(r, now):
             for x in g.get("items") or []:
                 ts = datetime.strptime(x["datetime"], "%Y%m%d%H%M").replace(tzinfo=JST)
                 if recent(ts, now, 7):
-                    out.append(f"{ts.strftime('%m/%d')} [뉴스] {html.unescape(x.get('title', ''))[:100]}")
+                    body = re.sub(r"\s+", " ", html.unescape(x.get("body") or ""))[:160]
+                    out.append(f"{ts.strftime('%m/%d')} [뉴스] {html.unescape(x.get('title', ''))[:100]} — {body}")
     except Exception as ex:
         print(f"[warn] 네이버 뉴스 실패 {r['code']}: {ex}", file=sys.stderr)
     return out[:12] + google_news(r["name"], "hl=ko&gl=KR&ceid=KR:ko")
@@ -478,9 +485,13 @@ ITEM_PROMPT = """{role}
  code: 종목코드 그대로
  ko: 한국어 사명. {naming}
  biz: 무슨 회사인지 한국어 40자 이내. profile(회사 개요·업종)에 근거해 주력 제품·서비스를 구체적으로(예: 반도체 검사장비 제조, 편의점 체인 운영).
- reason: 왜 신고가가 됐는지 한국어 1~2문장(90자 이내), '~함' 보고서체. news(뉴스·공시 제목)에 근거가 있으면 그 재료를 날짜와 함께
-         구체적으로 써라(예: 10/14 상반기 실적 상향 공시). 근거가 될 제목이 없으면 문장 앞에 '(추정)'을 붙이고 업종 흐름 등으로 짐작하되,
-         모르면 '(추정) 뚜렷한 개별 재료 확인 안 됨'이라고 써라. 제목에 없는 숫자를 만들지 마라.
+ reason: 왜 신고가가 됐는지를 '투자 아이디어'로 한국어 2문장(130자 이내), '~함' 보고서체.
+         ① 주가를 끌어올린 사업상 동인(무엇이 잘 되고 있는지)을 먼저 쓴다. 예: 해외(북미·중국 등)에서 제품 판매 호조, 가격 인상 효과,
+            신규 수주·수요 확대(AI 데이터센터, 방산, 조선, 인바운드 등), 실적·가이던스 상향, 원가 하락, 정책 수혜, 주주환원 확대.
+         ② 그 근거가 된 뉴스·공시를 날짜와 함께 덧붙인다(예: 10/14 상반기 영업이익 예상 상향 공시).
+         '증권사 리포트 발간', '목표주가 상향', '신고가 경신', '외국인 순매수' 같은 결과·이벤트만 쓰지 마라. 리포트·목표가 뉴스뿐이면
+         그 리포트가 주목한 사업 동인을 쓴다. 뉴스로 동인이 확인되지 않으면 회사 사업 구조와 업종 흐름으로 가장 그럴듯한 동인을 쓰되
+         문장 앞에 '(추정)'을 붙여라. 자료에 없는 숫자를 만들지 마라.
  basis: reason의 근거. '공시', '뉴스', '추정' 중 하나.
 {rules}
 
@@ -509,7 +520,7 @@ OTHER_SCHEMA = {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {
 
 FLOW_PROMPT = """{role}
 오늘({day}) {country} 증시 52주 신고가 종목의 업종 집계와 상위 종목별 신고가 이유다.
-'어떤 흐름이 신고가를 이끌었는지' 2~3줄로 정리해 JSON 문자열 배열로 출력하라.
+'어떤 투자 테마·사업 동인이 신고가를 이끌었는지' 2~3줄로 정리해 JSON 문자열 배열로 출력하라(예: 해외 수요, 업황 회복, 정책).
 각 줄 한국어 60자 이내 1문장, '~함' 보고서체. 자료에 있는 사실만 쓰고, 해석이 들어가면 문장 앞에 '(추정)'을 붙여라.
 {rules}
 
