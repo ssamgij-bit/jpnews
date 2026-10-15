@@ -468,44 +468,101 @@ def cap_str(mk, cap):
 
 
 # ───────────────────────── LLM ─────────────────────────
-PROMPT = """너는 한국 자산운용사 주식운용본부의 해외·국내 주식 담당 애널리스트를 돕는 데스크다.
-오늘({day}) {country} 증시에서 52주 신고가를 경신한 종목들이다. JSON 객체 하나만 출력하라.
+ROLE = "너는 한국 자산운용사 주식운용본부의 해외·국내 주식 담당 애널리스트를 돕는 데스크다. 독자는 일본어·영어를 읽지 않는다."
+RULES = ("일본어·영어 문장을 쓰지 마라. 모든 설명은 한국어로 쓴다(영문 약어·제품명 정도만 허용). "
+         "JSON 배열만 출력하라. JSON 외 텍스트 금지.")
 
-출력:
- flow: 오늘 신고가 종목 전체(업종 집계와 DETAIL 자료)를 보고 '어떤 흐름이 신고가를 이끌었는지' 2~3줄. 각 줄 60자 이내 1문장, '~함' 보고서체.
-       자료에 있는 사실만 쓰고, 해석이 들어가면 문장 앞에 '(추정)'을 붙여라.
- items: DETAIL 종목마다 하나.
-   code: 종목코드 그대로
-   ko: 한국어 사명. {naming}
-   biz: 무슨 회사인지 40자 이내. profile(회사 개요·업종)에 근거해 주력 제품·서비스를 구체적으로.
-   reason: 왜 신고가가 됐는지 1~2문장(90자 이내), '~함' 보고서체. news(뉴스·공시 제목)에 근거가 있으면 그 재료를 날짜와 함께
-           구체적으로 써라(예: 10/14 상반기 실적 상향 공시). 근거가 될 제목이 없으면 문장 앞에 '(추정)'을 붙이고 업종 흐름 등으로 짐작하되,
-           모르면 '(추정) 뚜렷한 개별 재료 확인 안 됨'이라고 써라. 제목에 없는 숫자를 만들지 마라.
-   basis: reason의 근거. '공시', '뉴스', '추정' 중 하나.
- others: OTHERS 종목마다 {{"code": 종목코드, "ko": 한국어 사명}} (OTHERS가 없으면 빈 배열).
-일본어를 쓰지 마라(영문 사명은 그대로 써도 됨). JSON 외 텍스트 금지.
+ITEM_PROMPT = """{role}
+오늘({day}) {country} 증시에서 52주 신고가를 경신한 종목들이다. 종목마다 JSON 배열 항목 하나를 출력하라(입력 순서대로, 빠짐없이).
+
+ code: 종목코드 그대로
+ ko: 한국어 사명. {naming}
+ biz: 무슨 회사인지 한국어 40자 이내. profile(회사 개요·업종)에 근거해 주력 제품·서비스를 구체적으로(예: 반도체 검사장비 제조, 편의점 체인 운영).
+ reason: 왜 신고가가 됐는지 한국어 1~2문장(90자 이내), '~함' 보고서체. news(뉴스·공시 제목)에 근거가 있으면 그 재료를 날짜와 함께
+         구체적으로 써라(예: 10/14 상반기 실적 상향 공시). 근거가 될 제목이 없으면 문장 앞에 '(추정)'을 붙이고 업종 흐름 등으로 짐작하되,
+         모르면 '(추정) 뚜렷한 개별 재료 확인 안 됨'이라고 써라. 제목에 없는 숫자를 만들지 마라.
+ basis: reason의 근거. '공시', '뉴스', '추정' 중 하나.
+{rules}
+
+종목:
+{items}
+"""
+ITEM_SCHEMA = {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {
+    "code": {"type": "STRING"}, "ko": {"type": "STRING"}, "biz": {"type": "STRING"},
+    "reason": {"type": "STRING"}, "basis": {"type": "STRING"}},
+    "required": ["code", "ko", "biz", "reason", "basis"]}}
+
+OTHER_PROMPT = """{role}
+오늘({day}) {country} 증시에서 52주 신고가를 경신한 종목들이다. 종목마다 JSON 배열 항목 하나를 출력하라(입력 순서대로, 빠짐없이).
+
+ code: 종목코드 그대로
+ ko: 한국어 사명. {naming}
+ biz: 무슨 회사인지 한국어 20자 이내(예: 반도체 검사장비, 지방은행, 편의점 체인). 확실하지 않으면 업종 이름.
+{rules}
+
+종목:
+{items}
+"""
+OTHER_SCHEMA = {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {
+    "code": {"type": "STRING"}, "ko": {"type": "STRING"}, "biz": {"type": "STRING"}},
+    "required": ["code", "ko", "biz"]}}
+
+FLOW_PROMPT = """{role}
+오늘({day}) {country} 증시 52주 신고가 종목의 업종 집계와 상위 종목별 신고가 이유다.
+'어떤 흐름이 신고가를 이끌었는지' 2~3줄로 정리해 JSON 문자열 배열로 출력하라.
+각 줄 한국어 60자 이내 1문장, '~함' 보고서체. 자료에 있는 사실만 쓰고, 해석이 들어가면 문장 앞에 '(추정)'을 붙여라.
+{rules}
 
 [업종 집계(전체 {n}종목)]
 {sectors}
 
-DETAIL:
-{detail}
-
-OTHERS:
-{others}
+[상위 종목]
+{tops}
 """
-SCHEMA = {"type": "OBJECT", "properties": {
-    "flow": {"type": "ARRAY", "items": {"type": "STRING"}},
-    "items": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {
-        "code": {"type": "STRING"}, "ko": {"type": "STRING"}, "biz": {"type": "STRING"},
-        "reason": {"type": "STRING"}, "basis": {"type": "STRING"}},
-        "required": ["code", "ko", "biz", "reason", "basis"]}},
-    "others": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {
-        "code": {"type": "STRING"}, "ko": {"type": "STRING"}}, "required": ["code", "ko"]}}},
-    "required": ["flow", "items", "others"]}
+FLOW_SCHEMA = {"type": "ARRAY", "items": {"type": "STRING"}}
+NAMING_KR = "원래 한국어 사명 그대로."
+BATCH = 10            # 상세 종목은 10개씩 나눠 요청(응답이 잘리거나 빠지는 것 방지)
+OTHER_BATCH = 60
 
 
-def build(state, mk, day, asof, stocks):
+def _ask(state, prompt, schema, tag):
+    try:
+        res = bot.gemini(state, prompt, schema, bot.WRITE_MODELS + bot.TRIAGE_MODELS, tag)
+        return res if isinstance(res, list) else []
+    except Exception as ex:
+        print(f"[warn] {tag} 실패: {ex}", file=sys.stderr)
+        return []
+
+
+def _korean_ok(x):
+    """일본어(가나)·영문 문장이 남아 있으면 False."""
+    t = " ".join(str(x.get(k) or "") for k in ("biz", "reason"))
+    return bool(t.strip()) and not re.search(r"[぀-ヿ]", t) and not re.search(r"[A-Za-z]{4,}(?:\s+[A-Za-z]{3,}){3,}", t)
+
+
+def describe(state, mk, day, rows, prompt, schema, size, fields):
+    """rows를 size개씩 나눠 요청하고, 빠지거나 한국어가 아닌 항목은 한 번 더 요청. 반환: {code: 항목}"""
+    cfg = MARKETS[mk]
+    out = {}
+    for attempt in range(2):
+        todo = [r for r in rows if r["code"] not in out]
+        for i in range(0, len(todo), size):
+            part = todo[i:i + size]
+            items = "\n".join(json.dumps({k: r.get(k) for k in fields}, ensure_ascii=False) for r in part)
+            res = _ask(state, prompt.format(role=ROLE, rules=RULES, day=day, country=cfg["name"],
+                                            naming=cfg["naming"] or NAMING_KR, items=items),
+                       schema, f"52주 신고가 {mk} {i // size + 1}/{(len(todo) + size - 1) // size}")
+            for x in res:
+                if isinstance(x, dict) and str(x.get("code")) in {r["code"] for r in part} and x.get("ko") \
+                        and (schema is not ITEM_SCHEMA or _korean_ok(x)):
+                    out[str(x["code"])] = x
+        if all(r["code"] in out for r in rows):
+            break
+    return out
+
+
+def build(state, mk, day, asof, stocks, final):
+    """메시지 (머리말, 본문 블록 목록) 반환. 요약이 거의 실패했고 마지막 시도가 아니면 None(다음 실행에 재시도)."""
     cfg = MARKETS[mk]
     now = now_in(cfg["tz"])
     if mk == "JP":  # 일본은 목록에 시총이 없어 모든 종목 페이지를 연다(업종도 여기서)
@@ -522,36 +579,27 @@ def build(state, mk, day, asof, stocks):
             kr_profile(r)
         r["news"] = cfg["news"](r, now)
         time.sleep(0.5)
-    sec = Counter(r.get("sector") or "기타" for r in stocks)
-    if mk == "KR":  # 한국은 상위 종목만 업종을 알 수 있음
-        sec = Counter(r.get("sector") or "기타" for r in top)
-    sectors = "\n".join(f"- {k}: {v}" for k, v in sec.most_common())
-    detail = "\n".join(json.dumps({"code": r["code"], "name": r["name"], "profile": r.get("profile", ""),
-                                   "pct": r["pct"], "news": r.get("news", [])}, ensure_ascii=False) for r in top)
-    others = "\n".join(json.dumps({"code": r["code"], "name": r["name"]}, ensure_ascii=False)
-                       for r in rest[:OTHERS_MAX]) if cfg["need_ko"] and mk != "US" else ""
-    try:
-        res = bot.gemini(state, PROMPT.format(day=day, country=cfg["name"], naming=cfg["naming"] or "원래 사명 그대로.",
-                                              n=len(stocks), sectors=sectors, detail=detail, others=others or "(없음)"),
-                         SCHEMA, bot.WRITE_MODELS + bot.TRIAGE_MODELS, f"52주 신고가 {mk}")
-        if isinstance(res, list):  # 모델이 객체를 배열로 감싸 돌려주는 경우
-            res = next((x for x in res if isinstance(x, dict) and "items" in x),
-                       {"items": [x for x in res if isinstance(x, dict) and "code" in x]})
-        ok = isinstance(res, dict) and bool(res.get("items"))
-        res = res if isinstance(res, dict) else {}
-    except Exception as ex:
-        print(f"[warn] 신고가 정리 실패 {mk}: {ex}", file=sys.stderr)
-        res, ok = {}, False
-    by = {str(x.get("code")): x for x in (res.get("items") or []) if isinstance(x, dict)}
-    ko_rest = {str(x.get("code")): x.get("ko") for x in (res.get("others") or []) if isinstance(x, dict)}
+    sec = Counter(r.get("sector") or "기타" for r in (top if mk == "KR" else stocks))  # 한국은 상위 종목만 업종을 알 수 있음
+    by = describe(state, mk, day, top, ITEM_PROMPT, ITEM_SCHEMA, BATCH, ("code", "name", "profile", "pct", "news"))
+    if len(by) < max(1, len(top) // 2) and not final:
+        print(f"[warn] {mk} 요약 {len(by)}/{len(top)}건만 성공 → 다음 실행에 재시도", file=sys.stderr)
+        return None
+    shown = rest[:OTHERS_MAX]
+    ko_rest = describe(state, mk, day, shown, OTHER_PROMPT, OTHER_SCHEMA, OTHER_BATCH,
+                       ("code", "name", "sector", "profile")) if shown else {}
+    tops = "\n".join(f"- {(by.get(r['code']) or {}).get('ko') or r['name']}({r.get('sector', '')}): "
+                     f"{(by.get(r['code']) or {}).get('reason', '')}" for r in top)
+    flow = _ask(state, FLOW_PROMPT.format(role=ROLE, rules=RULES, day=day, country=cfg["name"], n=len(stocks),
+                                          sectors="\n".join(f"- {k}: {v}" for k, v in sec.most_common()), tops=tops),
+                FLOW_SCHEMA, f"52주 신고가 {mk} 흐름") if by else []
+    flow = [str(x).strip() for x in flow if isinstance(x, str) and str(x).strip()][:3]
 
     head = [f"<b>&gt;&gt;[52주 신고가] {cfg['name']} {day[5:]} {cfg['label']} 마감 · {len(stocks)}종목</b>",
             f"({esc(asof)})"]
-    if not ok:
-        head.append("(요약 생성 실패: 원래 사명과 수치만 보냅니다)")
+    if len(by) < len(top):
+        head.append(f"(요약 {len(top) - len(by)}종목 실패: 해당 종목은 원래 사명만 표시)")
     head.append(f"\n<b>[업종{'(상위 ' + str(len(top)) + '종목)' if mk == 'KR' else ''}]</b> "
                 + esc(" · ".join(f"{k} {v}" for k, v in sec.most_common(8))))
-    flow = [str(x).strip() for x in (res.get("flow") or []) if str(x).strip()][:3]
     if flow:
         head.append("\n<b>[흐름]</b>\n" + "\n\n".join(f"• {esc(x.lstrip('•· '))}" for x in flow))
     blocks = []
@@ -568,11 +616,14 @@ def build(state, mk, day, asof, stocks):
         lines.append(f"\n&gt;<a href=\"{cfg['link'](r)}\">{cfg['link_name']}</a>")
         blocks.append("\n".join(lines))
     if rest:
-        shown = rest[:OTHERS_MAX]
-        names = ", ".join(f"{esc(ko_rest.get(r['code']) or r['name'])}({r['code']})" if mk != "US" else r["code"]
-                          for r in shown)
-        more = f" 외 {len(rest) - len(shown)}종목" if len(rest) > len(shown) else ""
-        blocks.append(f"<b>[그 밖의 신고가 {len(rest)}종목]</b> (시총 순)\n{names}{more}")
+        lines = [f"<b>[그 밖의 신고가 {len(rest)}종목]</b> (시총 순, 이름·사업만)"]
+        for r in shown:
+            o = ko_rest.get(r["code"], {})
+            biz = f" — {esc(o['biz'])}" if o.get("biz") else ""
+            lines.append(f"• {esc(o.get('ko') or r['name'])}({cfg['tick'](r)}){biz}")
+        if len(rest) > len(shown):
+            lines.append(f"외 {len(rest) - len(shown)}종목")
+        blocks.append("\n".join(lines))
     blocks.append("<i>신고가 이유는 뉴스·공시 제목 기준 요약이며, '(추정)'은 근거 제목이 없는 경우입니다. "
                   "시총·PER·PBR은 각 사이트 표시값입니다.</i>")
     return "\n".join(head), blocks
@@ -614,7 +665,13 @@ def run_market(state, mk):
         ok = bot.tg_send(f"<b>&gt;&gt;[52주 신고가] {cfg['name']} {day[5:]} {cfg['label']} 마감</b>\n"
                          "오늘 52주 신고가를 경신한 종목이 없습니다.")
     else:
-        ok = send_chunks(*build(state, mk, day, asof, rows))
+        tries = state.setdefault("tries", {})
+        n = tries[mk] = (tries.get(mk, 0) + 1) if tries.get(f"{mk}_day") == today else 1
+        tries[f"{mk}_day"] = today
+        msg = build(state, mk, day, asof, rows, final=FORCE or n >= 2)  # 첫 시도에 요약이 실패하면 30분 뒤 재시도에서 보냄
+        if msg is None:
+            return
+        ok = send_chunks(*msg)
     if ok:
         state["last"][mk] = today
 
