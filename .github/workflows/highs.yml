@@ -1,0 +1,70 @@
+name: new-highs-bot
+
+on:
+  schedule:
+    - cron: "15 7 * * 1-5"    # 16:15 KST: 일본·한국 52주 신고가 (일본 16:00 확정 목록 이후)
+    - cron: "45 7 * * 1-5"    # 16:45 KST: 위 실행이 실패했을 때 재시도(이미 보냈으면 건너뜀)
+    - cron: "45 21 * * 1-5"   # 06:45 KST(뉴욕 마감 후): 미국 52주 신고가
+    - cron: "15 22 * * 1-5"   # 07:15 KST: 재시도
+  workflow_dispatch:
+    inputs:
+      market:
+        description: "시장(JP, KR, US 또는 JP,KR,US)"
+        type: string
+        default: "JP,KR,US"
+      force:
+        description: "오늘 이미 보냈어도·마감 전이어도 지금 보내기(테스트용)"
+        type: boolean
+        default: true
+
+concurrency:
+  group: new-highs-bot
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  run:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Run new-highs bot
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          TELEGRAM_ADMIN_CHAT_ID: ${{ secrets.TELEGRAM_ADMIN_CHAT_ID }}
+          HIGHS_TOP_N: ${{ vars.HIGHS_TOP_N || '30' }}
+          HIGHS_NOW: ${{ github.event.inputs.force == 'true' && '1' || '0' }}
+        run: python highs.py "${{ github.event.inputs.market || 'auto' }}"
+      - name: Save state
+        if: always()
+        run: |
+          git config user.name "new-highs-bot"
+          git config user.email "actions@users.noreply.github.com"
+          [ -f highs_state.json ] || exit 0
+          git add highs_state.json
+          git diff --cached --quiet && exit 0
+          git commit -m "highs state update [skip ci]"
+          # 다른 봇이 같은 순간에 저장하면 push가 거부될 수 있어 최대 5번 재시도
+          for i in 1 2 3 4 5; do
+            git pull --rebase -X theirs && git push && exit 0
+            sleep $((i * 5))
+          done
+          exit 1
+      - name: Notify crash
+        if: failure()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          CHAT: ${{ secrets.TELEGRAM_ADMIN_CHAT_ID || secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            --data-urlencode "chat_id=${CHAT}" \
+            --data-urlencode "text=[봇 경고] 52주 신고가 봇 실행이 중단됐습니다. 로그: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" > /dev/null
