@@ -2,16 +2,14 @@ name: new-highs-bot
 
 on:
   schedule:
-    - cron: "15 7 * * 1-5"    # 16:15 KST: 일본·한국 52주 신고가 (일본 16:00 확정 목록 이후)
-    - cron: "45 7 * * 1-5"    # 16:45 KST: 위 실행이 실패했을 때 재시도(이미 보냈으면 건너뜀)
-    - cron: "45 21 * * 1-5"   # 06:45 KST(뉴욕 마감 후): 미국 52주 신고가
-    - cron: "15 22 * * 1-5"   # 07:15 KST: 재시도
+    - cron: "40 7 * * 1-5"    # 16:40 KST: 일본 증시 마감 정리 + 52주 신고가 (카부탄 마감 시황 기사 16:15 전후 게재 이후)
+    - cron: "10 8 * * 1-5"    # 17:10 KST: 위 실행이 미뤄졌거나 실패했을 때 재시도(이미 보냈으면 건너뜀)
   workflow_dispatch:
     inputs:
       market:
-        description: "시장(JP, KR, US 또는 JP,KR,US)"
+        description: "시장(JP. 한국 KR·미국 US는 정기 발송 안 함)"
         type: string
-        default: "JP,KR,US"
+        default: "JP"
       force:
         description: "오늘 이미 보냈어도·마감 전이어도 지금 보내기(테스트용)"
         type: boolean
