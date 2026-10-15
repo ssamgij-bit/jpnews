@@ -17,6 +17,7 @@ import os
 import re
 import sys
 import time
+import unicodedata
 import urllib.parse
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
@@ -122,7 +123,59 @@ SECTOR_KO = {
 }
 
 
+JP_MOBILE = False  # PC판 카부탄이 막히면(GitHub 서버에서 HTTP 405 등) 모바일판(s.kabutan.jp)으로 전환
+
+
 def jp_list(today):
+    global JP_MOBILE
+    try:
+        return _jp_list_pc(today)
+    except Exception as ex:
+        print(f"[warn] 카부탄 PC판 실패 → 모바일판으로 전환: {ex}", file=sys.stderr)
+    JP_MOBILE = True
+    return _jp_list_mobile(today)
+
+
+def _jp_mkt(s):
+    return unicodedata.normalize("NFKC", text_of(s))
+
+
+def _jp_list_mobile(today):
+    rows, seen, day, asof = [], set(), "", ""
+    for page in range(1, 60):
+        h = get("https://s.kabutan.jp/warnings/record_w52_high_price/", params={"page": page})
+        if page == 1:
+            m = re.search(r"株価：(\d+)年(\d+)月(\d+)日\s*([\d:]+)", h)
+            if not m:
+                raise RuntimeError("카부탄 모바일 목록 기준일을 찾지 못함(페이지 구조 변경 가능성)")
+            day = f"{int(m.group(1)):04d}-{int(m.group(2)):02d}-{int(m.group(3)):02d}"
+            asof = m.group(4)
+            if day != today and not FORCE:
+                return day, asof, None
+        new = 0
+        for tr in re.findall(r"<tr>(.*?)</tr>", h, re.S):
+            m = re.search(r'href="/stocks/(\w+)/".*?<p class="font-bold[^"]*">(.*?)</p>.*?(\w+)\s*<span class="px-1[^"]*">(.*?)</span>',
+                          tr, re.S)
+            tds = re.findall(r"<td[^>]*>(.*?)</td>", tr, re.S)
+            if not m or m.group(1) in seen or len(tds) < 6:
+                continue
+            seen.add(m.group(1))
+            new += 1
+            mkt = _jp_mkt(m.group(4))
+            if mkt in ("東E", "東R", "東I"):
+                continue
+            pct = re.findall(r"([+-]?[\d.]+)</span><span[^>]*>%", tds[1])
+            per, pbr = text_of(tds[3]).replace("倍", "").strip(), text_of(tds[4]).replace("倍", "").strip()
+            rows.append({"code": m.group(1), "name": text_of(m.group(2)), "mkt": mkt, "price": text_of(tds[0]) + "엔",
+                         "pct": num(pct[0]) if pct else None,
+                         "val": " · ".join(x for x in (f"PER {per}배" if num(per) else "", f"PBR {pbr}배" if num(pbr) else "") if x)})
+        if not new:
+            break
+        time.sleep(0.7)
+    return day, f"카부탄 {asof} 기준, ETF·리츠 제외", rows
+
+
+def _jp_list_pc(today):
     rows, seen, day, asof = [], set(), "", ""
     for page in range(1, 60):
         h = get(JP_LIST, params={"market": 0, "capitalization": -1, "stc": "code", "stm": 0, "page": page})
@@ -163,6 +216,16 @@ def jp_cap(h):
 
 
 def jp_profile(r):
+    if JP_MOBILE:
+        h = get(f"https://s.kabutan.jp/stocks/{r['code']}/")
+        m = re.search(r"時価総額</div>.*?>\s*(?:([\d,]+)兆)?([\d,]+)?\s*<span[^>]*>億円", h, re.S)
+        r["cap"] = (int((m.group(1) or "0").replace(",", "")) * 10000 + int((m.group(2) or "0").replace(",", ""))) if m else None
+        g = re.search(r"業種\s*</span>\s*<a[^>]*>(.*?)</a>", h, re.S)
+        g = text_of(g.group(1)) if g else ""
+        r["sector"] = SECTOR_KO.get(g, g or "기타")
+        o = re.search(r"概要\s*</div>\s*<div[^>]*>(.*?)</div>", h, re.S)
+        r["profile"] = text_of(o.group(1)) if o else ""
+        return
     h = get(f"https://kabutan.jp/stock/?code={r['code']}")
     cap = jp_cap(h)
     r["cap"] = cap  # 억엔
@@ -178,6 +241,23 @@ def jp_profile(r):
 
 def jp_news(r, now):
     out = []
+    if JP_MOBILE:
+        try:
+            h = get(f"https://s.kabutan.jp/stocks/{r['code']}/news/")
+            for li in re.findall(r"<li[^>]*>(.*?)</li>", h, re.S):
+                t = re.search(r'datetime="(\d{4}-\d\d-\d\d \d\d:\d\d)', li)
+                title = re.search(r'<div class="w-full[^"]*">(.*?)</div>', li, re.S)
+                ctg = re.search(r'<span class="news_category[^"]*">(.*?)</span>', li, re.S)
+                if not t or not title:
+                    continue
+                ts, title = datetime.strptime(t.group(1), "%Y-%m-%d %H:%M").replace(tzinfo=JST), text_of(title.group(1))
+                if recent(ts, now) and not JP_GENERIC.search(title):
+                    out.append(f"{ts.strftime('%m/%d')} [{text_of(ctg.group(1)) if ctg else ''}] {title[:100]}")
+                if len(out) >= 8:
+                    break
+        except Exception as ex:
+            print(f"[warn] 카부탄 모바일 뉴스 실패 {r['code']}: {ex}", file=sys.stderr)
+        return out + google_news(r["name"], "hl=ja&gl=JP&ceid=JP:ja")
     try:
         h = get(f"https://kabutan.jp/stock/news?code={r['code']}")
         body = h[h.find('<table class="s_news_list'):]
@@ -454,7 +534,11 @@ def build(state, mk, day, asof, stocks):
         res = bot.gemini(state, PROMPT.format(day=day, country=cfg["name"], naming=cfg["naming"] or "원래 사명 그대로.",
                                               n=len(stocks), sectors=sectors, detail=detail, others=others or "(없음)"),
                          SCHEMA, bot.WRITE_MODELS + bot.TRIAGE_MODELS, f"52주 신고가 {mk}")
-        ok = isinstance(res, dict)
+        if isinstance(res, list):  # 모델이 객체를 배열로 감싸 돌려주는 경우
+            res = next((x for x in res if isinstance(x, dict) and "items" in x),
+                       {"items": [x for x in res if isinstance(x, dict) and "code" in x]})
+        ok = isinstance(res, dict) and bool(res.get("items"))
+        res = res if isinstance(res, dict) else {}
     except Exception as ex:
         print(f"[warn] 신고가 정리 실패 {mk}: {ex}", file=sys.stderr)
         res, ok = {}, False
