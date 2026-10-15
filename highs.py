@@ -527,6 +527,9 @@ FLOW_PROMPT = """{role}
 [업종 집계(전체 {n}종목)]
 {sectors}
 
+[오늘 장 분위기(마감 정리 요약)]
+{mood}
+
 [상위 종목]
 {tops}
 """
@@ -601,7 +604,8 @@ def build(state, mk, day, asof, stocks, final):
     tops = "\n".join(f"- {(by.get(r['code']) or {}).get('ko') or r['name']}({r.get('sector', '')}): "
                      f"{(by.get(r['code']) or {}).get('reason', '')}" for r in top)
     flow = _ask(state, FLOW_PROMPT.format(role=ROLE, rules=RULES, day=day, country=cfg["name"], n=len(stocks),
-                                          sectors="\n".join(f"- {k}: {v}" for k, v in sec.most_common()), tops=tops),
+                                          sectors="\n".join(f"- {k}: {v}" for k, v in sec.most_common()), tops=tops,
+                                          mood=state.get("wrap_ctx") or "(없음)"),
                 FLOW_SCHEMA, f"52주 신고가 {mk} 흐름") if by else []
     flow = [str(x).strip() for x in flow if isinstance(x, str) and str(x).strip()][:3]
 
@@ -640,6 +644,146 @@ def build(state, mk, day, asof, stocks, final):
     return "\n".join(head), blocks
 
 
+# ───────────────────────── 일본 증시 마감 정리 ─────────────────────────
+WRAP_PICK = [  # 카부탄 시황 기사 중 마감 정리에 쓸 것(제목 패턴, 최대 글자 수)
+    (re.compile(r"東京株式（大引け）"), 2200), (re.compile(r"相場概況"), 2200),
+    (re.compile(r"寄与度ランキング（大引け）"), 1200), (re.compile(r"東証業種別ランキング"), 600),
+    (re.compile(r"東証グロース（大引け）|グロース市況"), 900), (re.compile(r"東証スタンダード（大引け）"), 700),
+    (re.compile(r"本日の注目個別銘柄"), 1500), (re.compile(r"話題株ピックアップ【夕刊】"), 1500),
+    (re.compile(r"日経平均 大引け｜"), 900),
+]
+
+
+def _article(url, limit):
+    h = get("https://s.kabutan.jp" + url)
+    i = h.find("news-body")
+    t = text_of(re.sub(r"<(script|style).*?</\1>", " ", h[i:i + 30000], flags=re.S)) if i >= 0 else ""
+    t = re.sub(r"^news-body[^>]*>\s*", "", t)
+    for cut in ("関連記事", "提供：", "人気ニュース"):
+        if cut in t:
+            t = t[:t.index(cut)]
+    return t.strip()[:limit]
+
+
+def wrap_sources(today):
+    """오늘 15시 이후 카부탄 시황 기사 본문 목록 [(제목, 본문)]."""
+    seen, picked = set(), {}
+    for cat in (1, 2):
+        for page in range(1, 9):
+            h = get("https://s.kabutan.jp/market_news/", params={"category_org_id": cat, "page": page})
+            items = re.findall(r'href="(/news/n\d+/)">\s*([^<]+?)\s*</a>.*?datetime="([^"]+)"', h, re.S)
+            if not items:
+                break
+            for u, t, d in items:
+                if u in seen or not d.startswith(today) or d[11:13] < "15":
+                    continue
+                seen.add(u)
+                for k, (pat, lim) in enumerate(WRAP_PICK):
+                    if k not in picked and pat.search(t):
+                        picked[k] = (html.unescape(t), u, lim)
+            if all(d < today for _, _, d in items):
+                break
+            time.sleep(0.4)
+    out = []
+    for k in sorted(picked):
+        t, u, lim = picked[k]
+        try:
+            out.append((t, _article(u, lim)))
+        except Exception as ex:
+            print(f"[warn] 시황 기사 실패 {u}: {ex}", file=sys.stderr)
+        time.sleep(0.4)
+    return out
+
+
+def jp_sectors():
+    """33업종 등락률 [(업종, %)], 상승률 순."""
+    h = get("https://s.kabutan.jp/warnings/sector_stocks_ranking/")
+    rows = []
+    for tr in re.findall(r"<tr>(.*?)</tr>", h, re.S):
+        t = text_of(tr)
+        m = re.match(r"(\S+)\s+\d{4}\s+\d+\s+[\d,.]+\s+[+-]?[\d,.]+\s+([+-]?[\d.]+)\s*%", t)
+        if m:
+            rows.append((SECTOR_KO.get(m.group(1), SECTOR_ALIAS.get(m.group(1), m.group(1))), float(m.group(2))))
+    return rows
+
+
+SECTOR_ALIAS = {"倉庫・運輸": "창고·운수", "証券・商品": "증권", "電気・ガス": "전기·가스", "石油・石炭": "석유·석탄",
+                "ガラス・土石": "유리·토석", "繊維": "섬유", "化学工業": "화학"}
+
+
+def jp_index(sym):
+    try:
+        d = json.loads(get(f"https://api.stock.naver.com/index/{sym}/basic"))
+        r = float(d["fluctuationsRatio"])
+        return f"{d['closePrice']} ({r:+.2f}%)" if r else d["closePrice"]  # 다음 날 개장 전에는 등락률이 0으로 초기화됨
+    except Exception:
+        return ""
+
+
+WRAP_PROMPT = """{role}
+아래는 오늘({day}) 도쿄 증시 마감 후 나온 시황 기사(일본어)와 33업종 등락률이다. 한국 운용역이 읽을 '일본 증시 마감 정리'를 만들어라.
+JSON 배열 하나를 출력하되, 항목은 아래 6개 섹션 순서대로 {{"title": 섹션명, "lines": [문장들]}} 형식이다.
+
+1. "한줄 요약": 1문장(70자 이내). 오늘 장의 성격(예: 미 금리·반도체 쇼크발 리스크오프, 내수 방어주로 순환).
+2. "지수·수급": 2~3문장. 닛케이·TOPIX·그로스 지수 등락, 상승·하락 종목 수, 매매대금 등 기사에 나온 수치.
+3. "오른 업종": 상위 3~5개 업종마다 1문장 '업종(+x.x%): 왜 올랐는지'. 이유는 기사 근거(대표 종목 포함). 근거가 없으면 '(추정)'.
+4. "내린 업종": 하위 3~5개 업종마다 같은 형식.
+5. "주요 종목": 4~6문장. 지수 영향이 컸거나 화제가 된 종목과 그 이유(실적, 수주, 해외 수요, 업황 등 사업 동인 중심).
+   종목명은 한국어(일본어 발음 한글 표기 또는 국내 통용명)로 쓰고 괄호에 종목코드(예: 어드반테스트(6857)).
+6. "분위기·체크포인트": 2~3문장. 투자 심리(공포·안도·순환매 등)와 다음 거래일에 볼 변수(미국 지표, 실적 발표, 환율 등). 해석은 '(추정)'.
+규칙: 기사에 있는 사실과 수치만 쓰고 숫자를 만들지 마라. 각 문장 '~함' 보고서체. 일본 고유명사는 일본어 발음대로 한글 표기(예: 第一興商=다이이치코쇼).
+{rules}
+
+[33업종 등락률(%)]
+{sectors}
+
+[지수(네이버 기준)]
+닛케이225 {nk} / TOPIX {tp}
+
+[시황 기사]
+{articles}
+"""
+WRAP_SCHEMA = {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {
+    "title": {"type": "STRING"}, "lines": {"type": "ARRAY", "items": {"type": "STRING"}}},
+    "required": ["title", "lines"]}}
+
+
+def jp_wrap(state, day, final):
+    """일본 증시 마감 정리 메시지. 대표 마감 기사가 아직 없고 마지막 시도가 아니면 None."""
+    arts = wrap_sources(day)
+    if not any(re.search(r"東京株式（大引け）|相場概況", t) for t, _ in arts) and not final:
+        print("[warn] 마감 시황 기사 아직 없음 → 다음 실행에 재시도", file=sys.stderr)
+        return None
+    try:
+        sec = jp_sectors()
+    except Exception as ex:
+        print(f"[warn] 업종 등락률 실패: {ex}", file=sys.stderr)
+        sec = []
+    nk, tp = jp_index(".N225"), jp_index(".TOPX")
+    res = _ask(state, WRAP_PROMPT.format(role=ROLE, rules=RULES, day=day, nk=nk or "-", tp=tp or "-",
+                                         sectors="\n".join(f"- {k}: {v:+.2f}" for k, v in sec) or "(없음)",
+                                         articles="\n\n".join(f"## {t}\n{b}" for t, b in arts) or "(없음)"),
+               WRAP_SCHEMA, "일본 마감 정리")
+    secs = [x for x in res if isinstance(x, dict) and x.get("lines")]
+    if len(secs) < 3 and not final:
+        print("[warn] 마감 정리 요약 실패 → 다음 실행에 재시도", file=sys.stderr)
+        return None
+    head = f"<b>&gt;&gt;[일본 증시 마감] {day[5:]}</b>" + (f"\n닛케이225 {esc(nk)} · TOPIX {esc(tp)}" if nk or tp else "")
+    blocks = []
+    for x in secs:
+        blocks.append(f"<b>[{esc(str(x['title']).strip('[] '))}]</b>\n" +
+                      "\n\n".join(f"• {esc(str(l).lstrip('•· ').strip())}" for l in x["lines"] if str(l).strip()))
+    if sec:
+        up = " · ".join(f"{k} {v:+.1f}%" for k, v in sec[:5])
+        dn = " · ".join(f"{k} {v:+.1f}%" for k, v in sec[::-1][:5])
+        blocks.append(f"<b>[업종 등락 상·하위 5]</b>\n▲ {esc(up)}\n\n▼ {esc(dn)}")
+    if not secs:
+        blocks.append("(요약 생성 실패: 업종 등락만 보냅니다)")
+    blocks.append("<i>카부탄·피스코 마감 시황 기사와 업종 등락률 기준 요약입니다. '(추정)'은 기사에 근거가 없는 해석입니다.</i>")
+    state["wrap_ctx"] = " / ".join(" ".join(map(str, x["lines"])) for x in secs[:1] + secs[-1:])[:400]
+    return head, blocks
+
+
 def send_chunks(header, blocks, sep="\n\n━━━━━━━━━━\n"):
     chunks, cur = [], header
     for b in blocks:
@@ -660,6 +804,15 @@ def run_market(state, mk):
         return
     try:
         day, asof, rows = cfg["list"](today)
+        if rows is not None and mk == "JP" and (state["last"].get("JPWRAP") != today or FORCE):
+            tries = state.setdefault("tries", {})
+            n = tries["JPWRAP"] = (tries.get("JPWRAP", 0) + 1) if tries.get("JPWRAP_day") == today else 1
+            tries["JPWRAP_day"] = today
+            w = jp_wrap(state, day, final=FORCE or n >= 2)
+            if w is None:
+                return  # 마감 정리부터 다시(신고가도 다음 실행에 함께)
+            if send_chunks(*w):
+                state["last"]["JPWRAP"] = today
     except Exception as ex:
         state["fail"][mk] = state["fail"].get(mk, 0) + 1
         print(f"[warn] {mk} 목록 실패({state['fail'][mk]}회): {ex}", file=sys.stderr)
@@ -691,7 +844,7 @@ def main():
     arg = (sys.argv[1] if len(sys.argv) > 1 else "auto").upper()
     if arg == "AUTO":
         h = datetime.now(JST).hour
-        mks = ["JP", "KR"] if 16 <= h <= 23 else ["US"] if 5 <= h <= 12 else []
+        mks = ["JP"] if 16 <= h <= 23 else []  # 한국·미국 신고가는 보내지 않음(코드만 유지, 수동 실행은 가능)
     else:
         mks = [m for m in arg.split(",") if m in MARKETS]
     state = load_state()
