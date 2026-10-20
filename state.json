@@ -1,9 +1,5 @@
 {
 "seen": {
-"タイ副首相再生エネに移行加速imf世銀総会が事実上閉幕": 1792248384.4703767,
-"中国高市首相の靖国神社への真榊奉納を非難戦後秩序への挑戦": 1792248384.477208,
-"epmdg": 1792248384.4814172,
-"cple3tsa": 1792248384.4857984,
 "denaは勢いだけではない三森大貴の決勝打で4連勝日本sへ": 1792249657.9129992,
 "自民党消費減税財源議論へ国民民主は20日にも対案提出": 1792249657.9196362,
 "アジアパラ大会ゴールボール日本が男女で快勝": 1792249657.9257853,
@@ -1797,7 +1793,16 @@
 "北京市城市更新平台成立聚焦核心区平房院落保护更新危旧楼房改建老旧小区综合改造等": 1792505428.828193,
 "日立美洲公司与潘世奇车队延长印地赛车赞助协议": 1792505428.8345306,
 "米一戸建て住宅着工9月は46％減ローン金利上昇が需要抑制": 1792505428.8415725,
-"フランス株に空売り殺到ファンド勢は投資敬遠政治リスクを警戒": 1792505428.8486843
+"フランス株に空売り殺到ファンド勢は投資敬遠政治リスクを警戒": 1792505428.8486843,
+"国の省エネ住宅事業で2万3000件超の情報漏えいのおそれ": 1792508059.0013363,
+"kateentringer": 1792508059.0024724,
+"ｇｍ通期ｅｐｓ予想が市場予想に届かず第3四半期は増益": 1792508059.0092347,
+"孫正義氏が描くロボコップの世界現実味増すai投資の次なる舞台": 1792508059.0167415,
+"ロシアウクライナ西部のエネ施設にも攻撃拡大停電相次ぐ": 1792508059.023532,
+"米中古住宅販売成約過去最低水準に落ち込む高い金利が需要圧迫": 1792508059.0306058,
+"ウクライナ向け迎撃弾未納の可能性政治的意図はない米国務長官": 1792508059.0377588,
+"トランプ政権の政策ほとんど阻止できない民主が議会掌握でも米財務長官": 1792508059.045267,
+"ｅｕ北極圏の化石燃料開発阻止で新戦略ロシア念頭に": 1792508059.0518477
 },
 "recent": [
 {
@@ -4930,7 +4935,104 @@
 }
 ],
 "digest": [],
-"pending": [],
+"pending": [
+{
+"source": "nhk",
+"label": "NHK",
+"gn": false,
+"title": "国の省エネ住宅事業で2万3000件超の情報漏えいのおそれ",
+"lead": "国土交通省などは、国の省エネ住宅に関する補助金を受け付けていた大手広告会社が不正アクセスを受けて、申請などを行った事業者、2万3000人あまりの個人情報が漏えいしたおそれがあると発表しました。",
+"link": "https://news.web.nhk/newsweb/na/nd-20261020de62509",
+"ts": 1792507159,
+"key": "国の省エネ住宅事業で2万3000件超の情報漏えいのおそれ",
+"id": "n508059_0",
+"first_try": 1792508109.2879066
+},
+{
+"source": "reuters",
+"label": "로이터",
+"gn": true,
+"title": "ＧＭ、通期ＥＰＳ予想が市場予想に届かず 第3四半期は増益",
+"lead": "",
+"link": "https://news.google.com/rss/articles/CBMifkFVX3lxTE9TS0dIM1FaX2Z5NmdGVTZCTi1halQzNFlhYlR0U0p6eE02dUtuMG5kMVBVTVFiaFZtRUE0blRmU0xnOG53ckJOcHlld2JsYmtYeDJWOHEzS2Jmdi0zdG5ZTVRidXJTdjV1OEZtYnZSVUN0NEVZelFrdTNFWUxDZw?oc=5",
+"ts": 1792505290,
+"key": "ｇｍ通期ｅｐｓ予想が市場予想に届かず第3四半期は増益",
+"id": "n508059_1",
+"first_try": 1792508109.2879112
+},
+{
+"source": "bloomberg",
+"label": "블룸버그",
+"gn": true,
+"title": "孫正義氏が描く「ロボコップ」の世界、現実味増す－AI投資の次なる舞台",
+"lead": "",
+"link": "https://news.google.com/rss/articles/CBMijgFBVV95cUxOZUp3dUExcUlMV1VCT19GYnQzcFQzYWF6VEd1V3FlRnNBbEppY0hFdHNQcUstOVdUNmZjeVRRcUZaX3dmcnZLb2JPUUx1R2hyWjExdWFLaUFOcWNHMUEtQTlmMUVNWkNrSEpGaHZVdlB6X2FaaW1rZUNHWWNsajg1MzF1WlFtVGdyenJVdTRB?oc=5",
+"ts": 1792505396,
+"key": "孫正義氏が描くロボコップの世界現実味増すai投資の次なる舞台",
+"id": "n508059_2",
+"first_try": 1792508109.2879126
+},
+{
+"source": "reuters",
+"label": "로이터",
+"gn": true,
+"title": "ロシア、ウクライナ西部のエネ施設にも攻撃拡大 停電相次ぐ",
+"lead": "",
+"link": "https://news.google.com/rss/articles/CBMihgFBVV95cUxOWkdlbXZRSlNzYUpGQlA4MlU0blFtOW9RcHRIMDIyQlVLMlllNy1xaVc1WUJ0b0hHWG05aW1uQXZQR1oyZVhSekVFam14aV9aX2JIN2RLdzV6TkhzTG5fY2hlazVId29SekJGUHRGSWRwb21VUkxGYTNEdDlIRmdlMTJ6ZjE5dw?oc=5",
+"ts": 1792505504,
+"key": "ロシアウクライナ西部のエネ施設にも攻撃拡大停電相次ぐ",
+"id": "n508059_3",
+"first_try": 1792508109.2879136
+},
+{
+"source": "bloomberg",
+"label": "블룸버그",
+"gn": true,
+"title": "米中古住宅販売成約、過去最低水準に落ち込む－高い金利が需要圧迫",
+"lead": "",
+"link": "https://news.google.com/rss/articles/CBMijgFBVV95cUxQTG9IbmpBR0FUX1ZiNlZKNG1ERlBOVlJFT00tQ0gzclV0OWgzU0VlVUlXVEFKcl9tcG4wbEx3SDgyd0had0x1M0ZVck1INm12bzlMMm95V0swOXBybEJYYlVla1A5SXBlTGt3elpDN1dHYk5wYmY1RG5DVzUzVHlMSzhGMzdSYWh5Z0ZNVHl3?oc=5",
+"ts": 1792506255,
+"key": "米中古住宅販売成約過去最低水準に落ち込む高い金利が需要圧迫",
+"id": "n508059_4",
+"first_try": 1792508109.287914
+},
+{
+"source": "reuters",
+"label": "로이터",
+"gn": true,
+"title": "ウクライナ向け迎撃弾未納の可能性、政治的意図はない＝米国務長官",
+"lead": "",
+"link": "https://news.google.com/rss/articles/CBMihgFBVV95cUxPc25YMjdGM1EzdzJGZVNueUNETnplQ1U0X05YUjN2ZVBYeFN3a2RNcURoQWJLTU9vbUVFTzg1WlUzOTRlbE1aVW1mUF81aVZqWEpWQ1NaeGZ6VEVFaUtHdk9tRS15TjlqdVRfeGY2U2Vaa3FkaFJGNUpIS1ZaN0VwOVg2dllwUQ?oc=5",
+"ts": 1792506343,
+"key": "ウクライナ向け迎撃弾未納の可能性政治的意図はない米国務長官",
+"id": "n508059_5",
+"first_try": 1792508109.2879148
+},
+{
+"source": "reuters",
+"label": "로이터",
+"gn": true,
+"title": "トランプ政権の政策「ほとんど阻止できない」、民主が議会掌握でも＝米財務長官",
+"lead": "",
+"link": "https://news.google.com/rss/articles/CBMif0FVX3lxTE5IVDhaUENSdGFMSFRrTlJiNi1qSGlZWmRDVDhtWGdnYnJ1dzlfZ3pyb1Rrb2xrSXdjajZYTUR3SWgwemRCSzJmUVd6YUZDU1h6SGxrQjdDZzM2dUtkMzJNbjh0ZWZzcXFSaWt5MkFHcnh4WlEwb2NhZmV6b3BpVU0?oc=5",
+"ts": 1792506849,
+"key": "トランプ政権の政策ほとんど阻止できない民主が議会掌握でも米財務長官",
+"id": "n508059_6",
+"first_try": 1792508109.2879152
+},
+{
+"source": "reuters",
+"label": "로이터",
+"gn": true,
+"title": "ＥＵ、北極圏の化石燃料開発阻止で新戦略 ロシア念頭に",
+"lead": "",
+"link": "https://news.google.com/rss/articles/CBMihwFBVV95cUxNUWpIT0JyTy1oNUkwTkFvU19KeGoxeVZmckFmNWFIb0RCWUhfZnJGa0xacUZDbFB5b2NOU3A0U2JDSVU5U29CZHhCc3FqNll0WFFFdmZOcmFrTGs1bWdKRWFJcklmemVmWVJsejA0cFpZalA4OEdVbUdfVlhXd2prVnZlNXhmclE?oc=5",
+"ts": 1792507809,
+"key": "ｅｕ北極圏の化石燃料開発阻止で新戦略ロシア念頭に",
+"id": "n508059_7",
+"first_try": 1792508109.2879157
+}
+],
 "daily": {
 "date": "2026-10-20",
 "count": 91
@@ -4993,7 +5095,7 @@
 },
 "version": 3,
 "health": {
-"llm": 0,
+"llm": 1,
 "src": {
 "니케이|://assets.wor.jp/rss/rdf/nikkei/news.rdf": 0,
 "니케이|assets.wor.jp/rss/rdf/nikkei/markets.rdf": 0,
