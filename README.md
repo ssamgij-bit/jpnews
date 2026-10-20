@@ -97,3 +97,9 @@
 - 카부탄 PC판은 GitHub 서버 접속을 막아 모바일판(s.kabutan.jp)으로 받습니다.
 - 한국·미국 신고가는 정기 발송하지 않습니다(코드는 남아 있어 Run workflow에서 `KR`, `US`로 수동 실행 가능).
 - 테스트는 Actions → new-highs-bot → Run workflow(시장 `JP`, force 체크)입니다. 상세 종목 수는 Variables의 `HIGHS_TOP_N`(기본 30).
+
+---
+
+# 서울 아침 날씨 (weather.py)
+
+매일 06:00 전후(KST) 같은 채널로 서울 오늘 날씨를 보냅니다. 하늘 상태, 최저·최고(체감) 기온과 어제 대비, 출근길(08시)·퇴근길(18~19시) 기온과 비, 비·눈 확률과 예상 시간대, 바람, 자외선, 미세먼지, 옷차림·우산 한 줄을 붙입니다. 데이터는 Open-Meteo(서울시청 기준)이고 Gemini를 쓰지 않습니다. 테스트는 Actions → seoul-weather → Run workflow입니다.
