@@ -1,0 +1,23 @@
+name: seoul-weather
+
+on:
+  schedule:
+    - cron: "50 20 * * *"   # 매일 05:50 KST 실행 → 06:00 전후 도착(GitHub 실행 지연 감안)
+  workflow_dispatch: {}
+
+jobs:
+  run:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Send Seoul weather
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python weather.py
