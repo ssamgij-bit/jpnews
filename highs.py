@@ -902,7 +902,11 @@ def run_market(state, mk):
         print(f"[info] {mk}: 데이터 기준일 {day} ≠ 오늘 {today} → 휴장일로 보고 건너뜀")
         state["last"][mk] = today
         return
-    print(f"[info] {mk} {day}: 신고가 {len(rows)}종목")
+    n0 = len(rows)
+    rows = [r for r in rows if (r.get("pct") or 0) > 0]  # 장중 신고가를 찍고 하락·보합으로 끝난 종목은 제외(상승 마감만)
+    if n0 > len(rows):
+        asof += f", 하락·보합 마감 {n0 - len(rows)}종목 제외"
+    print(f"[info] {mk} {day}: 신고가 {len(rows)}종목(상승 마감, 전체 {n0})")
     if state["last"].get(mk) == today and not FORCE:
         ok = True  # 신고가는 이미 보냄(상승률 상위만 남은 경우)
     elif not rows:
