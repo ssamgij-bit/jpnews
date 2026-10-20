@@ -217,15 +217,15 @@ def _jp_list_pc(today):
 
 def jp_cap(h):
     m = re.search(r'class="v_zika2">(.*?)</td>', h, re.S)
-    m2 = re.match(r"(?:(\d+)兆)?(\d+)?億円", text_of(m.group(1)).replace(",", "").replace(" ", "")) if m else None
-    return int(m2.group(1) or 0) * 10000 + int(m2.group(2) or 0) if m2 else None
+    m2 = re.match(r"(?:(\d+)兆)?([\d.]+)?億円", text_of(m.group(1)).replace(",", "").replace(" ", "")) if m else None
+    return int(m2.group(1) or 0) * 10000 + float(m2.group(2) or 0) if m2 else None
 
 
 def jp_profile(r):
     if JP_MOBILE:
         h = get(f"https://s.kabutan.jp/stocks/{r['code']}/")
-        m = re.search(r"時価総額</div>.*?>\s*(?:([\d,]+)兆)?([\d,]+)?\s*<span[^>]*>億円", h, re.S)
-        r["cap"] = (int((m.group(1) or "0").replace(",", "")) * 10000 + int((m.group(2) or "0").replace(",", ""))) if m else None
+        m = re.search(r"時価総額</div>.*?>\s*(?:([\d,]+)兆)?([\d,.]+)?\s*<span[^>]*>億円", h, re.S)
+        r["cap"] = (int((m.group(1) or "0").replace(",", "")) * 10000 + float((m.group(2) or "0").replace(",", ""))) if m else None
         g = re.search(r"業種\s*</span>\s*<a[^>]*>(.*?)</a>", h, re.S)
         g = text_of(g.group(1)) if g else ""
         r["sector"] = SECTOR_KO.get(g, g or "기타")
@@ -468,7 +468,7 @@ def cap_str(mk, cap):
     if cap is None:
         return "시총 -"
     if mk == "JP":
-        return f"시총 {cap / 10000:.1f}조엔" if cap >= 10000 else f"시총 {cap:,.0f}억엔"
+        return f"시총 {cap / 10000:.1f}조엔" if cap >= 10000 else f"시총 {cap:,.0f}억엔" if cap >= 100 else f"시총 {cap:.1f}억엔"
     if mk == "KR":
         return f"시총 {cap / 10000:.1f}조원" if cap >= 10000 else f"시총 {cap:,.0f}억원"
     return f"시총 ${cap:,.1f}B" if cap >= 1 else f"시총 ${cap * 1000:,.0f}M"
@@ -575,6 +575,9 @@ def describe(state, mk, day, rows, prompt, schema, size, fields):
     return out
 
 
+DESC_CACHE = {}  # 이번 실행에서 이미 만든 종목 설명(상승률 상위에서 재사용)
+
+
 def build(state, mk, day, asof, stocks, final):
     """메시지 (머리말, 본문 블록 목록) 반환. 요약이 거의 실패했고 마지막 시도가 아니면 None(다음 실행에 재시도)."""
     cfg = MARKETS[mk]
@@ -595,6 +598,7 @@ def build(state, mk, day, asof, stocks, final):
         time.sleep(0.5)
     sec = Counter(r.get("sector") or "기타" for r in (top if mk == "KR" else stocks))  # 한국은 상위 종목만 업종을 알 수 있음
     by = describe(state, mk, day, top, ITEM_PROMPT, ITEM_SCHEMA, BATCH, ("code", "name", "profile", "pct", "news"))
+    DESC_CACHE.update(by)
     if len(by) < max(1, len(top) // 2) and not final:
         print(f"[warn] {mk} 요약 {len(by)}/{len(top)}건만 성공 → 다음 실행에 재시도", file=sys.stderr)
         return None
@@ -784,6 +788,79 @@ def jp_wrap(state, day, final):
     return head, blocks
 
 
+# ───────────────────────── 일본 상승률 상위 ─────────────────────────
+GAIN_N = int(os.getenv("GAIN_TOP_N", "30"))
+GAIN_PROMPT = (ITEM_PROMPT.replace("52주 신고가를 경신한 종목들이다", "상승률 상위 종목들이다")
+               .replace("왜 신고가가 됐는지를", "오늘 왜 크게 올랐는지를"))
+
+
+def jp_gainers(today):
+    """카부탄 모바일 '値上がり率' 순위에서 주식만 상위 GAIN_N개. 열: 주가, 등락, 거래량, (프리미엄), PER, PBR, 배당."""
+    rows, seen = [], set()
+    for page in range(1, 6):
+        h = get("https://s.kabutan.jp/warnings/price_increase/", params={"page": page})
+        if page == 1:
+            m = re.search(r"株価：(\d+)年(\d+)月(\d+)日", h)
+            if not m or f"{int(m.group(1)):04d}-{int(m.group(2)):02d}-{int(m.group(3)):02d}" != today and not FORCE:
+                return []
+        new = 0
+        for tr in re.findall(r"<tr>(.*?)</tr>", h, re.S):
+            m = re.search(r'href="/stocks/(\w+)/".*?<p class="font-bold[^"]*">(.*?)</p>.*?(\w+)\s*<span class="px-1[^"]*">(.*?)</span>',
+                          tr, re.S)
+            tds = re.findall(r"<td[^>]*>(.*?)</td>", tr, re.S)
+            if not m or m.group(1) in seen or len(tds) < 7:
+                continue
+            seen.add(m.group(1))
+            new += 1
+            mkt = _jp_mkt(m.group(4))
+            if mkt in ("東E", "東R", "東I"):
+                continue
+            pct = re.findall(r"([+-]?[\d.]+)</span><span[^>]*>%", tds[1])
+            per, pbr = text_of(tds[4]).replace("倍", "").strip(), text_of(tds[5]).replace("倍", "").strip()
+            rows.append({"code": m.group(1), "name": text_of(m.group(2)), "mkt": mkt, "price": text_of(tds[0]) + "엔",
+                         "pct": num(pct[0]) if pct else None,
+                         "val": " · ".join(x for x in (f"PER {per}배" if num(per) else "", f"PBR {pbr}배" if num(pbr) else "") if x)})
+        if not new or len(rows) >= GAIN_N:
+            break
+        time.sleep(0.7)
+    rows.sort(key=lambda r: -(r["pct"] or 0))
+    return rows[:GAIN_N]
+
+
+def jp_gain_msg(state, day, rows, highs):
+    """상승률 상위 메시지. highs: 오늘 52주 신고가 종목코드 집합(★ 표시)."""
+    now = now_in("JST")
+    todo = [r for r in rows if r["code"] not in DESC_CACHE]
+    for r in rows:
+        try:
+            jp_profile(r)
+        except Exception as ex:
+            print(f"[warn] 카부탄 종목 페이지 실패 {r['code']}: {ex}", file=sys.stderr)
+        if r in todo:
+            r["news"] = jp_news(r, now)
+        time.sleep(0.5)
+    by = dict(DESC_CACHE)
+    by.update(describe(state, "JP", day, todo, GAIN_PROMPT, ITEM_SCHEMA, BATCH, ("code", "name", "profile", "pct", "news")))
+    nh = sum(r["code"] in highs for r in rows)
+    head = (f"<b>&gt;&gt;[상승률 상위 {len(rows)}] 일본 {day[5:]} 도쿄 마감</b>\n"
+            f"(ETF·리츠 제외, ★ = 오늘 52주 신고가 {nh}종목)")
+    blocks = []
+    for i, r in enumerate(rows, 1):
+        w = by.get(r["code"], {})
+        star = "★ " if r["code"] in highs else ""
+        pct = f"{r['pct']:+.2f}%" if r["pct"] is not None else "-"
+        lines = [f"<b>{i}. {star}{esc(w.get('ko') or r['name'])}({r['code']} JP)</b> {pct}",
+                 f"종가 {esc(r['price'])} · {cap_str('JP', r.get('cap'))}" + (f" · {esc(r['val'])}" if r.get("val") else "")]
+        if w.get("biz"):
+            lines.append(f"\n• 사업: {esc(w['biz'])}")
+        if w.get("reason"):
+            lines.append(f"• 이유: {esc(w['reason'])}")
+        lines.append(f"\n&gt;<a href=\"https://kabutan.jp/stock/news?code={r['code']}\">카부탄 뉴스·공시</a>")
+        blocks.append("\n".join(lines))
+    blocks.append("<i>상승 이유는 뉴스·공시 제목 기준 요약이며, '(추정)'은 근거 제목이 없는 경우입니다.</i>")
+    return head, blocks
+
+
 def send_chunks(header, blocks, sep="\n\n━━━━━━━━━━\n"):
     chunks, cur = [], header
     for b in blocks:
@@ -799,7 +876,8 @@ def run_market(state, mk):
     cfg = MARKETS[mk]
     now = now_in(cfg["tz"])
     today = now.strftime("%Y-%m-%d")
-    if not FORCE and (state["last"].get(mk) == today or now.hour < cfg["after"] or now.weekday() >= 5):
+    done = state["last"].get(mk) == today and (mk != "JP" or state["last"].get("JPGAIN") == today)
+    if not FORCE and (done or now.hour < cfg["after"] or now.weekday() >= 5):
         print(f"[info] {mk}: 발송 대상 아님(마지막 {state['last'].get(mk)}, 현지 {now:%m-%d %H:%M})")
         return
     try:
@@ -825,7 +903,9 @@ def run_market(state, mk):
         state["last"][mk] = today
         return
     print(f"[info] {mk} {day}: 신고가 {len(rows)}종목")
-    if not rows:
+    if state["last"].get(mk) == today and not FORCE:
+        ok = True  # 신고가는 이미 보냄(상승률 상위만 남은 경우)
+    elif not rows:
         ok = bot.tg_send(f"<b>&gt;&gt;[52주 신고가] {cfg['name']} {day[5:]} {cfg['label']} 마감</b>\n"
                          "오늘 52주 신고가를 경신한 종목이 없습니다.")
     else:
@@ -838,6 +918,15 @@ def run_market(state, mk):
         ok = send_chunks(*msg)
     if ok:
         state["last"][mk] = today
+    if ok and mk == "JP" and (state["last"].get("JPGAIN") != today or FORCE):
+        try:
+            g = jp_gainers(today)
+            if g and send_chunks(*jp_gain_msg(state, day, g, {r["code"] for r in rows})):
+                state["last"]["JPGAIN"] = today
+            elif not g:
+                state["last"]["JPGAIN"] = today
+        except Exception as ex:
+            print(f"[warn] 상승률 상위 실패: {ex}", file=sys.stderr)
 
 
 def main():
