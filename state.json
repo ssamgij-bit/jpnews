@@ -1,6 +1,5 @@
 {
 "seen": {
-"金利債券ニュース最新情報と分析ブルームバーグ": 1792254414.5927827,
 "米ワーナーを巨額買収スカイダンスのデービッドエリソンceo": 1792257440.8569496,
 "qoo10試供品だけの常設店クチコミ投稿条件でコスメなど1人7品": 1792257440.8615823,
 "百貨店アパレル3社の夏商戦天候不順で不振9月は秋物好調で売上高増": 1792257440.8663073,
@@ -1804,7 +1803,8 @@
 "クアルコム世界で人員削減へ業績評価踏まえ11月から通知": 1792512207.2153912,
 "gm株が急落ceoは逆風の強まりを警戒利益見通しの予想レンジ縮小": 1792512207.2229373,
 "中国米政府機関のディープシーク排除に反発首脳間の合意無視": 1792512207.2301269,
-"９月米中古住宅仮契約73減調査開始以来最低金利上昇で": 1792512207.2370033
+"９月米中古住宅仮契約73減調査開始以来最低金利上昇で": 1792512207.2370033,
+"イランの船舶攻撃が激化機関室の被害増加エネルギー輸送にリスク": 1792514271.1005757
 },
 "recent": [
 {
@@ -4937,7 +4937,20 @@
 }
 ],
 "digest": [],
-"pending": [],
+"pending": [
+{
+"source": "bloomberg",
+"label": "블룸버그",
+"gn": true,
+"title": "イランの船舶攻撃が激化、機関室の被害増加－エネルギー輸送にリスク",
+"lead": "",
+"link": "https://news.google.com/rss/articles/CBMijgFBVV95cUxQRG5ndDJ2bnpRMXhyRmRUekd5N3JKMC1TdTVudnpLdFhpdFN4MDUxdlQzWjA2ZW5Pd25OVVVTbDd6M2duNjRCay1WNTRnVjVkSm95QUJVZ01kLW93V3NHUm1PQWNDWTNuZlNyNjZodGh1X1ZURHpXZ05hOHdOQkM4VFEzbWRJWC05MXAxTHd3?oc=5",
+"ts": 1792512190,
+"key": "イランの船舶攻撃が激化機関室の被害増加エネルギー輸送にリスク",
+"id": "n514271_0",
+"first_try": 1792514325.2255542
+}
+],
 "daily": {
 "date": "2026-10-21",
 "count": 4
@@ -5000,7 +5013,7 @@
 },
 "version": 3,
 "health": {
-"llm": 0,
+"llm": 1,
 "src": {
 "니케이|://assets.wor.jp/rss/rdf/nikkei/news.rdf": 0,
 "니케이|assets.wor.jp/rss/rdf/nikkei/markets.rdf": 0,
