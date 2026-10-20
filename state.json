@@ -1,17 +1,5 @@
 {
 "seen": {
-"denaは勢いだけではない三森大貴の決勝打で4連勝日本sへ": 1792249657.9129992,
-"自民党消費減税財源議論へ国民民主は20日にも対案提出": 1792249657.9196362,
-"アジアパラ大会ゴールボール日本が男女で快勝": 1792249657.9257853,
-"バレーsvリーグ男子開幕東京gbが北海道ysに競り勝つ": 1792249657.9324977,
-"阪神佐藤輝明何も言えない大リーグ挑戦希望の三冠王": 1792249657.9388592,
-"j1名古屋首位柏をプレスで攻略強度高く今季2度目の連勝": 1792249657.945619,
-"広島快勝で暫定首位j1fc東京は5連勝": 1792249657.9512498,
-"j1清水悔やまれる試合運びで4連勝逃す": 1792249657.9569747,
-"j2首位仙台が徳島と引き分け大宮新潟は敗れる": 1792249657.963193,
-"バスケbプレミア広島が快勝し開幕7連勝a東京は群馬下す": 1792249657.9699516,
-"17日の高市首相の動静": 1792249657.9726357,
-"広島が京都に快勝暫定首位に17日のj1結果と戦評": 1792249657.9791057,
 "森保一監督ブラジルとの差は判断力ワールドカップ振り返り": 1792251280.277473,
 "卓球tリーグトップ名古屋が開幕11連勝": 1792251280.2826555,
 "フェンシング高円宮牌w杯西藤俊哉は3位男子フルーレ": 1792251280.2886844,
@@ -1802,34 +1790,15 @@
 "米中古住宅販売成約過去最低水準に落ち込む高い金利が需要圧迫": 1792508059.0306058,
 "ウクライナ向け迎撃弾未納の可能性政治的意図はない米国務長官": 1792508059.0377588,
 "トランプ政権の政策ほとんど阻止できない民主が議会掌握でも米財務長官": 1792508059.045267,
-"ｅｕ北極圏の化石燃料開発阻止で新戦略ロシア念頭に": 1792508059.0518477
+"ｅｕ北極圏の化石燃料開発阻止で新戦略ロシア念頭に": 1792508059.0518477,
+"中国catl純利益32%増19月期海外向け電池販売が好調": 1792509962.4506998,
+"ファナック産業機械データを生成aiが分析専門知識なしで業務改善": 1792509962.4578834,
+"神奈川藤沢14人死傷事故運転手驚いてアクセル踏み込んだ": 1792509962.464562,
+"朝中社韩美日美联合军演给东北亚带来新战争乌云": 1792509962.470695,
+"米国株は上げに転じる決算期待から半導体株も持ち直す金利は低下": 1792509962.4777496,
+"トランプ氏とイラン体制排除の重要性協議ネタニヤフ氏": 1792509962.4842002
 },
 "recent": [
-{
-"id": "n391517_25",
-"ko": "히타치에너지, 이탈리아 안살도 에ネルジア와 데이터센터 전력 공급 협업",
-"gist": "히타치에너지가 이탈리아의 안살도에너지와 손잡고 인공지능(AI) 데이터센터 수요에 대응하기 위한 전력 송배전 시스템 공동 개발에 나선다.",
-"ts": 1792391529.8245804,
-"sent": true
-},
-{
-"id": "n391517_26",
-"ko": "세키 문과상, 의원회관서 정치자금 파티… 의운위원장이 엄중 주의",
-"gist": "정치자금 파티 개최가 금지된 의원회관 내에서 행사를 연 세키 문부과학대신이 중의원 의원운영위원장으로부터 엄중 주의 조치를 받았다.",
-"ts": 1792391529.8245814
-},
-{
-"id": "n391517_27",
-"ko": "한일 증시 마감: 닛케이 지수 0.62% 하락 마감",
-"gist": "도쿄 증시의 닛케이 225 지수가 하락세로 마감한 반면 한국 증시는 상승세를 기록했다.",
-"ts": 1792391529.8245826
-},
-{
-"id": "n394919_0",
-"ko": "유로화 약세 지속, 프랑스 폭동 및 투기꾼 매도세 10년 만에 최대",
-"gist": "프랑스 정국 불안과 재정 우려로 유로화 매도가 10년 만에 최대 규모로 확대되며 엔화 대비 유로화도 약세를 보였다.",
-"ts": 1792394942.1517043
-},
 {
 "id": "n394920_2",
 "ko": "도쿄 외환시장 오후 2시, 엔/달러 환율 158엔대 전반으로 약세 전환",
@@ -4932,110 +4901,39 @@
 "ko": "히타치 아메리카, 펜스키 팀과의 인디카 레이스 후원 계약 연장",
 "gist": "히타치 아메리카가 모터스포츠 팀인 펜스키와의 인디카 레이스 스폰서십 계약을 연장한다고 발표했다.",
 "ts": 1792505467.1907365
+},
+{
+"id": "n509962_2",
+"ko": "손정의 회장이 그리는 '로보캅'의 세계, AI 투자 다음 무대로 현실화",
+"gist": "소프트뱅크그룹의 손정의 회장이 구상하는 휴머노이드 및 로봇 중심의 AI 투자 비전이 현실화 단계에 접어들었다는 분석이 제기됐다.",
+"ts": 1792509990.8254309,
+"sent": true
+},
+{
+"id": "n509962_0",
+"ko": "국가 에너지 절약 주택 사업에서 2만 3000건 초과 정보 유출 우려",
+"gist": "국토교통성 등은 국가의 에너지 절약 주택 보조금을 접수하던 대형 광고회사가 부정 접근을 받아 신청 사업자 등 2만 3000여 명의 개인정보가 유출되었을 우려가 있다고 발표했다.",
+"ts": 1792509991.1074028
+},
+{
+"id": "n509963_9",
+"ko": "화낙, 산업용 기계 데이터를 생성AI가 분석해 전문 지식 없이도 업무 개선",
+"gist": "화낙이 로봇과 공작기기 등 공장 내 다양한 산업용 기계의 가동 데이터를 생성AI로 분석해 누구나 쉽게 업무 효율화를 이룰 수 있는 시스템을 개발했다.",
+"ts": 1792509991.1074076,
+"sent": true
+},
+{
+"id": "n509963_10",
+"ko": "가나가와 후지사와 14명 사상 사고, 운전자 \"놀라서 가속 페달 밟았다\"",
+"gist": "가나가와현 후지사와시에서 발생한 차량 연쇄 충돌 사고와 관련해 70대 운전자가 경찰 조사에서 조작 미숙을 인정했다.",
+"ts": 1792509991.1074104
 }
 ],
 "digest": [],
-"pending": [
-{
-"source": "nhk",
-"label": "NHK",
-"gn": false,
-"title": "国の省エネ住宅事業で2万3000件超の情報漏えいのおそれ",
-"lead": "国土交通省などは、国の省エネ住宅に関する補助金を受け付けていた大手広告会社が不正アクセスを受けて、申請などを行った事業者、2万3000人あまりの個人情報が漏えいしたおそれがあると発表しました。",
-"link": "https://news.web.nhk/newsweb/na/nd-20261020de62509",
-"ts": 1792507159,
-"key": "国の省エネ住宅事業で2万3000件超の情報漏えいのおそれ",
-"id": "n508059_0",
-"first_try": 1792508109.2879066
-},
-{
-"source": "reuters",
-"label": "로이터",
-"gn": true,
-"title": "ＧＭ、通期ＥＰＳ予想が市場予想に届かず 第3四半期は増益",
-"lead": "",
-"link": "https://news.google.com/rss/articles/CBMifkFVX3lxTE9TS0dIM1FaX2Z5NmdGVTZCTi1halQzNFlhYlR0U0p6eE02dUtuMG5kMVBVTVFiaFZtRUE0blRmU0xnOG53ckJOcHlld2JsYmtYeDJWOHEzS2Jmdi0zdG5ZTVRidXJTdjV1OEZtYnZSVUN0NEVZelFrdTNFWUxDZw?oc=5",
-"ts": 1792505290,
-"key": "ｇｍ通期ｅｐｓ予想が市場予想に届かず第3四半期は増益",
-"id": "n508059_1",
-"first_try": 1792508109.2879112
-},
-{
-"source": "bloomberg",
-"label": "블룸버그",
-"gn": true,
-"title": "孫正義氏が描く「ロボコップ」の世界、現実味増す－AI投資の次なる舞台",
-"lead": "",
-"link": "https://news.google.com/rss/articles/CBMijgFBVV95cUxOZUp3dUExcUlMV1VCT19GYnQzcFQzYWF6VEd1V3FlRnNBbEppY0hFdHNQcUstOVdUNmZjeVRRcUZaX3dmcnZLb2JPUUx1R2hyWjExdWFLaUFOcWNHMUEtQTlmMUVNWkNrSEpGaHZVdlB6X2FaaW1rZUNHWWNsajg1MzF1WlFtVGdyenJVdTRB?oc=5",
-"ts": 1792505396,
-"key": "孫正義氏が描くロボコップの世界現実味増すai投資の次なる舞台",
-"id": "n508059_2",
-"first_try": 1792508109.2879126
-},
-{
-"source": "reuters",
-"label": "로이터",
-"gn": true,
-"title": "ロシア、ウクライナ西部のエネ施設にも攻撃拡大 停電相次ぐ",
-"lead": "",
-"link": "https://news.google.com/rss/articles/CBMihgFBVV95cUxOWkdlbXZRSlNzYUpGQlA4MlU0blFtOW9RcHRIMDIyQlVLMlllNy1xaVc1WUJ0b0hHWG05aW1uQXZQR1oyZVhSekVFam14aV9aX2JIN2RLdzV6TkhzTG5fY2hlazVId29SekJGUHRGSWRwb21VUkxGYTNEdDlIRmdlMTJ6ZjE5dw?oc=5",
-"ts": 1792505504,
-"key": "ロシアウクライナ西部のエネ施設にも攻撃拡大停電相次ぐ",
-"id": "n508059_3",
-"first_try": 1792508109.2879136
-},
-{
-"source": "bloomberg",
-"label": "블룸버그",
-"gn": true,
-"title": "米中古住宅販売成約、過去最低水準に落ち込む－高い金利が需要圧迫",
-"lead": "",
-"link": "https://news.google.com/rss/articles/CBMijgFBVV95cUxQTG9IbmpBR0FUX1ZiNlZKNG1ERlBOVlJFT00tQ0gzclV0OWgzU0VlVUlXVEFKcl9tcG4wbEx3SDgyd0had0x1M0ZVck1INm12bzlMMm95V0swOXBybEJYYlVla1A5SXBlTGt3elpDN1dHYk5wYmY1RG5DVzUzVHlMSzhGMzdSYWh5Z0ZNVHl3?oc=5",
-"ts": 1792506255,
-"key": "米中古住宅販売成約過去最低水準に落ち込む高い金利が需要圧迫",
-"id": "n508059_4",
-"first_try": 1792508109.287914
-},
-{
-"source": "reuters",
-"label": "로이터",
-"gn": true,
-"title": "ウクライナ向け迎撃弾未納の可能性、政治的意図はない＝米国務長官",
-"lead": "",
-"link": "https://news.google.com/rss/articles/CBMihgFBVV95cUxPc25YMjdGM1EzdzJGZVNueUNETnplQ1U0X05YUjN2ZVBYeFN3a2RNcURoQWJLTU9vbUVFTzg1WlUzOTRlbE1aVW1mUF81aVZqWEpWQ1NaeGZ6VEVFaUtHdk9tRS15TjlqdVRfeGY2U2Vaa3FkaFJGNUpIS1ZaN0VwOVg2dllwUQ?oc=5",
-"ts": 1792506343,
-"key": "ウクライナ向け迎撃弾未納の可能性政治的意図はない米国務長官",
-"id": "n508059_5",
-"first_try": 1792508109.2879148
-},
-{
-"source": "reuters",
-"label": "로이터",
-"gn": true,
-"title": "トランプ政権の政策「ほとんど阻止できない」、民主が議会掌握でも＝米財務長官",
-"lead": "",
-"link": "https://news.google.com/rss/articles/CBMif0FVX3lxTE5IVDhaUENSdGFMSFRrTlJiNi1qSGlZWmRDVDhtWGdnYnJ1dzlfZ3pyb1Rrb2xrSXdjajZYTUR3SWgwemRCSzJmUVd6YUZDU1h6SGxrQjdDZzM2dUtkMzJNbjh0ZWZzcXFSaWt5MkFHcnh4WlEwb2NhZmV6b3BpVU0?oc=5",
-"ts": 1792506849,
-"key": "トランプ政権の政策ほとんど阻止できない民主が議会掌握でも米財務長官",
-"id": "n508059_6",
-"first_try": 1792508109.2879152
-},
-{
-"source": "reuters",
-"label": "로이터",
-"gn": true,
-"title": "ＥＵ、北極圏の化石燃料開発阻止で新戦略 ロシア念頭に",
-"lead": "",
-"link": "https://news.google.com/rss/articles/CBMihwFBVV95cUxNUWpIT0JyTy1oNUkwTkFvU19KeGoxeVZmckFmNWFIb0RCWUhfZnJGa0xacUZDbFB5b2NOU3A0U2JDSVU5U29CZHhCc3FqNll0WFFFdmZOcmFrTGs1bWdKRWFJcklmemVmWVJsejA0cFpZalA4OEdVbUdfVlhXd2prVnZlNXhmclE?oc=5",
-"ts": 1792507809,
-"key": "ｅｕ北極圏の化石燃料開発阻止で新戦略ロシア念頭に",
-"id": "n508059_7",
-"first_try": 1792508109.2879157
-}
-],
+"pending": [],
 "daily": {
-"date": "2026-10-20",
-"count": 91
+"date": "2026-10-21",
+"count": 2
 },
 "last_digest": "2026-10-06 1545",
 "model": {
@@ -5095,7 +4993,7 @@
 },
 "version": 3,
 "health": {
-"llm": 1,
+"llm": 0,
 "src": {
 "니케이|://assets.wor.jp/rss/rdf/nikkei/news.rdf": 0,
 "니케이|assets.wor.jp/rss/rdf/nikkei/markets.rdf": 0,
