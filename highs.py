@@ -790,6 +790,8 @@ def jp_wrap(state, day, final):
 
 # ───────────────────────── 일본 상승률 상위 ─────────────────────────
 GAIN_N = int(os.getenv("GAIN_TOP_N", "30"))
+GAIN_MIN_CAP = float(os.getenv("GAIN_MIN_CAP", "200"))  # 억 엔. 상승률 상위에서 이보다 작은 시가총액 종목은 제외
+GAIN_POOL = 150  # 시총 필터 전에 모으는 후보 수
 GAIN_PROMPT = (ITEM_PROMPT.replace("52주 신고가를 경신한 종목들이다", "상승률 상위 종목들이다")
                .replace("왜 신고가가 됐는지를", "오늘 왜 크게 올랐는지를"))
 
@@ -820,30 +822,37 @@ def jp_gainers(today):
             rows.append({"code": m.group(1), "name": text_of(m.group(2)), "mkt": mkt, "price": text_of(tds[0]) + "엔",
                          "pct": num(pct[0]) if pct else None,
                          "val": " · ".join(x for x in (f"PER {per}배" if num(per) else "", f"PBR {pbr}배" if num(pbr) else "") if x)})
-        if not new or len(rows) >= GAIN_N:
+        if not new or len(rows) >= GAIN_POOL:
             break
         time.sleep(0.7)
     rows.sort(key=lambda r: -(r["pct"] or 0))
-    return rows[:GAIN_N]
+    return rows  # 시총 필터는 jp_gain_msg에서(종목 페이지에서 시총을 읽음)
 
 
 def jp_gain_msg(state, day, rows, highs):
     """상승률 상위 메시지. highs: 오늘 52주 신고가 종목코드 집합(★ 표시)."""
     now = now_in("JST")
-    todo = [r for r in rows if r["code"] not in DESC_CACHE]
-    for r in rows:
+    keep = []
+    for r in rows:  # 상승률 순서대로 시총을 확인해 200억 엔 이상만 GAIN_N개
+        if len(keep) >= GAIN_N:
+            break
         try:
             jp_profile(r)
         except Exception as ex:
             print(f"[warn] 카부탄 종목 페이지 실패 {r['code']}: {ex}", file=sys.stderr)
-        if r in todo:
-            r["news"] = jp_news(r, now)
+        time.sleep(0.4)
+        if r.get("cap") is not None and r["cap"] >= GAIN_MIN_CAP:
+            keep.append(r)
+    rows = keep
+    todo = [r for r in rows if r["code"] not in DESC_CACHE]
+    for r in todo:
+        r["news"] = jp_news(r, now)
         time.sleep(0.5)
     by = dict(DESC_CACHE)
     by.update(describe(state, "JP", day, todo, GAIN_PROMPT, ITEM_SCHEMA, BATCH, ("code", "name", "profile", "pct", "news")))
     nh = sum(r["code"] in highs for r in rows)
     head = (f"<b>&gt;&gt;[상승률 상위 {len(rows)}] 일본 {day[5:]} 도쿄 마감</b>\n"
-            f"(ETF·리츠 제외, ★ = 오늘 52주 신고가 {nh}종목)")
+            f"(ETF·리츠·시총 {GAIN_MIN_CAP:,.0f}억 엔 미만 제외, ★ = 오늘 52주 신고가 {nh}종목)")
     blocks = []
     for i, r in enumerate(rows, 1):
         w = by.get(r["code"], {})
