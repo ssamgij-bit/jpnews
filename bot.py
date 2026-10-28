@@ -90,6 +90,8 @@ def load_state():
     s.setdefault("last_digest", "")
     s.setdefault("model", {"names": [], "checked": 0})
     s.setdefault("health", {"llm": 0, "src": {}, "alerted": []})
+    if "week" not in s:   # 주간 아이디어용 발송 기록(처음엔 최근 48h 발송분으로 시작)
+        s["week"] = [{"ts": r["ts"], "ko": r["ko"], "gist": r.get("gist", ""), "url": "", "src": ""} for r in s["recent"] if r.get("sent")]
     if s.get("version", 1) < 3:  # v3: 다이제스트 폐지, 쌓인 항목 비움
         s["digest"], s["version"] = [], 3
     return s
@@ -101,6 +103,7 @@ def save_state(s):
     s["recent"] = [r for r in s["recent"] if now - r["ts"] < 48 * 3600][-500:]
     s["pending"] = s["pending"][-200:]
     s["digest"] = s["digest"][-300:]
+    s["week"] = [w for w in s.get("week", []) if now - w["ts"] < 8 * 86400][-1500:]
     with open(STATE_PATH, "w", encoding="utf-8") as f:
         json.dump(s, f, ensure_ascii=False, indent=0)
 
@@ -608,6 +611,106 @@ def check_health(state, llm_ok):
 
 
 # ───────────────────────── 메인 ─────────────────────────
+# ───────────────────────── 주간 투자 아이디어(토 14시) ─────────────────────────
+IDEAS_PROMPT = """너는 일본 주식을 커버하는 한국 자산운용사 애널리스트의 리서치 보조다.
+아래는 지난 7일 동안 일본 증시 뉴스 채널에 올라온 중요 뉴스 {n}건이다(번호, 출처, 제목, 요약, 시사점, 언급 기업).
+이 중에서 '일본 투자 아이디어'로 괜찮아 보이는 것을 골라 한국어로 정리하라. 종목·섹터·테마 모두 가능.
+""" + """선정 기준: 구체적 근거(실적 서프라이즈·가이던스·밸류에이션·촉매·수급·주주환원·업황 변화)가 있고, 투자 판단에 쓸 만한 것. 같은 종목·테마는 하나로 묶고 출처 번호를 모두 표시.
+규칙: 입력에 없는 사실·수치를 지어내지 말 것(촉매·리스크는 입력 근거에서 도출하고, 일반론이면 짧게). 일본 종목은 한국어 이름(4자리 코드), 미국은 이름(티커). 일본어 원문 표기 금지. 단정적 매수 권유 대신 '검토할 만함' 수준.
+출력 JSON: {{"overview": "이번 주 한 줄 총평", "ideas": [{{"title": "아이디어 이름", "target": "종목명(코드) 또는 섹터/테마", "logic": "왜 괜찮아 보이는지 2~3문장, 수치 포함", "catalyst": "촉매·확인할 것 1문장", "risk": "리스크·반론 1문장", "refs": [번호]}}], "others": [{{"target": "종목명(코드)", "line": "한 줄", "refs": [번호]}}]}}
+ideas는 5~10개(입력이 적으면 그보다 적게), others는 3~5개.""" + """
+
+{items}"""
+IDEAS_SCHEMA = {"type": "OBJECT", "properties": {
+    "overview": {"type": "STRING"},
+    "ideas": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {
+        "title": {"type": "STRING"}, "target": {"type": "STRING"}, "logic": {"type": "STRING"},
+        "catalyst": {"type": "STRING"}, "risk": {"type": "STRING"}, "refs": {"type": "ARRAY", "items": {"type": "INTEGER"}}},
+        "required": ["title", "target", "logic", "catalyst", "risk", "refs"]}},
+    "others": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {
+        "target": {"type": "STRING"}, "line": {"type": "STRING"}, "refs": {"type": "ARRAY", "items": {"type": "INTEGER"}}},
+        "required": ["target", "line", "refs"]}}},
+    "required": ["overview", "ideas", "others"]}
+
+
+def gemini_obj(state, prompt, schema, prefs):
+    """객체(JSON) 응답용 — 기존 gemini()는 배열만 돌려주므로 따로 둠"""
+    key = os.getenv("GEMINI_API_KEY", "")
+    body = {"contents": [{"parts": [{"text": prompt}]}],
+            "generationConfig": {"temperature": 0.2, "maxOutputTokens": 16000,
+                                 "responseMimeType": "application/json", "responseSchema": schema}}
+    last = None
+    for m in _order(state, prefs, available_models(state, key)):
+        try:
+            r = requests.post(f"https://generativelanguage.googleapis.com/v1beta/models/{m}:generateContent?key={key}", json=body, timeout=180)
+            if r.status_code != 200:
+                last = f"{m}: HTTP {r.status_code}"; continue
+            cand = (r.json().get("candidates") or [{}])[0]
+            txt = "".join(p.get("text", "") for p in (cand.get("content") or {}).get("parts", []) if not p.get("thought"))
+            out = json.loads(re.sub(r"^```(?:json)?|```$", "", txt.strip()).strip())
+            if isinstance(out, dict) and out.get("ideas"):
+                print(f"[info] [주간] {m}: 아이디어 {len(out['ideas'])}건")
+                return out
+            last = f"{m}: 빈 응답"
+        except Exception as ex:
+            last = f"{m}: {ex}"
+        print(f"[warn] [주간] {last}", file=sys.stderr)
+    raise RuntimeError(last)
+
+
+def fmt_ideas(out, title, links):
+    """주간 아이디어 JSON → 텔레그램 HTML. links: {번호: (url, 라벨)}"""
+    e = lambda s: html.escape(str(s or ""), quote=False)
+    def refs(rs):
+        rs = [int(r) for r in (rs or []) if str(r).isdigit() and int(r) in links]
+        return " ".join(f'<a href="{e(links[r][0])}">[{r}]</a>' for r in rs)
+    lines = [title, "", e(out.get("overview"))]
+    for x in out.get("ideas") or []:
+        lines += ["", f"▸ <b>{e(x.get('title'))}</b> — {e(x.get('target'))}",
+                  f"• 논리: {e(x.get('logic'))}", f"• 촉매·확인: {e(x.get('catalyst'))}",
+                  f"• 리스크·반론: {e(x.get('risk'))}", f"• 출처: {refs(x.get('refs'))}"]
+    if out.get("others"):
+        lines += ["", "<b>그 밖에 눈여겨볼 언급</b>"]
+        for x in out["others"]:
+            lines.append(f"• {e(x.get('target'))} — {e(x.get('line'))} {refs(x.get('refs'))}")
+    lines += ["", "<i>AI(Gemini)가 지난 7일 게시물에서 고른 것 · 투자 판단 전 원문 확인 권장</i>"]
+    return "\n".join(lines)
+
+
+def maybe_ideas(state, now):
+    today = now.strftime("%Y-%m-%d")
+    if now.weekday() != 5 or now.hour < 14 or state.get("ideas_date") == today:
+        return
+    xs = [w for w in state.get("week", []) if time.time() - w["ts"] < 7 * 86400]
+    if not xs:
+        state["ideas_date"] = today
+        return
+    lines, links = [], {}
+    for i, w in enumerate(xs[-400:], 1):
+        lines.append(f"[{i}] ({w.get('src', '')}) {w['ko']} | {w.get('gist', '')} | {' / '.join(w.get('b') or [])}"
+                     + (f" | 시사점: {w['ins']}" if w.get("ins") else "") + (f" | 언급 기업: {w['cos']}" if w.get("cos") else ""))
+        if w.get("url"):
+            links[i] = (w["url"], w["ko"])
+    try:
+        out = gemini_obj(state, IDEAS_PROMPT.format(n=len(lines), items="\n".join(lines)), IDEAS_SCHEMA, WRITE_MODELS)
+    except Exception as ex:
+        print(f"[warn] 주간 아이디어 실패, 다음 실행에 재시도: {ex}", file=sys.stderr)
+        return
+    if not out.get("ideas"):
+        return
+    t0 = now - timedelta(days=7)
+    msg = fmt_ideas(out, f"💡 <b>주간 일본 투자 아이디어 — 뉴스편</b> ({t0.month}/{t0.day}~{now.month}/{now.day}, 뉴스 {len(lines)}건 중 선별)", links)
+    chunks, cur = [], ""
+    for line in msg.split("\n"):
+        if len(cur) + len(line) > 3800 and cur:
+            chunks.append(cur); cur = ""
+        cur += line + "\n"
+    chunks.append(cur)
+    if all(tg_send(c) for c in chunks):
+        state["ideas_date"] = today
+        save_state(state)
+
+
 def main():
     state = load_state()
     now = datetime.now(JST)
@@ -615,6 +718,7 @@ def main():
     if state["daily"]["date"] != today:
         state["daily"] = {"date": today, "count": 0}
 
+    maybe_ideas(state, now)   # 토 14시: 지난 7일 뉴스에서 투자 아이디어 정리(실행 초반에 해서 시간 예산 확보)
     first_run = not state["seen"]
     fresh = dedupe_new(fetch_sources(state), state)
     if first_run:  # 첫 실행은 기존 기사를 '본 것'으로만 기록하고 보내지 않음
@@ -679,6 +783,10 @@ def main():
                     w = {"ko_title": rec["ko"], "bullets": [], "insight": ""}
                 if tg_send(fmt_alert(it, a, w)):
                     state["daily"]["count"] += 1
+                    state.setdefault("week", []).append({"ts": time.time(), "ko": w.get("ko_title") or rec["ko"], "gist": rec.get("gist", ""),
+                                                         "b": (w.get("bullets") or [])[:3], "ins": w.get("insight", ""),
+                                                         "cos": company_line(w.get("companies")) or "", "url": it["url"],
+                                                         "src": it["label"], "score": int(a.get("score") or 0)})
                     rec["sent"] = True
                     if w.get("ko_title"):
                         rec["ko"] = w["ko_title"]
