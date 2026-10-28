@@ -2,13 +2,30 @@ name: seoul-weather
 
 on:
   schedule:
-    - cron: "50 20 * * *"   # 매일 05:50 KST 실행 → 06:00 전후 도착(GitHub 실행 지연 감안)
-  workflow_dispatch: {}
+    # GitHub 예약 실행은 몇 시간씩 늦게 시작되기도 해서 여러 번 걸어 둠(06:40·06:55·07:10·07:25 KST).
+    # 먼저 시작된 실행이 07:30 KST까지 기다렸다 보내고, 나머지는 '오늘 이미 보냄'으로 끝남.
+    - cron: "40 21 * * *"
+    - cron: "55 21 * * *"
+    - cron: "10 22 * * *"
+    - cron: "25 22 * * *"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "1이면 시각·중복 확인 없이 바로 발송"
+        required: false
+        default: ""
+
+concurrency:
+  group: seoul-weather
+  cancel-in-progress: false
+
+permissions:
+  contents: write
 
 jobs:
   run:
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 70
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
@@ -20,4 +37,14 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          FORCE: ${{ github.event.inputs.force }}
         run: python weather.py
+      - name: Save state
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git add weather_state.json 2>/dev/null || exit 0
+          git diff --cached --quiet && exit 0
+          git commit -m "weather state [skip ci]"
+          for i in 1 2 3 4 5; do git pull --rebase -X theirs && git push && exit 0; sleep $((i * 5)); done
+          exit 1
