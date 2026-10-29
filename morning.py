@@ -155,7 +155,7 @@ def finviz_movers():
 
 
 # ───────────────────────── 텔레그램 공개 채널 글 ─────────────────────────
-def tg_posts(ch, since, limit_chars=9000):
+def tg_posts(ch, since, limit_chars=22000):
     """t.me/s/채널(공개 미리보기)에서 since 이후 글 본문 목록 [(시각, 글)]"""
     out, url = [], f"https://t.me/s/{ch}"
     for _ in range(4):
@@ -182,18 +182,20 @@ def tg_posts(ch, since, limit_chars=9000):
                 continue
             txt = H.unescape(re.sub(r"<[^>]+>", "", re.sub(r"<br\s*/?>", "\n", m.group(1)))).strip()
             if len(txt) >= 40:
-                out.append((ts, txt))
+                out.append((ts, txt, int(pid.group(1)) if pid else 0))
         if older or not ids:
             break
         url = f"https://t.me/s/{ch}?before={min(ids)}"
         time.sleep(1)
-    out.sort()
+    out = sorted(set(out))
+    key = re.compile(r"브리핑|마감|미 증시|미국 증시|특징 종목|증시 관련 수치|실적 요약|섹터")
+    pri = sorted(out, key=lambda x: (0 if key.search(x[1][:120]) else 1, -x[0].timestamp()))  # 시황·마감·브리핑 글 먼저, 그다음 최신 글
     text, total = [], 0
-    for ts, t in reversed(out):  # 최신 글부터 분량 한도까지
+    for ts, t, pid in pri:  # 분량 한도까지(긴 글 하나 때문에 끊기지 않게, 넘치는 글만 건너뜀)
         if total + len(t) > limit_chars:
-            break
-        text.append((ts, t)); total += len(t)
-    return sorted(text)
+            continue
+        text.append((ts, t, pid)); total += len(t)
+    return [(ts, t) for ts, t, _ in sorted(text)]
 
 
 # ───────────────────────── 다른 봇이 쌓아 둔 자료 ─────────────────────────
@@ -444,7 +446,7 @@ def build_pdf(state, since_ts):
     qtxt += "\n[대형주] " + ", ".join(f"{s} {c:+.2f}%" for s, c in mega)
     ftxt = lambda rows: ", ".join(f"{r['tk']}({r['name']}, {r['ind']}) {r['pct']:+.2f}%" for r in rows if r.get("pct") is not None) or "(없음)"
     us = gemini_obj(state, US_PROMPT.format(day=us_day, quotes=qtxt, gain=ftxt(gain), lose=ftxt(lose),
-                                            posts="\n\n".join(posts)[:20000] or "(없음)"), US_SCHEMA, "미국 시황") or {}
+                                            posts="\n\n".join(posts)[:42000] or "(없음)"), US_SCHEMA, "미국 시황") or {}
     # ── 2) 일본
     wraps = stashes("highs_state.json", since_ts)
     wrap = [x for x in wraps if x["kind"] == "wrap"]
