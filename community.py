@@ -1,15 +1,15 @@
 """일본 커뮤니티 화제글 → 한국어 요약(본문·댓글) → 텔레그램 채널 다이제스트.
 
 소스: 하테나 북마크 인기 엔트리(종합), 걸즈채널 오늘의 인기 토픽, 토게터 주목 정리, note 주목 글.
-매시 실행(GitHub Actions)으로 화제도 스냅샷을 쌓고, 07:00·19:00(JST=KST)에 다이제스트를 보낸다.
+매시 실행(GitHub Actions)으로 화제도 스냅샷을 쌓고, 매일 07:00(JST=KST)에 지난 24시간 다이제스트를 보낸다.
 상장사·증시 관련성 ★4 이상은 다이제스트를 기다리지 않고 즉시 보낸다.
 상태는 community_state.json(워크플로우가 커밋). 뉴스봇(bot.py)의 Gemini·티커 대조 함수를 재사용한다.
 환경변수: TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, GEMINI_API_KEY
 선택: TELEGRAM_ADMIN_CHAT_ID, COMMUNITY_THRESHOLD(기본 4), HATENA_MIN(100), GIRLS_MIN(300), TOGETTER_MIN(20000), NOTE_MIN(50),
       PER_SOURCE(3),
       DIGEST_NOW=1(지금 바로 다이제스트), WEEKLY_NOW=1(지금 바로 주간 순위), DRY_RUN=1
-일요일 19:00 회차에 주간 기업·브랜드 언급 순위와 투자 아이디어·인사이트.
-다이제스트 회차마다 X 트렌드(trends24 일본) 최근 12시간 상위 10과 화제 이유를 별도 메시지로. X_NOW=1(지금 바로)
+일요일 07:00 회차에 주간 기업·브랜드 언급 순위와 투자 아이디어·인사이트.
+다이제스트 회차마다 X 트렌드(trends24 일본) 최근 24시간 상위 10과 화제 이유를 별도 메시지로. X_NOW=1(지금 바로)
 다이제스트 회차마다 note 급상승 주제(note.com/trend) 상위 10과 화제 이유를 별도 메시지로. NOTE_NOW=1(지금 바로)
 """
 import csv
@@ -92,10 +92,10 @@ STATE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "community
 DRY_RUN = os.getenv("DRY_RUN") == "1"
 THRESHOLD = int(os.getenv("COMMUNITY_THRESHOLD", "4"))
 PER_SOURCE = int(os.getenv("PER_SOURCE", "3"))
-SLOTS = [(7, 0), (19, 0)]        # 다이제스트 시각(JST, 시·분)
+SLOTS = [(7, 0)]                 # 다이제스트 시각(JST, 시·분) — 하루 한 번, 지난 24시간 정리
 SILENT_SLOTS = set()             # 무음 발송 회차(없음)
 LEAD_MIN = 15                    # 회차 15분 전 실행분부터 해당 회차로 간주(워크플로우는 매시 50분 실행)
-WINDOW_H = 12.5                  # 화제도(증가량) 계산 구간
+WINDOW_H = 24.5                  # 화제도(증가량) 계산 구간(하루 한 번 회차에 맞춰 24시간)
 FALLBACK_AFTER_H = 2             # 요약이 이 시간 넘게 계속 실패하면 제목·링크만으로 발송
 FAIL_ALERT_N = 3
 
@@ -135,7 +135,7 @@ def save_state(s):
     now = time.time()
     s["cands"] = {k: v for k, v in s["cands"].items() if now - v["last"] < 36 * 3600}
     for v in s["cands"].values():
-        v["hist"] = v["hist"][-10:]
+        v["hist"] = v["hist"][-30:]  # 24시간 증가량 계산에 필요한 만큼(매시 1개)
     s["sent"] = {k: v for k, v in s["sent"].items() if now - v < 14 * 86400}
     s["week"] = {k: v for k, v in s["week"].items() if now - v["ts"] < 8 * 86400}
     s["xweek"] = [x for x in s["xweek"] if now - x["ts"] < 8 * 86400][-400:]
@@ -431,8 +431,8 @@ NEWS:
 """
 
 OVERVIEW_PROMPT = """너는 한국 자산운용사의 일본 주식 담당 애널리스트를 돕는 데스크다.
-아래는 최근 12시간 동안 일본 커뮤니티(하테나 북마크·걸즈채널·토게터·note)에서 반응이 늘어난 글 제목과 반응 수다.
-(따로 상세 요약하는 상위 글은 제외했다.) 시황 정리처럼 '이번 12시간 커뮤니티 동향'을 정확히 10줄로 정리해 JSON 문자열 배열만 출력하라.
+아래는 최근 24시간 동안 일본 커뮤니티(하테나 북마크·걸즈채널·토게터·note)에서 반응이 늘어난 글 제목과 반응 수다.
+(따로 상세 요약하는 상위 글은 제외했다.) 시황 정리처럼 '이번 24시간 커뮤니티 동향'을 정확히 10줄로 정리해 JSON 문자열 배열만 출력하라.
 
 규칙:
 - 각 줄은 '[주제] 내용' 형식, 50자 이내 1문장, '~함/~이어짐' 보고서체. 주제 예: 사회, 정치·정책, 기업·소비, IT, 연예, 생활.
@@ -501,7 +501,7 @@ def recent_news():
 
 
 def overview(state, picks, now):
-    """상위 글 외에 지난 12시간 동안 반응이 늘어난 글들을 10줄 동향으로 정리. 실패하면 빈 목록."""
+    """상위 글 외에 지난 24시간 동안 반응이 늘어난 글들을 10줄 동향으로 정리. 실패하면 빈 목록."""
     picked = {k for k, _ in picks}
     rows = []
     for src in SRC:
@@ -656,7 +656,7 @@ def digest_pass(state, now_dt, force):
     trend = overview(state, picks, now) if ok_llm else []
     if trend:
         # 같은 주제끼리 묶어서 나오고(지시문), 줄마다 한 줄씩 띄워 가독성 확보
-        blocks.append("<b>[12시간 동향]</b>\n" + "\n\n".join(f"• {esc(t.lstrip('•· '))}" for t in trend))
+        blocks.append("<b>[24시간 동향]</b>\n" + "\n\n".join(f"• {esc(t.lstrip('•· '))}" for t in trend))
     for (k, c), w in zip(picks, ws):
         if c["src"] != cur_src:
             cur_src, n = c["src"], 0
@@ -694,9 +694,9 @@ WEEKLY_SCHEMA = {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {
 
 
 def weekly_pass(state, slot_dt, force=False):
-    """일요일 19:00 회차에 지난 7일 브랜드·기업 언급 순위를 보낸다."""
+    """일요일 07:00 회차에 지난 7일 브랜드·기업 언급 순위를 보낸다."""
     key = slot_dt.strftime("%Y-%m-%d")
-    if not force and (slot_dt.weekday() != 6 or slot_dt.hour != 19 or state["last_weekly"] == key):
+    if not force and (slot_dt.weekday() != 6 or slot_dt.hour != SLOTS[-1][0] or state["last_weekly"] == key):
         return None
     now = time.time()
     rows = sorted([v for v in state["week"].values() if now - v["ts"] < 7 * 86400], key=lambda v: -v["m"])[:400]
@@ -852,7 +852,7 @@ def _get_retry(url, referer):
 
 def fetch_x_trends(cfg, now):
     """나라별 X 트렌드 상위 키워드. 반환: ([(키워드, 점수, 등장 시간대 수, 최고 순위)], 출처)
-    1순위 trends24: 시간대별 순위(각 50위)를 최근 12시간 합산(점수 = Σ(51 - 순위)).
+    1순위 trends24: 시간대별 순위(각 50위)를 최근 24시간 합산(점수 = Σ(51 - 순위)).
     trends24가 막히면 getdaytrends의 현재 순위로 대신한다(이때 시간대 수는 None)."""
     try:
         return _trends24(_get_retry(f"https://trends24.in/{cfg['slug']}/", "https://trends24.in/"), now), "trends24"
@@ -876,7 +876,7 @@ def _trends24(h, now):
     if not cards:
         raise RuntimeError("트렌드 카드 0개(페이지 구조 변경 가능성)")
     score, hours, best = {}, {}, {}
-    recent = sorted(cards, key=lambda c: -float(c[0]))[:12]  # 최신 시간대 카드 12개(=최근 12시간)
+    recent = sorted(cards, key=lambda c: -float(c[0]))[:24]  # 최신 시간대 카드 24개(=최근 24시간)
     for ts, body in recent:
         if now - float(ts) > 13 * 3600:
             continue
@@ -904,7 +904,7 @@ def news_context(kw, params):
 
 
 X_PROMPT = """너는 한국 자산운용사의 주식 담당 애널리스트를 돕는 데스크다.
-아래는 최근 12시간 {country} X(트위터) 트렌드 상위 키워드와, 키워드별 최근 1일 {country} 뉴스 제목(있으면)이다.
+아래는 최근 24시간 {country} X(트위터) 트렌드 상위 키워드와, 키워드별 최근 1일 {country} 뉴스 제목(있으면)이다.
 키워드마다 JSON 배열 항목 하나를 출력하라.
 
  id
@@ -975,7 +975,7 @@ def x_trend_one(state, now_dt, force, cfg):
             return False  # 다음 실행에 재시도
         by, ok = {}, False
     if source == "trends24":
-        lines = [f"<b>&gt;&gt;[X 트렌드] {cfg['name']} 최근 12시간 상위 {len(top)}</b> {slot_dt.strftime('%m-%d %H:%M')}"]
+        lines = [f"<b>&gt;&gt;[X 트렌드] {cfg['name']} 최근 24시간 상위 {len(top)}</b> {slot_dt.strftime('%m-%d %H:%M')}"]
     else:
         lines = [f"<b>&gt;&gt;[X 트렌드] {cfg['name']} 현재 상위 {len(top)}</b> {slot_dt.strftime('%m-%d %H:%M')}",
                  "(trends24 접속 실패로 getdaytrends 현재 순위 기준)"]
@@ -985,7 +985,7 @@ def x_trend_one(state, now_dt, force, cfg):
         r = by.get(f"x{i - 1}", {})
         url = "https://x.com/search?q=" + urllib.parse.quote(kw)
         cat = f"[{esc(r['category'])}] " if r.get("category") else ""
-        rank = f"최고 {best}위 · 12시간 중 {hrs}시간 순위권" if hrs is not None else f"현재 {best}위"
+        rank = f"최고 {best}위 · 24시간 중 {hrs}시간 순위권" if hrs is not None else f"현재 {best}위"
         lines.append(f"\n<b>{i}. {cat}{esc(r.get('ko') or kw)}</b> ({rank})")
         if r.get("reason"):
             lines.append(f"• {esc(r['reason'])}")
