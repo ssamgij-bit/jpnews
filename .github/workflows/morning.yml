@@ -1,0 +1,87 @@
+name: morning-brief
+
+on:
+  # 평일 08:30 KST 아침 브리핑 PDF. '이어 달리기'로 시각을 맞춤: 08:10에 만들기 시작 → 08:30에 발송, 끝날 때 다음 실행을 직접 띄움.
+  # GitHub 예약 실행은 몇 시간씩 밀려서, 이어 달리기가 끊겼을 때 다시 잇는 용도로만 걸어 둠.
+  schedule:
+    - cron: "41 2,8,14,20 * * *"
+  workflow_dispatch:
+    inputs:
+      now:
+        description: "지금 바로 만들어 보내기(테스트용, 기간 기준은 바꾸지 않음)"
+        type: boolean
+        default: true
+      relay:
+        description: "이어 달리기 실행(자동으로 띄우는 용도, 직접 실행할 때는 끄기)"
+        type: boolean
+        default: false
+
+concurrency:
+  group: morning-brief${{ (github.event_name == 'schedule' || github.event.inputs.relay == 'true') && '' || '-manual' }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  actions: write
+
+env:
+  RELAY: ${{ (github.event_name == 'schedule' || github.event.inputs.relay == 'true') && '1' || '0' }}
+
+jobs:
+  run:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt yfinance weasyprint matplotlib koreanize-matplotlib
+      - name: PDF 도구 확인(pango)
+        run: python -c "import weasyprint" || (sudo apt-get update -qq && timeout 300 sudo apt-get install -y -qq libpango-1.0-0 libpangoft2-1.0-0)
+      - name: Morning brief
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          MORNING_NOW: ${{ (github.event.inputs.relay != 'true' && github.event.inputs.now == 'true') && '1' || '0' }}
+        run: |
+          git config user.name "morning-bot"
+          git config user.email "actions@users.noreply.github.com"
+          save_state() {
+            [ -f morning_state.json ] || return 0
+            git add morning_state.json
+            git diff --cached --quiet && return 0
+            git commit -qm "morning state [skip ci]"
+            for i in 1 2 3 4 5; do git pull -q --rebase -X theirs && git push -q && return 0; sleep $((i * 5)); done
+            return 1
+          }
+          if [ "$RELAY" != "1" ]; then  # 직접 실행: 한 번만
+            rc=0; timeout 30m python morning.py || rc=$?; save_state; exit $rc
+          fi
+          # 오늘 분을 놓쳤으면(08:00~11:00, 아직 안 보냄) 먼저 만들어 보냄
+          rc=0; timeout 60m python morning.py --catchup || rc=$?; save_state || true
+          # 다음 평일 08:10 JST까지(최대 5시간 20분) 기다렸다가, 만들고 08:30에 발송
+          python relay_wait.py "08:10" "0-4" 19200 || exit 0
+          git pull -q --rebase -X theirs || true   # 다른 봇이 쌓아 둔 최신 자료(커뮤니티·신고가·뉴스)
+          rc=0; timeout 60m python morning.py --wait || rc=$?
+          save_state
+          exit $rc
+      - name: Notify crash
+        if: failure()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          CHAT: ${{ secrets.TELEGRAM_ADMIN_CHAT_ID || secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            --data-urlencode "chat_id=${CHAT}" \
+            --data-urlencode "text=[봇 경고] 아침 브리핑 PDF 실행이 실패했습니다. 로그: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" > /dev/null
+      - name: 다음 실행 이어 붙이기
+        if: ${{ !cancelled() && env.RELAY == '1' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          n=$(gh run list -R "${{ github.repository }}" --workflow morning.yml --limit 20 --json status,databaseId \
+               -q '[.[] | select((.status=="queued" or .status=="in_progress" or .status=="pending" or .status=="waiting") and .databaseId != ${{ github.run_id }})] | length')
+          if [ "${n:-0}" = "0" ]; then gh workflow run morning.yml -R "${{ github.repository }}" --ref main -f relay=true -f now=false && echo "다음 실행 요청"; else echo "다른 실행 $n개 있음 → 건너뜀"; fi
