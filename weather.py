@@ -4,8 +4,9 @@
 내용: 하늘 상태, 최저·최고(체감) 기온과 어제 대비, 출근길(08시)·퇴근길(18~19시) 기온과 비, 비·눈 확률과 예상 시간대,
       바람, 자외선, 미세먼지, 옷차림·우산 한 줄.
 환경변수: TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID. 선택: DRY_RUN=1, FORCE=1(시각·중복 확인 없이 바로 발송)
-발송: 매일 07:30 KST. GitHub 예약 실행이 늦게 시작되는 경우가 있어 06:40~07:25에 여러 번 시작해 두고,
-      먼저 시작된 실행이 07:30까지 기다렸다 보냄. 이미 보낸 날은 weather_state.json으로 건너뜀.
+발송: 매일 06:30 KST. GitHub 예약 실행은 몇 시간씩 밀리거나 빠지므로 예약에 기대지 않고 '이어 달리기'로 돌린다:
+      각 실행이 다음 발송 시각까지(최대 MAX_WAIT) 기다렸다가, 시각이 되면 보내고, 끝날 때 다음 실행을 직접 띄움.
+      예약 실행은 이어 달리기가 끊겼을 때 다시 잇는 용도. 이미 보낸 날은 weather_state.json으로 건너뜀.
 """
 import os
 import sys
@@ -186,30 +187,35 @@ def send(text):
     return False
 
 
-SEND_AT = (7, 30)   # KST 발송 시각
-LATE_LIMIT = 11     # 이 시각(KST) 이후에 늦게 시작된 실행은 보내지 않음(아침 정보가 무의미해짐)
+SEND_AT = (6, 30)   # KST 발송 시각
+LATE_LIMIT = 9      # 이 시각(KST) 이후에야 발송 차례가 오면 보내지 않음(아침 정보가 무의미해짐)
+MAX_WAIT = 5 * 3600 + 20 * 60  # 한 실행이 기다리는 최대 시간(GitHub 작업 한도 6시간 안쪽)
 STATE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "weather_state.json")
 
 
 def main():
     import json
     force = os.getenv("FORCE") == "1"
-    now = datetime.now(KST)
-    today = now.strftime("%Y-%m-%d")
     try:
         st = json.load(open(STATE))
     except Exception:
         st = {}
+    now = datetime.now(KST)
+    if not force:
+        target = now.replace(hour=SEND_AT[0], minute=SEND_AT[1], second=0, microsecond=0)
+        if st.get("sent") == now.strftime("%Y-%m-%d") or now.hour >= LATE_LIMIT:
+            target += timedelta(days=1)  # 오늘 몫은 끝 → 내일 06:30
+        wait = (target - now).total_seconds()
+        if wait > MAX_WAIT:
+            print(f"[info] 다음 발송 {target:%m-%d %H:%M}까지 {wait / 3600:.1f}시간 → {MAX_WAIT / 3600:.1f}시간 대기 후 다음 실행에 넘김")
+            time.sleep(MAX_WAIT)
+            return
+        if wait > 0:
+            print(f"[info] {wait / 60:.0f}분 대기 후 발송({target:%m-%d %H:%M})")
+            time.sleep(wait)
+    today = datetime.now(KST).strftime("%Y-%m-%d")
     if st.get("sent") == today and not force:
         print(f"[info] 오늘({today}) 이미 보냄")
-        return
-    target = now.replace(hour=SEND_AT[0], minute=SEND_AT[1], second=0, microsecond=0)
-    if now < target and not force:  # 예약 실행이 일찍 시작되면 07:30까지 기다렸다 보냄
-        wait = (target - now).total_seconds()
-        print(f"[info] {wait / 60:.0f}분 대기 후 발송")
-        time.sleep(wait)
-    elif now.hour >= LATE_LIMIT and not force:
-        print(f"[info] 너무 늦게 시작됨({now:%H:%M}) → 오늘은 건너뜀")
         return
     if not send(build()):
         sys.exit(1)
