@@ -418,8 +418,10 @@ WRITE_PROMPT = """너는 한국 자산운용사의 일본 주식 담당 애널�
  comment_points: 댓글 반응 요약 최대 2개. 각 40자 이내의 짧은 1문장. 첫째는 다수·공감(+·별) 많은 의견,
                  둘째는 반대·소수 의견(없으면 생략). 인용은 하지 마라. 댓글이 없으면 빈 배열.
  note: 상장사·업종·소비 트렌드와 연결되는 투자 시사점이 있을 때만 '(추정)'으로 시작하는 50자 이내 1문장. 없으면 빈 문자열.
- companies: 글에 직접 등장하는 일본·한국 상장 기업(최대 4개). 각 항목 {{"ko": 한국어 기업명,
-            "official": 상장 정식 사명(일본 기업은 일본어 정식 사명), "market": "JP" 또는 "KR"}}. 확실하지 않으면 넣지 마라.
+ companies: 글에 직접 등장하는 일본·한국 상장 기업(최대 4개). 브랜드·상품·매장·서비스가 나오면 그 상장 모회사를 넣고
+            ko는 '브랜드(모회사)' 형식(예: 유니클로(패스트리테일링), 스타벅스 재팬은 비상장이면 제외). 각 항목 {{"ko": 한국어 기업명,
+            "official": 상장 정식 사명(일본 기업은 일본어 정식 사명), "market": "JP" 또는 "KR"}}. 모회사가 확실하지 않으면 넣지 마라.
+ theme: 글의 성격 하나. "소비"(소비·유통·외식·식품·화장품·패션·여행·엔터·생활용품·가격·구매 행동), "기업·산업"(특정 기업·산업·기술·일자리), "사회·기타".
  related_news: 아래 NEWS(최근 뉴스봇이 보낸 기사) 중 이 글과 '같은 사건'을 다룬 기사의 id. 없거나 애매하면 빈 문자열.
 JSON 외 텍스트 금지.
 
@@ -454,7 +456,7 @@ WRITE_SCHEMA = {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {
     "id": {"type": "STRING"}, "ko_title": {"type": "STRING"},
     "body_points": {"type": "ARRAY", "items": {"type": "STRING"}},
     "comment_points": {"type": "ARRAY", "items": {"type": "STRING"}},
-    "note": {"type": "STRING"}, "related_news": {"type": "STRING"},
+    "note": {"type": "STRING"}, "related_news": {"type": "STRING"}, "theme": {"type": "STRING"},
     "companies": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {
         "ko": {"type": "STRING"}, "official": {"type": "STRING"}, "market": {"type": "STRING"}}}}},
     "required": ["id", "ko_title", "body_points", "comment_points"]}}
@@ -657,6 +659,15 @@ def digest_pass(state, now_dt, force):
     if trend:
         # 같은 주제끼리 묶어서 나오고(지시문), 줄마다 한 줄씩 띄워 가독성 확보
         blocks.append("<b>[24시간 동향]</b>\n" + "\n\n".join(f"• {esc(t.lstrip('•· '))}" for t in trend))
+    inv = []  # 소비·기업 관련 글을 맨 위에 한눈에(소비재 아이디어용)
+    for (k, c), w in zip(picks, ws):
+        th = (w.get("theme") or "").strip()
+        cos = company_line(w.get("companies"))
+        if th == "소비" or cos:
+            t0 = w.get("ko_title") or c.get("ko") or c["title"]
+            inv.append((0 if th == "소비" else 1, f"• {'[소비] ' if th == '소비' else ''}{esc(t0)}" + (f" → {esc(cos)}" if cos else "")))
+    if inv:
+        blocks.append("<b>[투자 관련 한눈에]</b>\n" + "\n".join(x for _, x in sorted(inv, key=lambda z: z[0])))
     for (k, c), w in zip(picks, ws):
         if c["src"] != cur_src:
             cur_src, n = c["src"], 0
@@ -930,6 +941,20 @@ X_SCHEMA = {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {
     "required": ["id", "ko", "category", "reason"]}}
 
 
+def streak(hist, kw, now):
+    """주간 기록(hist: [{ts, kw}])에서 kw가 어제부터 며칠 연속 순위에 있었는지 → 오늘 포함 일수(1이면 새 화제)"""
+    if not kw: return 1
+    days = {datetime.fromtimestamp(x["ts"], JST).date() for x in hist if x.get("kw") == kw}
+    d, n = datetime.fromtimestamp(now, JST).date() - timedelta(days=1), 1
+    while d in days:
+        n += 1; d -= timedelta(days=1)
+    return n
+
+
+def streak_txt(n):
+    return f" · <b>{n}일째</b>" if n >= 2 else " · 신규"
+
+
 def x_trend_pass(state, now_dt, force):
     """다이제스트 회차마다 X 트렌드 상위 10과 화제 이유를 별도 메시지로 보낸다(나라 추가는 X_COUNTRIES)."""
     results = [x_trend_one(state, now_dt, force, c) for c in X_COUNTRIES]
@@ -986,6 +1011,7 @@ def x_trend_one(state, now_dt, force, cfg):
         url = "https://x.com/search?q=" + urllib.parse.quote(kw)
         cat = f"[{esc(r['category'])}] " if r.get("category") else ""
         rank = f"최고 {best}위 · 24시간 중 {hrs}시간 순위권" if hrs is not None else f"현재 {best}위"
+        rank += streak_txt(streak(state["xweek"], kw, now)) if cfg["week"] else ""
         lines.append(f"\n<b>{i}. {cat}{esc(r.get('ko') or kw)}</b> ({rank})")
         if r.get("reason"):
             lines.append(f"• {esc(r['reason'])}")
@@ -999,7 +1025,7 @@ def x_trend_one(state, now_dt, force, cfg):
                 r = by.get(f"x{i}", {})
                 if r.get("ko"):
                     state["xweek"].append({"ts": now, "ko": r["ko"], "cat": r.get("category", ""),
-                                           "reason": r.get("reason", "")})
+                                           "reason": r.get("reason", ""), "kw": top[i][0]})
     return ok
 
 
@@ -1084,7 +1110,7 @@ def note_trend_pass(state, now_dt, force):
         r = by.get(f"n{i - 1}", {})
         cat = f"[{esc(r['category'])}] " if r.get("category") else ""
         likes = sum(n for _, n in posts)
-        lines.append(f"\n<b>{i}. {cat}{esc(r.get('ko') or name)}</b> (관련 글 {len(posts)}건 · 좋아요 {likes:,})")
+        lines.append(f"\n<b>{i}. {cat}{esc(r.get('ko') or name)}</b> (관련 글 {len(posts)}건 · 좋아요 {likes:,}{streak_txt(streak(state['nweek'], name, now))})")
         if r.get("reason"):
             lines.append(f"• {esc(r['reason'])}")
         co = r.get("company") or {}
@@ -1096,7 +1122,7 @@ def note_trend_pass(state, now_dt, force):
             r = by.get(f"n{i}", {})
             if r.get("ko"):
                 state["nweek"].append({"ts": now, "ko": r["ko"], "cat": r.get("category", ""),
-                                       "reason": r.get("reason", "")})
+                                       "reason": r.get("reason", ""), "kw": top[i][0]})
     return ok
 
 
