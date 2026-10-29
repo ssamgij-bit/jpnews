@@ -138,6 +138,7 @@ def save_state(s):
         v["hist"] = v["hist"][-30:]  # 24시간 증가량 계산에 필요한 만큼(매시 1개)
     s["sent"] = {k: v for k, v in s["sent"].items() if now - v < 14 * 86400}
     s["week"] = {k: v for k, v in s["week"].items() if now - v["ts"] < 8 * 86400}
+    s["pdfq"] = [x for x in s.get("pdfq", []) if now - x["ts"] < 8 * 86400]
     s["xweek"] = [x for x in s["xweek"] if now - x["ts"] < 8 * 86400][-400:]
     s["nweek"] = [x for x in s["nweek"] if now - x["ts"] < 8 * 86400][-400:]
     with open(STATE_PATH, "w", encoding="utf-8") as f:
@@ -570,7 +571,18 @@ def fmt_item(c, w, idx=None):
     return "\n".join(lines)
 
 
-def send_chunks(header, blocks, silent, sep="\n\n━━━━━━━━━━\n"):
+TO_PDF = os.getenv("COMMUNITY_TO_PDF", "1") == "1"  # 화제글·X·note·주간 정리는 텔레그램 대신 평일 08:30 아침 PDF(morning.py)에 묶음
+PDF_STATE = None  # main()에서 상태를 넣어 둠
+_KIND = "community"
+def stash(kind, header, blocks):
+    PDF_STATE.setdefault("pdfq", []).append({"ts": time.time(), "kind": kind, "head": header, "blocks": blocks})
+    print(f"[info] 아침 PDF용 저장: {kind} ({len(blocks)}블록)")
+    return True
+
+
+def send_chunks(header, blocks, silent, sep="\n\n━━━━━━━━━━\n", kind=None):
+    if TO_PDF and PDF_STATE is not None:
+        return stash(kind or _KIND, header, blocks)
     chunks, cur = [], header
     for b in blocks:
         if len(cur) + len(b) + 2 > 3800:
@@ -604,7 +616,7 @@ def urgent_pass(state, now, first_run):
             ws = [{} for _ in hot]
         for (k, c), w in zip(hot, ws):
             head = f"<b>&gt;&gt;[커뮤니티 ★{c['score']}]</b> {SRC[c['src']]['name']}\n"
-            if tg_send(head + fmt_item(c, w)):
+            if (stash("urgent", head, [fmt_item(c, w)]) if TO_PDF else tg_send(head + fmt_item(c, w))):
                 state["sent"][k] = time.time()
                 save_state(state)
     return True
@@ -674,7 +686,7 @@ def digest_pass(state, now_dt, force):
         n += 1
         b = fmt_item(c, w, n)
         blocks.append(f"<b>[{SRC[cur_src]['name']}]</b>\n{b}" if n == 1 else b)
-    if send_chunks(header, blocks, silent):
+    if send_chunks(header, blocks, silent, kind="community"):
         for k, _ in picks:
             state["sent"][k] = now
         state["last_slot"], state["slot_fail_since"] = key, 0
@@ -742,7 +754,7 @@ def weekly_pass(state, slot_dt, force=False):
         lines.append(f"• {esc(b.get('gist', ''))}")
     if not ranked:
         lines.append("\n이번 주에는 기업·브랜드 화제가 뚜렷하지 않았습니다.")
-    if send_chunks("\n".join(lines[:2]), lines[2:], False, sep="\n"):
+    if send_chunks("\n".join(lines[:2]), lines[2:], False, sep="\n", kind="weekly"):
         state["last_weekly"] = key
         weekly_insight(state, rows, ranked, ids, start, slot_dt)
     return True
@@ -829,7 +841,7 @@ def weekly_insight(state, rows, ranked, ids, start, slot_dt):
             lines.append("관련: " + esc(" / ".join(s for s in (rel, secs) if s)))
         blocks.append("\n\n".join(lines))
     blocks.append("<i>커뮤니티·SNS 반응에서 나온 가설입니다. 판단 전 공시·IR 등 1차 자료로 확인이 필요합니다.</i>")
-    send_chunks(head, blocks, False, sep="\n\n━━━━━━━━━━\n")
+    send_chunks(head, blocks, False, sep="\n\n━━━━━━━━━━\n", kind="insight")
 
 
 # ───────────────────────── X(트위터) 트렌드 ─────────────────────────
@@ -1018,7 +1030,7 @@ def x_trend_one(state, now_dt, force, cfg):
         co = r.get("company") or {}
         tick = company_line([co]) if co.get("ko") else ""
         lines.append(f"&gt;<a href=\"{esc(url)}\">X에서 보기</a>" + (f" · 관련 기업: {esc(tick)}" if tick else ""))
-    if send_chunks(lines[0], lines[1:], slot_dt.hour in SILENT_SLOTS, sep="\n"):
+    if send_chunks(lines[0], lines[1:], slot_dt.hour in SILENT_SLOTS, sep="\n", kind="x"):
         state[cfg["slot"]], state[cfg["fail"]] = key, 0
         if cfg["week"]:
             for i in range(len(top)):  # 주간 정리용 기록
@@ -1116,7 +1128,7 @@ def note_trend_pass(state, now_dt, force):
         co = r.get("company") or {}
         tick = company_line([co]) if co.get("ko") else ""
         lines.append(f"&gt;<a href=\"{esc(url)}\">note에서 보기</a>" + (f" · 관련 기업: {esc(tick)}" if tick else ""))
-    if send_chunks(lines[0], lines[1:], slot_dt.hour in SILENT_SLOTS, sep="\n"):
+    if send_chunks(lines[0], lines[1:], slot_dt.hour in SILENT_SLOTS, sep="\n", kind="note"):
         state["last_nslot"], state["n_fail_since"] = key, 0
         for i in range(len(top)):  # 주간 정리용 기록
             r = by.get(f"n{i}", {})
@@ -1152,7 +1164,9 @@ def check_health(state, llm_ok):
 
 # ───────────────────────── 메인 ─────────────────────────
 def main():
+    global PDF_STATE
     state = load_state()
+    PDF_STATE = state
     first_run = not state["cands"]
     now_dt = datetime.now(JST)
     collect(state)

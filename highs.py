@@ -62,6 +62,7 @@ def load_state():
 
 
 def save_state(s):
+    s["pdfq"] = [x for x in s.get("pdfq", []) if time.time() - x["ts"] < 8 * 86400]
     with open(STATE_PATH, "w", encoding="utf-8") as f:
         json.dump(s, f, ensure_ascii=False, indent=0)
 
@@ -875,6 +876,14 @@ def jp_gain_msg(state, day, rows, highs):
     return head, blocks
 
 
+TO_PDF = os.getenv("HIGHS_TO_PDF", "1") == "1"  # 신고가·상승률 상위는 텔레그램 대신 다음 날 08:30 아침 PDF(morning.py)에 넣음
+def stash(state, kind, day, header, blocks):
+    """아침 PDF용으로 메시지(텔레그램 HTML)를 상태에 쌓아 둠"""
+    state.setdefault("pdfq", []).append({"ts": time.time(), "kind": kind, "day": day, "head": header, "blocks": blocks})
+    print(f"[info] 아침 PDF용 저장: {kind} {day} ({len(blocks)}블록)")
+    return True
+
+
 def send_chunks(header, blocks, sep="\n\n━━━━━━━━━━\n"):
     chunks, cur = [], header
     for b in blocks:
@@ -905,6 +914,7 @@ def run_market(state, mk):
                 return  # 마감 정리부터 다시(신고가도 다음 실행에 함께)
             if send_chunks(*w):
                 state["last"]["JPWRAP"] = today
+                stash(state, "wrap", day, *w)  # 마감 정리는 텔레그램으로도 보내고 아침 PDF 일본 시황 재료로도 씀
     except Exception as ex:
         state["fail"][mk] = state["fail"].get(mk, 0) + 1
         print(f"[warn] {mk} 목록 실패({state['fail'][mk]}회): {ex}", file=sys.stderr)
@@ -924,8 +934,9 @@ def run_market(state, mk):
     if state["last"].get(mk) == today and not FORCE:
         ok = True  # 신고가는 이미 보냄(상승률 상위만 남은 경우)
     elif not rows:
-        ok = bot.tg_send(f"<b>&gt;&gt;[52주 신고가] {cfg['name']} {day[5:]} {cfg['label']} 마감</b>\n"
-                         "오늘 52주 신고가를 경신한 종목이 없습니다.")
+        none_h = f"<b>&gt;&gt;[52주 신고가] {cfg['name']} {day[5:]} {cfg['label']} 마감</b>"
+        ok = stash(state, "highs", day, none_h, ["오늘 52주 신고가를 경신한 종목이 없습니다."]) if TO_PDF and mk == "JP" else \
+            bot.tg_send(none_h + "\n오늘 52주 신고가를 경신한 종목이 없습니다.")
     else:
         tries = state.setdefault("tries", {})
         n = tries[mk] = (tries.get(mk, 0) + 1) if tries.get(f"{mk}_day") == today else 1
@@ -933,13 +944,14 @@ def run_market(state, mk):
         msg = build(state, mk, day, asof, rows, final=FORCE or n >= 2)  # 첫 시도에 요약이 실패하면 30분 뒤 재시도에서 보냄
         if msg is None:
             return
-        ok = send_chunks(*msg)
+        ok = stash(state, "highs", day, *msg) if TO_PDF and mk == "JP" else send_chunks(*msg)
     if ok:
         state["last"][mk] = today
     if ok and mk == "JP" and (state["last"].get("JPGAIN") != today or FORCE):
         try:
             g = jp_gainers(today)
-            if g and send_chunks(*jp_gain_msg(state, day, g, {r["code"] for r in rows})):
+            if g and (stash(state, "gainers", day, *jp_gain_msg(state, day, g, {r["code"] for r in rows})) if TO_PDF
+                      else send_chunks(*jp_gain_msg(state, day, g, {r["code"] for r in rows}))):
                 state["last"]["JPGAIN"] = today
             elif not g:
                 state["last"]["JPGAIN"] = today

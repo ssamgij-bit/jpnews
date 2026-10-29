@@ -67,6 +67,35 @@ def outfit(tmin, tmax):
     return "패딩·목도리·장갑"
 
 
+def feel_word(t):
+    """체감온도 → 몸으로 느끼는 표현"""
+    for lim, w in ((-5, "살을 에는 한파"), (0, "손이 시린 추위"), (5, "코끝이 찡한 추위"), (10, "쌀쌀함"), (16, "선선함"),
+                   (22, "쾌적함"), (27, "따뜻함"), (31, "더움")):
+        if t < lim: return w
+    return "푹푹 찌는 더위"
+
+
+def cmp_word(d, warm="따뜻", cold="추워"):
+    """어제 대비 차이(℃) → '3℃ 더 추워요' 같은 말"""
+    a = abs(d)
+    if a < 1: return "어제와 비슷해요"
+    how = "조금 " if a < 3 else "꽤 " if a < 6 else "확 "
+    return f"어제보다 {how}{warm + '해요' if d > 0 else cold + '요'}({d:+.0f}℃)"
+
+
+def vs_yesterday(h, today, yday):
+    """같은 시각 어제 대비 체감온도 비교 → 한두 문장"""
+    def at(day, hrs, key="apparent_temperature"):
+        v = [h[key][k] for k, t in enumerate(h["time"]) if t.startswith(day) and int(t[11:13]) in hrs and h[key][k] is not None]
+        return sum(v) / len(v) if v else None
+    out = []
+    for label, hrs in (("출근길(08시)", (8,)), ("한낮(13~15시)", (13, 14, 15)), ("퇴근길(18~19시)", (18, 19))):
+        a, b = at(today, hrs), at(yday, hrs)
+        if a is None or b is None: continue
+        out.append(f"{label}은 {cmp_word(a - b)} · 체감 {a:.0f}℃, {feel_word(a)}")
+    return out
+
+
 def spans(hours):
     """연속된 시각을 '09~12시'처럼 묶는다."""
     out, start, prev = [], None, None
@@ -121,6 +150,12 @@ def build():
         dmax, dmin = tmax - ytmax, tmin - ytmin
         diff = f" · 어제보다 최고 {dmax:+.0f}℃, 최저 {dmin:+.0f}℃"
     lines.append(f"• 기온: 최저 {tmin:.0f}℃ / 최고 {tmax:.0f}℃ (체감 {amin:.0f}~{amax:.0f}℃){diff}")
+    yday = (datetime.now(KST) - timedelta(days=1)).strftime("%Y-%m-%d")
+    vs = vs_yesterday(h, today, yday)
+    if vs:
+        lines.append("")
+        lines.append("• 어제와 비교: " + vs[0])
+        lines += [f"   {x}" for x in vs[1:]]
     lines.append("")
     commute_rain = []
     for label, hrs in (("출근길(08시)", (8,)), ("퇴근길(18~19시)", (18, 19))):
