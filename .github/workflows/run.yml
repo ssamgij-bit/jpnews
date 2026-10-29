@@ -1,21 +1,32 @@
 name: jp-news-bot
 
 on:
+  # 10분마다 뉴스 수집은 '이어 달리기'로: 한 실행이 약 5시간 20분 동안 매 10분(JST :05·:15·…)에 봇을 돌리고, 끝날 때 다음 실행을 직접 띄움.
+  # GitHub 예약 실행은 몇 시간씩 밀려서(최근 3일 16회만 실행), 이어 달리기가 끊겼을 때 다시 잇는 용도로만 걸어 둠.
   schedule:
-    - cron: "*/10 * * * *"   # 10분마다 (GitHub 사정으로 몇 분 지연될 수 있음)
-  workflow_dispatch: {}
+    - cron: "13 1,7,13,19 * * *"
+  workflow_dispatch:
+    inputs:
+      relay:
+        description: "이어 달리기 실행(자동으로 띄우는 용도, 직접 테스트할 때는 끄기)"
+        type: boolean
+        default: false
 
 concurrency:
-  group: jp-news-bot
+  group: jp-news-bot${{ (github.event_name == 'schedule' || github.event.inputs.relay == 'true') && '' || '-manual' }}
   cancel-in-progress: false
 
 permissions:
   contents: write
+  actions: write
+
+env:
+  RELAY: ${{ (github.event_name == 'schedule' || github.event.inputs.relay == 'true') && '1' || '0' }}
 
 jobs:
   run:
     runs-on: ubuntu-24.04
-    timeout-minutes: 8
+    timeout-minutes: 350
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
@@ -30,21 +41,29 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           TELEGRAM_ADMIN_CHAT_ID: ${{ secrets.TELEGRAM_ADMIN_CHAT_ID }}
           SCORE_THRESHOLD: ${{ vars.SCORE_THRESHOLD || '4' }}
-        run: python bot.py
-      - name: Save state
-        if: always()
         run: |
           git config user.name "jp-news-bot"
           git config user.email "actions@users.noreply.github.com"
-          git add state.json
-          git diff --cached --quiet && exit 0
-          git commit -m "state update [skip ci]"
-          # 다른 봇이 같은 순간에 저장하면 push가 거부될 수 있어 최대 5번 재시도
-          for i in 1 2 3 4 5; do
-            git pull --rebase -X theirs && git push && exit 0
-            sleep $((i * 5))
+          save_state() {
+            git add state.json
+            git diff --cached --quiet && return 0
+            git commit -qm "state update [skip ci]"
+            # 다른 봇이 같은 순간에 저장하면 push가 거부될 수 있어 최대 5번 재시도
+            for i in 1 2 3 4 5; do git pull -q --rebase -X theirs && git push -q && return 0; sleep $((i * 5)); done
+            return 1
+          }
+          if [ "$RELAY" != "1" ]; then  # 직접 실행: 한 번만
+            rc=0; timeout 8m python bot.py || rc=$?; save_state; exit $rc
+          fi
+          end=$(( $(date +%s) + 19200 )); fails=0
+          while [ $(( end - $(date +%s) )) -gt 60 ]; do
+            python relay_wait.py "*:05,*:15,*:25,*:35,*:45,*:55" "" $(( end - $(date +%s) )) || break
+            git pull -q --rebase -X theirs || true
+            if timeout 8m python bot.py; then fails=0; else fails=$((fails + 1)); echo "::warning::뉴스봇 실행 실패($fails회 연속)"; fi
+            save_state || echo "::warning::상태 저장 실패"
+            [ $fails -ge 3 ] && exit 1
           done
-          exit 1
+          exit 0
       - name: Notify crash
         if: failure()
         env:
@@ -54,3 +73,11 @@ jobs:
           curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
             --data-urlencode "chat_id=${CHAT}" \
             --data-urlencode "text=[봇 경고] 일본 뉴스봇 실행이 중단됐습니다. 로그: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" > /dev/null
+      - name: 다음 실행 이어 붙이기
+        if: ${{ !cancelled() && env.RELAY == '1' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          n=$(gh run list -R "${{ github.repository }}" --workflow run.yml --limit 20 --json status,databaseId \
+               -q '[.[] | select((.status=="queued" or .status=="in_progress" or .status=="pending" or .status=="waiting") and .databaseId != ${{ github.run_id }})] | length')
+          if [ "${n:-0}" = "0" ]; then gh workflow run run.yml -R "${{ github.repository }}" --ref main -f relay=true && echo "다음 실행 요청"; else echo "다른 실행 $n개 있음 → 건너뜀"; fi
