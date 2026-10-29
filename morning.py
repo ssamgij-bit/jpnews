@@ -93,7 +93,7 @@ def gemini_obj(state, prompt, schema, tag):
 
 # ───────────────────────── 시세(Yahoo) ─────────────────────────
 US_IDX = [("^GSPC", "S&P500"), ("^IXIC", "나스닥"), ("^DJI", "다우"), ("^RUT", "러셀2000"), ("^SOX", "필라델피아 반도체"), ("^VIX", "VIX")]
-MACRO = [("^TNX", "미 국채 10년(%)"), ("DX-Y.NYB", "달러인덱스"), ("JPY=X", "달러/엔"), ("KRW=X", "달러/원"),
+MACRO = [("^TNX", "미 국채 10년(%)"), ("DX-Y.NYB", "달러인덱스"), ("JPY=X", "달러/엔"),
          ("CL=F", "WTI($)"), ("GC=F", "금($)"), ("BTC-USD", "비트코인($)")]
 SECTORS = [("XLK", "기술"), ("XLC", "커뮤니케이션"), ("XLY", "경기소비재"), ("XLP", "필수소비재"), ("XLE", "에너지"),
            ("XLF", "금융"), ("XLV", "헬스케어"), ("XLI", "산업재"), ("XLB", "소재"), ("XLU", "유틸리티"), ("XLRE", "부동산")]
@@ -124,37 +124,43 @@ def quotes(syms):
     return out
 
 
+def finviz_rows(f, order, n=10):
+    """finviz 스크리너 표 → [{tk, name, sector, ind, cap, pct}] (티커는 페이지 주석의 실제 값으로 맞춤)"""
+    import highs
+    rows = []
+    try:
+        h = highs.get("https://finviz.com/screener.ashx", params={"v": "111", "f": f, "o": order})
+        ts = re.search(r"<!-- TS\s*(.*?)\s*TE -->", h, re.S)
+        real = {}
+        for x in (ts.group(1).split() if ts else []):
+            p = x.split("|")
+            if len(p) == 3:
+                real[(highs.num(p[1]), highs.num(p[2]))] = p[0]
+        for tr in re.findall(r'<tr class="styled-row[^"]*"[^>]*>(.*?)</tr>', h, re.S):
+            c = [highs.text_of(x) for x in re.findall(r"<td[^>]*>(.*?)</td>", tr, re.S)]
+            if len(c) < 11:
+                continue
+            tk = real.get((highs.num(c[8]), highs.num(c[10])))
+            if tk:
+                rows.append({"tk": tk, "name": c[2], "sector": c[3], "ind": c[4], "cap": c[6], "pct": highs.num(c[9])})
+    except Exception as ex:
+        print(f"[warn] finviz 실패({f}, {order}): {ex}", file=sys.stderr)
+    return rows[:n]
+
+
+def us_earnings():
+    """오늘 밤(미국 현지 '내일') 실적 발표 대형주(시총 100억 달러↑): (장 전, 장 후)"""
+    return (finviz_rows("cap_largeover,earningsdate_tomorrowbefore", "-marketcap", 15),
+            finviz_rows("cap_largeover,earningsdate_tomorrowafter", "-marketcap", 15))
+
+
 def finviz_movers():
     """S&P500 당일 상승·하락 상위(finviz). 실패하면 빈 목록"""
-    try:
-        import highs
-    except Exception:
-        return [], []
-    res = []
-    for order in ("-change", "change"):
-        rows = []
-        try:
-            h = highs.get("https://finviz.com/screener.ashx", params={"v": "111", "f": "idx_sp500", "o": order})
-            ts = re.search(r"<!-- TS\s*(.*?)\s*TE -->", h, re.S)
-            real = {}
-            for x in (ts.group(1).split() if ts else []):
-                p = x.split("|")
-                if len(p) == 3:
-                    real[(highs.num(p[1]), highs.num(p[2]))] = p[0]
-            for tr in re.findall(r'<tr class="styled-row[^"]*"[^>]*>(.*?)</tr>', h, re.S):
-                c = [highs.text_of(x) for x in re.findall(r"<td[^>]*>(.*?)</td>", tr, re.S)]
-                if len(c) < 11:
-                    continue
-                tk = real.get((highs.num(c[8]), highs.num(c[10])))
-                if tk:
-                    rows.append({"tk": tk, "name": c[2], "sector": c[3], "ind": c[4], "cap": c[6], "pct": highs.num(c[9])})
-        except Exception as ex:
-            print(f"[warn] finviz 실패({order}): {ex}", file=sys.stderr)
-        res.append(rows[:10])
-    return res[0], res[1]
+    return finviz_rows("idx_sp500", "-change"), finviz_rows("idx_sp500", "change")
 
 
 # ───────────────────────── 텔레그램 공개 채널 글 ─────────────────────────
+KR_POST = re.compile(r"한국 증시|코스피|코스닥|서학개미|KOSPI|야간선물|원/달러|원·달러")  # 한국 관련 글은 빼고 읽음
 def tg_posts(ch, since, limit_chars=22000):
     """t.me/s/채널(공개 미리보기)에서 since 이후 글 본문 목록 [(시각, 글)]"""
     out, url = [], f"https://t.me/s/{ch}"
@@ -181,7 +187,7 @@ def tg_posts(ch, since, limit_chars=22000):
                 older = True
                 continue
             txt = H.unescape(re.sub(r"<[^>]+>", "", re.sub(r"<br\s*/?>", "\n", m.group(1)))).strip()
-            if len(txt) >= 40:
+            if len(txt) >= 40 and not KR_POST.search(txt[:120]):
                 out.append((ts, txt, int(pid.group(1)) if pid else 0))
         if older or not ids:
             break
@@ -216,11 +222,126 @@ def news_items(since_ts):
     return [r for r in rec if r.get("sent") and r.get("ts", 0) > since_ts][-40:]
 
 
-def disclosure_items(since_ts):
+_JPALL = {}
+def jpall_state():
+    """공시봇 상태(jpall 저장소 state 브랜치): 하이라이트·실적 발표 예정일·관심 종목"""
+    if not _JPALL:
+        try:
+            _JPALL.update(requests.get(JPALL_STATE, timeout=40).json())
+        except Exception as ex:
+            print(f"[warn] 공시봇 상태 읽기 실패: {ex}", file=sys.stderr)
+    return _JPALL
+
+
+_NAMES = {}
+def jp_names():
+    """종목코드 → {jp, ko, mkt} (공시봇이 JPX 목록으로 만든 한국어 이름)"""
+    if not _NAMES:
+        try:
+            _NAMES.update(requests.get(JPALL_STATE.replace("state.json", "names.json"), timeout=40).json())
+        except Exception as ex:
+            print(f"[warn] 종목명 읽기 실패: {ex}", file=sys.stderr)
+    return _NAMES
+
+
+def jp_quotes(codes):
+    """Yahoo 일괄 시세(일본 종목코드) → {코드: quote}"""
+    out = {}
     try:
-        st = requests.get(JPALL_STATE, timeout=40).json()
+        from yfinance.data import YfData
+        yd = YfData()
+        codes = list(dict.fromkeys(codes))
+        for i in range(0, len(codes), 150):
+            for wait in (0, 3, 8):  # 일시적인 429 대비 재시도
+                time.sleep(wait)
+                try:
+                    r = yd.get("https://query1.finance.yahoo.com/v7/finance/quote", params={"symbols": ",".join(c + ".T" for c in codes[i:i + 150])})
+                    if r.status_code == 200:
+                        for x in r.json()["quoteResponse"]["result"]:
+                            out[x["symbol"][:-2]] = x
+                        break
+                except Exception:
+                    pass
     except Exception as ex:
-        print(f"[warn] 공시봇 상태 읽기 실패: {ex}", file=sys.stderr)
+        print(f"[warn] 일본 종목 시세 실패: {ex}", file=sys.stderr)
+    return out
+
+
+def oku(yen):
+    v = (yen or 0) / 1e8
+    return f"{v / 10000:.1f}조엔" if v >= 10000 else f"{v:,.0f}억엔"
+
+
+def jp_earnings_today(day):
+    """오늘(day) 결산 발표 예정 종목 → 시총 상위 [{code, ko, sector, cap, watch}] (JPX 결산 발표 예정일, 공시봇 수집분)"""
+    st = jpall_state()
+    codes = [c for c, v in (st.get("sched") or {}).items() if v and v[0] == day]
+    if not codes:
+        return [], 0
+    q = jp_quotes(codes)
+    names, watch = jp_names(), st.get("watch") or {}
+    try:
+        import highs
+        sk = highs.SECTOR_KO
+    except Exception:
+        sk = {}
+    rows = [{"code": c, "ko": (names.get(c) or {}).get("ko") or (q.get(c) or {}).get("shortName", c),
+             "sector": sk.get(st["sched"][c][1], st["sched"][c][1]) if len(st["sched"][c]) > 1 else "",
+             "cap": (q.get(c) or {}).get("marketCap") or 0, "watch": c in watch} for c in codes]
+    rows.sort(key=lambda r: (not r["watch"], -r["cap"]))
+    return [r for r in rows if r["watch"] or r["cap"] >= 1e11][:25], len(codes)
+
+
+def watch_rows(since_ts):
+    """관심 종목: 전일 등락·52주 고가 근접·기간 중 공시"""
+    st = jpall_state()
+    codes = list((st.get("watch") or {}).keys())
+    if not codes:
+        return []
+    q, names = jp_quotes(codes), jp_names()
+    disc = {}
+    for x in st.get("hl", []):
+        if x.get("code") in codes and x.get("ts", 0) > since_ts and x.get("sec") != "watch":
+            disc.setdefault(x["code"], []).append(x["txt"])
+    for x in st.get("hl", []):  # 하이라이트 밖 관심 종목 공시(제목만)
+        if x.get("code") in codes and x.get("ts", 0) > since_ts and x.get("sec") == "watch" and x["code"] not in disc:
+            disc.setdefault(x["code"], []).append(x["txt"])
+    rows = []
+    for c in codes:
+        x = q.get(c) or {}
+        hi52, dh = x.get("fiftyTwoWeekHigh"), x.get("regularMarketDayHigh")
+        rows.append({"code": c, "ko": (names.get(c) or {}).get("ko") or x.get("shortName", c), "px": x.get("regularMarketPrice"),
+                     "chg": x.get("regularMarketChangePercent"), "cap": x.get("marketCap"),
+                     "nh": bool(hi52 and dh and dh >= hi52), "gap": (x.get("regularMarketPrice") / hi52 - 1) * 100 if hi52 and x.get("regularMarketPrice") else None,
+                     "disc": disc.get(c, [])})
+    rows.sort(key=lambda r: -(abs(r["chg"] or 0)))
+    return rows
+
+
+def jgb10():
+    """일본 국채 10년 금리(재무성, 전일 기준) → (기준일, 금리, 전일 대비 bp)"""
+    try:
+        t = requests.get("https://www.mof.go.jp/jgbs/reference/interest_rate/jgbcm.csv", timeout=30).content.decode("cp932", "ignore")
+        rows = [l.split(",") for l in t.splitlines() if re.match(r"^[RH]\d+\.\d+\.\d+,", l)]
+        a, b = rows[-2], rows[-1]
+        return b[0], float(b[10]), (float(b[10]) - float(a[10])) * 100
+    except Exception as ex:
+        print(f"[warn] 국채 금리 실패: {ex}", file=sys.stderr)
+        return None
+
+
+def jp_sector_rows():
+    try:
+        import highs
+        return highs.jp_sectors()
+    except Exception as ex:
+        print(f"[warn] 업종 등락 실패: {ex}", file=sys.stderr)
+        return []
+
+
+def disclosure_items(since_ts):
+    st = jpall_state()
+    if not st:
         return []
     order = {"watch": 0, "beat": 1, "up": 2, "newfc": 3, "evt": 4, "ret": 5, "miss": 6, "down": 7, "prog": 8, "hold": 9, "mon": 10}
     hl = [x for x in st.get("hl", []) if x.get("ts", 0) > since_ts and x.get("sec") in order]
@@ -239,21 +360,22 @@ STR_ARR = {"type": "ARRAY", "items": {"type": "STRING"}}
 US_SCHEMA = {"type": "OBJECT", "properties": {
     "headline": {"type": "STRING"}, "summary": STR_ARR, "sectors": STR_ARR, "macro": STR_ARR, "watch": STR_ARR,
     "stocks": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {
-        "ticker": {"type": "STRING"}, "name": {"type": "STRING"}, "move": {"type": "STRING"}, "why": {"type": "STRING"}},
+        "ticker": {"type": "STRING"}, "name": {"type": "STRING"}, "move": {"type": "STRING"}, "why": {"type": "STRING"}, "jp": {"type": "STRING"}},
         "required": ["ticker", "name", "why"]}}},
     "required": ["headline", "summary", "stocks"]}
 US_PROMPT = """너는 한국 자산운용사 주식운용본부의 글로벌 시황 담당이다. 아래 자료로 {day} 미국 증시(현지 기준) 아침 시황을 한국어로 정리하라.
-독자는 일본·한국 소비재·산업재를 보는 펀드매니저다. 보고서체('~함', '~했음')로 짧고 밀도 있게.
+독자는 일본 주식에만 투자하는 펀드매니저다(소비재·산업재 중심). 보고서체('~함', '~했음')로 짧고 밀도 있게.
 
 규칙
 - 수치는 [시세] 표의 값만 쓴다(지수·종목 등락률을 바꾸거나 지어내지 마라). 표에 없는 수치는 참고 글에 적힌 것만, 출처 표시 없이 써도 된다.
+- 한국 증시·한국 종목·코스피·원화·서학개미 등 한국 관련 내용은 쓰지 마라(참고 글에 있어도 무시).
 - 참고 글(텔레그램 채널)은 내용 파악용이다. 문장을 그대로 베끼지 말고 네 말로 다시 써라.
 - 사실과 해석을 구분하고, 근거 없는 해석은 '(추정)'을 붙여라.
 - headline: 오늘 시장을 한 줄(40자 이내).
 - summary: 시장 전체 흐름 4~6줄(지수·금리·달러·유가·주요 이벤트와 원인).
 - sectors: 섹터 흐름 2~4줄(강한/약한 섹터와 이유).
 - stocks: 주목할 종목 6~10개. ticker, name(한국어 통용명), move(예 "+6.6%"), why(무슨 일이 있었는지 1문장, 60자 이내).
-  실적 발표·가이던스·M&A·규제 등 이벤트가 있는 종목 우선. 일본·한국 공급망과 연결되면 why에 짧게 덧붙여라.
+  실적 발표·가이던스·M&A·규제 등 이벤트가 있는 종목 우선. 일본 기업(공급망·경쟁사·고객)과 연결되면 jp에 "→ 도쿄일렉트론·어드밴테스트(장비 수요)"처럼 짧게 적어라.
 - macro: 금리·환율·원자재·정책·지정학 2~4줄.
 - watch: 오늘 밤·이번 주 체크 포인트(실적 발표·지표·이벤트) 2~4줄.
 
@@ -267,7 +389,7 @@ US_PROMPT = """너는 한국 자산운용사 주식운용본부의 글로벌 시
 {posts}
 """
 JP_SCHEMA = {"type": "OBJECT", "properties": {
-    "headline": {"type": "STRING"}, "summary": STR_ARR, "watch": STR_ARR,
+    "headline": {"type": "STRING"}, "summary": STR_ARR, "watch": STR_ARR, "top3": STR_ARR,
     "news": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {
         "title": {"type": "STRING"}, "why": {"type": "STRING"}}, "required": ["title", "why"]}},
     "disc": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {
@@ -282,7 +404,8 @@ JP_PROMPT = """너는 한국 자산운용사 주식운용본부의 일본 주식
 - summary: 지수·업종·수급·테마 흐름 4~6줄. 오늘 아침 미국 시장 흐름이 일본에 줄 영향도 1줄(추정 표시).
 - news: [뉴스] 중 투자에 중요한 기사 최대 6개. title(한국어 제목 그대로 또는 짧게), why(왜 중요한지 1문장, 60자 이내).
 - disc: [공시] 중 주목할 공시 최대 10개. i(공시 번호), why(투자 관점 한 줄, 60자 이내 — 수정 폭·지속성·시총 고려).
-- watch: 오늘 일본 증시 체크 포인트 2~4줄(발표 예정 실적·지표·이벤트, 자료에 있는 것만).
+- watch: 오늘 일본 증시 체크 포인트 2~4줄(아래 [오늘 실적 발표 예정]·지표·이벤트, 자료에 있는 것만).
+- top3: 오늘 아침 꼭 알아야 할 3줄(각 50자 이내). 1줄 미국, 1줄 일본, 1줄 오늘 주목할 것(공시·실적 발표·화제 중). 한국 관련 내용 금지.
 
 [미국 증시 요약]
 {us}
@@ -297,6 +420,12 @@ JP_PROMPT = """너는 한국 자산운용사 주식운용본부의 일본 주식
 
 [공시(공시봇 하이라이트)]
 {disc}
+
+[오늘 실적 발표 예정(시총 상위)]
+{earn}
+
+[커뮤니티 화제(24시간 동향)]
+{com}
 """
 
 
@@ -405,6 +534,10 @@ img.chart{width:100%;margin:1mm 0}
 a{color:#2360c4;text-decoration:none}
 .note{color:#777;font-size:7.8pt;margin-top:1mm}
 .toc{font-size:9pt;color:#444;margin:2mm 0 4mm}
+.top3{border:1.5px solid #9a6a12;border-radius:2mm;padding:3mm 4mm;margin:2mm 0 4mm;font-size:10.2pt;line-height:1.7}
+.t3h{font-weight:700;color:#9a6a12;margin-bottom:1mm}
+.jpl{color:#9a6a12;font-size:8.2pt;margin-top:0.5mm}
+table.watch td:last-child{font-size:8pt;color:#444}
 """
 
 
@@ -437,6 +570,7 @@ def build_pdf(state, since_ts):
     q = quotes([s for s, _ in US_IDX + MACRO + SECTORS + JP_IDX] + MEGA)
     us_day = (q.get("^GSPC") or {}).get("date", "")
     gain, lose = finviz_movers()
+    ern_pre, ern_post = us_earnings()
     posts = []
     for ch, label in CHANNELS:
         for ts, txt in tg_posts(ch, t - timedelta(hours=18)):
@@ -459,18 +593,31 @@ def build_pdf(state, since_ts):
     disc_txt = "\n".join(f"#{i + 1} {x['name']}({x['code']}, 시총 {x.get('mct') or '?'}) [{x['sec']}] {x['txt']}"
                          + (f" / 사유: {x.get('why') or x.get('why0')}" if (x.get('why') or x.get('why0')) else "")
                          for i, x in enumerate(disc)) or "(없음)"
-    us_sum = " ".join(us.get("summary") or [])[:800] or qtxt[:600]
-    jp = gemini_obj(state, JP_PROMPT.format(day=jp_day, us=us_sum, idx=jp_idx or "-", wrap=wrap_txt[:6000],
-                                            news=news_txt[:8000], disc=disc_txt[:9000]), JP_SCHEMA, "일본 시황") or {}
+    jgb = jgb10()
+    if jgb:
+        jp_idx += f", 일본 국채 10년 {jgb[1]:.3f}% ({jgb[2]:+.1f}bp, {jgb[0]})"
+    secs = jp_sector_rows()
+    if secs:
+        jp_idx += "\n[33업종 등락 상위] " + ", ".join(f"{k} {v:+.2f}%" for k, v in secs[:5]) + " / [하위] " + ", ".join(f"{k} {v:+.2f}%" for k, v in secs[::-1][:5])
+    earn, earn_n = jp_earnings_today(t.strftime("%Y-%m-%d"))
+    earn_txt = ", ".join(f"{r['ko']}({r['code']}, {oku(r['cap'])}{', 관심 종목' if r['watch'] else ''})" for r in earn) or "(없음)"
+    watch = watch_rows(since_ts)
     # ── 3)·4) 쌓아 둔 메시지
     com = stashes("community_state.json", since_ts)
+    com_txt = "\n".join(strip_html(b)[:1500] for x in com if x["kind"] == "community" for b in x["blocks"][:1])[:3000] or "(없음)"
+    us_sum = " ".join(us.get("summary") or [])[:800] or qtxt[:600]
+    jp = gemini_obj(state, JP_PROMPT.format(day=jp_day, us=us_sum, idx=jp_idx or "-", wrap=wrap_txt[:6000], news=news_txt[:8000],
+                                            disc=disc_txt[:9000], earn=earn_txt, com=com_txt), JP_SCHEMA, "일본 시황") or {}
     hi = [x for x in wraps if x["kind"] in ("highs", "gainers")]
 
     # ── HTML
     wd = "월화수목금토일"[t.weekday()]
     parts = [f"<h1>아침 브리핑 {t:%Y-%m-%d}({wd})</h1>",
              f"<div class='sub'>{t:%H:%M} KST 작성 · 대상 기간 {since:%m/%d %H:%M} ~ {t:%m/%d %H:%M} · 미국 {us_day or '-'} 종가 · 일본 {jp_day or '-'} 종가</div>",
-             "<div class='toc'>1. 글로벌 시황 · 2. 일본 증시 시황 · 3. 커뮤니티·X·note 화제 · 4. 일본 52주 신고가·상승률 상위</div>"]
+             "<div class='toc'>1. 글로벌 시황 · 2. 일본 증시 시황(실적 발표 예정·관심 종목) · 3. 커뮤니티·X·note 화제 · 4. 일본 52주 신고가·상승률 상위</div>"]
+    top3 = [x for x in (jp.get("top3") or []) if str(x).strip()][:3] or [x for x in (us.get("headline"), jp.get("headline")) if x]
+    if top3:
+        parts.append("<div class='top3'><div class='t3h'>오늘의 3줄 요약</div>" + "".join(f"<div>{i}. {esc(str(x).lstrip('•·- 0123456789.'))}</div>" for i, x in enumerate(top3, 1)) + "</div>")
     # 1
     parts.append("<h2>1. 글로벌 시황 (미국 중심)</h2>")
     if us.get("headline"):
@@ -490,13 +637,18 @@ def build_pdf(state, since_ts):
     if us.get("stocks"):
         parts.append("<h3>주목 종목</h3><table><tr><th>종목</th><th>등락</th><th>내용</th></tr>" + "".join(
             f"<tr><td>{esc(s.get('name', ''))} <span class='note'>{esc(s.get('ticker', ''))}</span></td>"
-            f"<td class='n {cls(-1 if str(s.get('move', '')).startswith('-') else 1)}'>{esc(s.get('move', ''))}</td><td>{esc(s.get('why', ''))}</td></tr>"
+            f"<td class='n {cls(-1 if str(s.get('move', '')).startswith('-') else 1)}'>{esc(s.get('move', ''))}</td><td>{esc(s.get('why', ''))}"
+            + (f"<div class='jpl'>🇯🇵 {esc(s['jp'].lstrip('→ '))}</div>" if (s.get('jp') or '').strip() else "") + "</td></tr>"
             for s in us["stocks"]) + "</table>")
     if gain or lose:
         mk = lambda rows: "".join(f"<tr><td>{esc(r['tk'])} <span class='note'>{esc(r['name'][:28])}</span></td><td class='n {cls(r['pct'])}'>{r['pct']:+.2f}%</td></tr>"
                                   for r in rows[:8] if r.get("pct") is not None)
         parts.append("<div class='grid'><div><h3>S&P500 상승 상위</h3><table>" + mk(gain) + "</table></div><div><h3>S&P500 하락 상위</h3><table>"
                      + mk(lose) + "</table></div></div>")
+    if ern_pre or ern_post:
+        ek = lambda rows: "".join(f"<tr><td>{esc(r['tk'])} <span class='note'>{esc(r['name'][:26])}</span></td><td class='n'>{esc(r['cap'])}</td></tr>" for r in rows) or "<tr><td class='note'>없음</td><td></td></tr>"
+        parts.append("<h3>오늘 밤 실적 발표(미국, 시총 100억 달러↑)</h3><div class='grid'><div><table><tr><th>장 전</th><th>시총($B)</th></tr>" + ek(ern_pre)
+                     + "</table></div><div><table><tr><th>장 마감 후</th><th>시총($B)</th></tr>" + ek(ern_post) + "</table></div></div>")
     if us.get("macro"):
         parts.append("<h3>매크로</h3>" + li(us["macro"]))
     if us.get("watch"):
@@ -509,9 +661,18 @@ def build_pdf(state, since_ts):
     parts.append("<h2 class='newpage'>2. 일본 증시 시황</h2>")
     if jp.get("headline"):
         parts.append(f"<div class='hl'>{esc(jp['headline'])}</div>")
-    parts.append(q_table(q, JP_IDX))
+    jt = q_table(q, JP_IDX)
+    if jgb and jt:
+        jt = jt.replace("</table>", f"<tr><td>일본 국채 10년 <span class='note'>{esc(jgb[0])}</span></td><td class='n'>{jgb[1]:.3f}%</td><td class='n {cls(jgb[2])}'>{jgb[2]:+.1f}bp</td></tr></table>")
+    parts.append(jt)
     if jp.get("summary"):
         parts.append("<h3>시장 흐름</h3>" + li(jp["summary"]))
+    if secs:
+        try:
+            pick = secs[:8] + [x for x in secs[-8:] if x not in secs[:8]]
+            parts.append(f"<img class='chart' src='{chart_png(pick, '33업종 등락률 상·하위 8(%) · 전 거래일')}'>")
+        except Exception as ex:
+            print(f"[warn] 업종 차트 실패: {ex}", file=sys.stderr)
     if wrap:
         w = wrap[-1]
         parts.append("<h3>전 거래일 마감 정리</h3>" + "".join(f"<div class='blk'>{tg_html(b)}</div>" for b in w["blocks"][:-1]))
@@ -527,6 +688,21 @@ def build_pdf(state, since_ts):
         parts.append("<h3>주목 공시</h3><table class='disc'><tr><th>기업</th><th>내용</th><th>포인트</th></tr>" + "".join(
             f"<tr><td>{esc(disc[i]['name'])} <span class='note'>{esc(disc[i]['code'])} · {esc(disc[i].get('mct') or '')}</span></td>"
             f"<td>{esc(disc[i]['txt'])}</td><td>{esc(why)}</td></tr>" for i, why in picks) + "</table>")
+    if earn:
+        parts.append(f"<h3>오늘 실적 발표 예정 <span class='note'>전체 {earn_n}종목 중 시총 1,000억엔↑·관심 종목, 시총 순</span></h3>"
+                     "<table><tr><th>종목</th><th>업종</th><th>시총</th></tr>" + "".join(
+                         f"<tr><td>{'⭐ ' if r['watch'] else ''}{esc(r['ko'])} <span class='note'>{esc(r['code'])}</span></td><td>{esc(r['sector'])}</td>"
+                         f"<td class='n'>{oku(r['cap']) if r['cap'] else '-'}</td></tr>" for r in earn) + "</table>")
+    if watch:
+        def wrow(r):
+            px = f"{r['px']:,.0f}" if r["px"] else "-"
+            ch = f"{r['chg']:+.2f}%" if r["chg"] is not None else "-"
+            gap = f"{r['gap']:+.1f}%" if r["gap"] is not None else "-"
+            nh = " <b class='up'>신고가</b>" if r["nh"] else ""
+            return (f"<tr><td>{esc(r['ko'])} <span class='note'>{esc(r['code'])}</span>{nh}</td><td class='n'>{px}</td>"
+                    f"<td class='n {cls(r['chg'])}'>{ch}</td><td class='n'>{gap}</td><td>{esc(' / '.join(r['disc'])[:160])}</td></tr>")
+        parts.append("<h3>관심 종목 <span class='note'>전 거래일 등락 큰 순 · 기간 중 공시</span></h3><table class='watch'><tr><th>종목</th><th>종가</th>"
+                     "<th>등락</th><th>52주 고가 대비</th><th>공시</th></tr>" + "".join(wrow(r) for r in watch) + "</table>")
     if jp.get("watch"):
         parts.append("<h3>체크 포인트</h3>" + li(jp["watch"]))
     parts.append("<div class='note'>지수: Yahoo Finance(TOPIX·그로스250은 연동 ETF로 대용) · 마감 정리: 카부탄·피스코 마감 시황 기반 신고가 봇 요약 · "
@@ -545,10 +721,8 @@ def build_pdf(state, since_ts):
     from weasyprint import HTML
     pdf = HTML(string=doc, base_url=DIR).write_pdf()
     cap = [f"<b>아침 브리핑 {t:%m/%d}({wd})</b>"]
-    if us.get("headline"):
-        cap.append(f"🇺🇸 {esc(us['headline'])}")
-    if jp.get("headline"):
-        cap.append(f"🇯🇵 {esc(jp['headline'])}")
+    if top3:
+        cap += [f"{i}. {esc(str(x).lstrip('•·- 0123456789.'))}" for i, x in enumerate(top3, 1)]
     cap.append(f"화제글·트렌드 {len(com)}건 · 신고가·상승률 {len(hi)}건")
     return pdf, "\n".join(cap)
 
