@@ -590,7 +590,7 @@ def build(state, mk, day, asof, stocks, final):
                 print(f"[warn] 카부탄 종목 페이지 실패 {r['code']}: {ex}", file=sys.stderr)
             time.sleep(0.5)
         n0 = len(stocks)
-        stocks[:] = [r for r in stocks if (r.get("cap") or 0) >= HIGH_MIN_CAP]  # 시총 500억 엔 미만 제외
+        stocks[:] = [r for r in stocks if (r.get("cap") or 0) >= HIGH_MIN_CAP]  # 시총 300억 엔 미만 제외
         asof += f", 시총 {HIGH_MIN_CAP:,.0f}억 엔 미만 {n0 - len(stocks)}종목 제외"
     stocks.sort(key=lambda r: -(r.get("cap") or 0))
     top, rest = stocks[:TOP_N], stocks[TOP_N:]
@@ -793,8 +793,8 @@ def jp_wrap(state, day, final):
 
 # ───────────────────────── 일본 상승률 상위 ─────────────────────────
 GAIN_N = int(os.getenv("GAIN_TOP_N", "30"))
-GAIN_MIN_CAP = float(os.getenv("GAIN_MIN_CAP", "500"))  # 억 엔. 상승률 상위에서 이보다 작은 시가총액 종목은 제외
-GAIN_POOL = 400  # 시총 필터 전에 모으는 후보 수(500억 엔 이상이 30개 차도록 넉넉히)
+GAIN_MIN_CAP = float(os.getenv("GAIN_MIN_CAP", "300"))  # 억 엔. 상승률 상위에서 이보다 작은 시가총액 종목은 제외
+GAIN_POOL = 400  # 시총 필터 전에 모으는 후보 수(300억 엔 이상이 30개 차도록 넉넉히)
 GAIN_PROMPT = (ITEM_PROMPT.replace("52주 신고가를 경신한 종목들이다", "상승률 상위 종목들이다")
                .replace("왜 신고가가 됐는지를", "오늘 왜 크게 올랐는지를"))
 
@@ -832,7 +832,7 @@ def jp_gainers(today):
     return rows  # 시총 필터는 jp_gain_msg에서(종목 페이지에서 시총을 읽음)
 
 
-HIGH_MIN_CAP = float(os.getenv("HIGH_MIN_CAP", "500"))  # 억 엔. 52주 신고가(일본)에서 이보다 작은 시가총액 종목은 제외
+HIGH_MIN_CAP = float(os.getenv("HIGH_MIN_CAP", "300"))  # 억 엔. 52주 신고가(일본)에서 이보다 작은 시가총액 종목은 제외
 
 def jp_gain_msg(state, day, rows, highs):
     """상승률 상위 메시지. highs: 오늘 52주 신고가 종목코드 집합(★ 표시)."""
