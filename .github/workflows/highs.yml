@@ -1,9 +1,10 @@
 name: new-highs-bot
 
 on:
+  # 평일 16:40 KST(재시도 17:10·17:40) 발송은 '이어 달리기'로 맞춤: 실행이 다음 시각까지 기다렸다 돌고, 끝날 때 다음 실행을 직접 띄움.
+  # GitHub 예약 실행은 몇 시간씩 밀려서 시각용으로 쓰지 않고, 이어 달리기가 끊겼을 때 다시 잇는 용도로만 걸어 둠.
   schedule:
-    - cron: "40 7 * * 1-5"    # 16:40 KST: 일본 증시 마감 정리 + 52주 신고가 (카부탄 마감 시황 기사 16:15 전후 게재 이후)
-    - cron: "10 8 * * 1-5"    # 17:10 KST: 위 실행이 미뤄졌거나 실패했을 때 재시도(이미 보냈으면 건너뜀)
+    - cron: "23 1,13,19 * * *"
   workflow_dispatch:
     inputs:
       market:
@@ -14,18 +15,26 @@ on:
         description: "오늘 이미 보냈어도·마감 전이어도 지금 보내기(테스트용)"
         type: boolean
         default: true
+      relay:
+        description: "이어 달리기 실행(자동으로 띄우는 용도, 직접 실행할 때는 끄기)"
+        type: boolean
+        default: false
 
 concurrency:
-  group: new-highs-bot
+  group: new-highs-bot${{ (github.event_name == 'schedule' || github.event.inputs.relay == 'true') && '' || '-manual' }}
   cancel-in-progress: false
 
 permissions:
   contents: write
+  actions: write
+
+env:
+  RELAY: ${{ (github.event_name == 'schedule' || github.event.inputs.relay == 'true') && '1' || '0' }}
 
 jobs:
   run:
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    timeout-minutes: 350
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
@@ -40,8 +49,13 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           TELEGRAM_ADMIN_CHAT_ID: ${{ secrets.TELEGRAM_ADMIN_CHAT_ID }}
           HIGHS_TOP_N: ${{ vars.HIGHS_TOP_N || '30' }}
-          HIGHS_NOW: ${{ github.event.inputs.force == 'true' && '1' || '0' }}
-        run: python highs.py "${{ github.event.inputs.market || 'auto' }}"
+          HIGHS_NOW: ${{ (github.event.inputs.relay != 'true' && github.event.inputs.force == 'true') && '1' || '0' }}
+        run: |
+          if [ "$RELAY" = "1" ]; then
+            # 다음 평일 16:40·17:10·17:40 JST까지(최대 5시간 20분) 기다림. 시각이 아직이면 대기만 하고 다음 실행에 넘김
+            python relay_wait.py "16:40,17:10,17:40" "0-4" 19200 || exit 0
+          fi
+          timeout 25m python highs.py "${{ github.event.inputs.market || 'auto' }}"
       - name: Save state
         if: always()
         run: |
@@ -66,3 +80,12 @@ jobs:
           curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
             --data-urlencode "chat_id=${CHAT}" \
             --data-urlencode "text=[봇 경고] 52주 신고가 봇 실행이 중단됐습니다. 로그: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" > /dev/null
+      - name: 다음 실행 이어 붙이기
+        if: ${{ !cancelled() && env.RELAY == '1' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # 이미 대기 중이거나 실행 중인 다른 이어 달리기 실행이 있으면 건너뜀(둘로 갈라지지 않게)
+          n=$(gh run list -R "${{ github.repository }}" --workflow highs.yml --limit 20 --json status,databaseId,event \
+               -q '[.[] | select((.status=="queued" or .status=="in_progress" or .status=="pending" or .status=="waiting") and .databaseId != ${{ github.run_id }})] | length')
+          if [ "${n:-0}" = "0" ]; then gh workflow run highs.yml -R "${{ github.repository }}" --ref main -f relay=true -f force=false -f market=auto && echo "다음 실행 요청"; else echo "다른 실행 $n개 있음 → 건너뜀"; fi

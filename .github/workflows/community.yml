@@ -21,18 +21,26 @@ on:
         description: "지금 바로 note 급상승 주제 보내기(테스트용)"
         type: boolean
         default: false
+      relay:
+        description: "이어 달리기 실행(자동으로 띄우는 용도, 직접 테스트할 때는 끄기)"
+        type: boolean
+        default: false
 
 concurrency:
-  group: jp-community-bot
+  group: jp-community-bot${{ (github.event_name == 'schedule' || github.event.inputs.relay == 'true') && '' || '-manual' }}
   cancel-in-progress: false
 
 permissions:
   contents: write
+  actions: write
+
+env:
+  RELAY: ${{ (github.event_name == 'schedule' || github.event.inputs.relay == 'true') && '1' || '0' }}
 
 jobs:
   run:
     runs-on: ubuntu-24.04
-    timeout-minutes: 12
+    timeout-minutes: 350
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
@@ -56,21 +64,33 @@ jobs:
           WEEKLY_NOW: ${{ github.event.inputs.weekly_now == 'true' && '1' || '0' }}
           X_NOW: ${{ github.event.inputs.x_now == 'true' && '1' || '0' }}
           NOTE_NOW: ${{ github.event.inputs.note_now == 'true' && '1' || '0' }}
-        run: python community.py
-      - name: Save state
-        if: always()
         run: |
           git config user.name "jp-community-bot"
           git config user.email "actions@users.noreply.github.com"
-          git add community_state.json
-          git diff --cached --quiet && exit 0
-          git commit -m "community state update [skip ci]"
-          # 다른 봇이 같은 순간에 저장하면 push가 거부될 수 있어 최대 5번 재시도
-          for i in 1 2 3 4 5; do
-            git pull --rebase -X theirs && git push && exit 0
-            sleep $((i * 5))
+          save_state() {
+            git add community_state.json
+            git diff --cached --quiet && return 0
+            git commit -qm "community state update [skip ci]"
+            # 다른 봇이 같은 순간에 저장하면 push가 거부될 수 있어 최대 5번 재시도
+            for i in 1 2 3 4 5; do
+              git pull -q --rebase -X theirs && git push -q && return 0
+              sleep $((i * 5))
+            done
+            return 1
+          }
+          if [ "$RELAY" != "1" ]; then  # 직접 실행(테스트): 한 번만
+            rc=0; timeout 11m python community.py || rc=$?; save_state; exit $rc
+          fi
+          # 이어 달리기: 약 5시간 20분 동안 매시 50분(JST)에 한 번씩 실행
+          end=$(( $(date +%s) + 19200 )); fails=0
+          while [ $(( end - $(date +%s) )) -gt 60 ]; do
+            python relay_wait.py "*:50" "" $(( end - $(date +%s) )) || break
+            git pull -q --rebase -X theirs || true
+            if timeout 11m python community.py; then fails=0; else fails=$((fails + 1)); echo "::warning::커뮤니티봇 실행 실패($fails회 연속)"; fi
+            save_state || echo "::warning::상태 저장 실패"
+            [ $fails -ge 3 ] && exit 1
           done
-          exit 1
+          exit 0
       - name: Notify crash
         if: failure()
         env:
@@ -80,3 +100,12 @@ jobs:
           curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
             --data-urlencode "chat_id=${CHAT}" \
             --data-urlencode "text=[봇 경고] 일본 커뮤니티봇 실행이 중단됐습니다. 로그: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" > /dev/null
+      - name: 다음 실행 이어 붙이기
+        if: ${{ !cancelled() && env.RELAY == '1' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # 이미 대기 중이거나 실행 중인 다른 이어 달리기 실행이 있으면 건너뜀(둘로 갈라지지 않게)
+          n=$(gh run list -R "${{ github.repository }}" --workflow community.yml --limit 20 --json status,databaseId \
+               -q '[.[] | select((.status=="queued" or .status=="in_progress" or .status=="pending" or .status=="waiting") and .databaseId != ${{ github.run_id }})] | length')
+          if [ "${n:-0}" = "0" ]; then gh workflow run community.yml -R "${{ github.repository }}" --ref main -f relay=true && echo "다음 실행 요청"; else echo "다른 실행 $n개 있음 → 건너뜀"; fi
