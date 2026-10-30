@@ -912,9 +912,9 @@ def run_market(state, mk):
             w = jp_wrap(state, day, final=FORCE or n >= 2)
             if w is None:
                 return  # 마감 정리부터 다시(신고가도 다음 실행에 함께)
-            if send_chunks(*w):
+            # 마감 정리는 텔레그램으로 보내지 않고 다음 날 08:30 아침 PDF(morning.py '전 거래일 마감 정리')에만 넣음(HIGHS_TO_PDF=0 이면 예전처럼 텔레그램도)
+            if stash(state, "wrap", day, *w) if TO_PDF else (send_chunks(*w) and stash(state, "wrap", day, *w)):
                 state["last"]["JPWRAP"] = today
-                stash(state, "wrap", day, *w)  # 마감 정리는 텔레그램으로도 보내고 아침 PDF 일본 시황 재료로도 씀
     except Exception as ex:
         state["fail"][mk] = state["fail"].get(mk, 0) + 1
         print(f"[warn] {mk} 목록 실패({state['fail'][mk]}회): {ex}", file=sys.stderr)
