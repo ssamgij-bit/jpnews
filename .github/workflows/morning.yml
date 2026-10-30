@@ -69,7 +69,6 @@ jobs:
           git pull -q --rebase -X theirs || true   # 다른 봇이 쌓아 둔 최신 자료(커뮤니티·신고가·뉴스)
           rc=0; timeout 60m python morning.py --wait || rc=$?
           save_state
-          python health.py || true   # 봇 상태 점검: 문제 있을 때만 관리자 대화창으로
           exit $rc
       - name: Notify crash
         if: failure()
