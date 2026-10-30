@@ -38,7 +38,7 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.NEWS_GEMINI_KEY || secrets.GEMINI_API_KEY }}   # 뉴스봇 전용 키가 있으면 그것을 먼저 사용
           TELEGRAM_ADMIN_CHAT_ID: ${{ secrets.TELEGRAM_ADMIN_CHAT_ID }}
           SCORE_THRESHOLD: ${{ vars.SCORE_THRESHOLD || '4' }}
         run: |
