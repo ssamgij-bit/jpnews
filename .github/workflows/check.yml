@@ -1,0 +1,75 @@
+name: check
+
+# 코드가 바뀌면 게시 없이(DRY_RUN) 각 봇을 잠깐 돌려 보고, 오류(Traceback)가 나면 관리자에게만 알림.
+on:
+  push:
+    branches: [main]
+    paths: ["**.py", "requirements.txt", ".github/workflows/**"]
+  workflow_dispatch: {}
+
+concurrency:
+  group: check
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt yfinance weasyprint matplotlib koreanize-matplotlib pyyaml
+      - name: PDF 도구 확인(pango)
+        run: python -c "import weasyprint" || (sudo apt-get update -qq && timeout 300 sudo apt-get install -y -qq libpango-1.0-0 libpangoft2-1.0-0)
+      - name: 문법·중복 이름·워크플로 형식
+        run: |
+          python -m py_compile *.py
+          python - <<'PY'
+          import ast, glob, sys, yaml
+          bad = []
+          for f in glob.glob("*.py"):
+              seen = {}
+              for n in ast.parse(open(f).read()).body:
+                  names = []
+                  if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)): names = [n.name]
+                  elif isinstance(n, ast.Assign): names = [t.id for t in n.targets if isinstance(t, ast.Name)]
+                  for x in names:
+                      if x in seen:
+                          bad.append(f"{f}: {x} (줄 {seen[x]}, {n.lineno})")
+                      seen.setdefault(x, n.lineno)
+          for f in glob.glob(".github/workflows/*.yml"): yaml.safe_load(open(f))
+          if bad: print("같은 이름이 두 번 정의됨:\n" + "\n".join(bad)); sys.exit(1)
+          print("OK")
+          PY
+      - name: 실행 시험(게시 없이)
+        env:
+          DRY_RUN: "1"
+          PYTHONUNBUFFERED: "1"
+        run: |
+          mkdir -p /tmp/log
+          t() { n=$1; s=$2; shift 2; rc=0; timeout $s "$@" > /tmp/log/$n.txt 2>&1 || rc=$?; echo "$n 종료코드 $rc"; }
+          t highs 240 env HIGHS_NOW=1 python highs.py JP &
+          t weather 120 env FORCE=1 python weather.py
+          t news 240 python bot.py
+          t community 240 python community.py
+          t morning 300 env MORNING_NOW=1 python morning.py
+          wait
+          fail=0
+          for f in /tmp/log/*.txt; do
+            echo "::group::$(basename $f)"; tail -n 60 "$f"; echo "::endgroup::"
+            if grep -q "Traceback" "$f"; then echo "::error::$(basename $f .txt) 에서 오류"; grep -A25 "Traceback" "$f" | head -40; fail=1; fi
+          done
+          exit $fail
+      - name: 실패 알림(관리자만)
+        if: failure()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          ADMIN: ${{ secrets.TELEGRAM_ADMIN_CHAT_ID }}
+        run: |
+          [ -n "$ADMIN" ] || exit 0
+          curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            --data-urlencode "chat_id=${ADMIN}" \
+            --data-urlencode "text=[배포 전 점검] 뉴스 봇 코드 시험 실행에서 오류가 났습니다. 로그: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" > /dev/null
