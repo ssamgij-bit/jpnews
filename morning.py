@@ -371,7 +371,7 @@ def earnings_reaction(jp_day):
     for c, x in rows.items():
         qq = q.get(c) or {}
         chg, cap = qq.get("regularMarketChangePercent"), qq.get("marketCap") or 0
-        if chg is None or not (cap >= 5e10 or c in watch):
+        if chg is None or not (cap >= 3e10 or c in watch):
             continue
         out.append({"code": c, "ko": (names.get(c) or {}).get("ko") or qq.get("shortName", c), "chg": chg, "cap": cap,
                     "pass": bool(x[3]), "tag": x[4] if len(x) > 4 else "", "txt": hl.get(c, ""), "watch": c in watch})
@@ -764,7 +764,7 @@ def build_pdf(state, since_ts):
             info = " · ".join(filter(None, [("스크리닝 통과" + (f"({r['tag']})" if r["tag"] else "")) if r["pass"] else "", r["txt"]]))
             return (f"<tr><td>{tag} <span class='note'>{esc(r['code'])}</span></td><td class='n'>{oku(r['cap'])}</td>"
                     f"<td class='n {cls(r['chg'])}'>{r['chg']:+.2f}%</td><td>{esc(info[:150])}</td></tr>")
-        parts.append(f"<h3>실적 발표 다음 날 주가 반응 <span class='note'>{react_d[4:6]}/{react_d[6:]} 발표 → {jp_day[5:].replace('-', '/')} 등락 · 시총 500억엔↑·관심 종목, 상승·하락 각 8</span></h3>"
+        parts.append(f"<h3>실적 발표 다음 날 주가 반응 <span class='note'>{react_d[4:6]}/{react_d[6:]} 발표 → {jp_day[5:].replace('-', '/')} 등락 · 시총 300억엔↑·관심 종목, 상승·하락 각 8</span></h3>"
                      "<table><tr><th>종목</th><th>시총</th><th>등락</th><th>실적 내용</th></tr>" + "".join(rrow(r) for r in react) + "</table>")
     if watch:
         def wrow(r):
