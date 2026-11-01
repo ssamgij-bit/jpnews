@@ -573,7 +573,16 @@ def stash_html(items, title_fallback):
     return "".join(out)
 
 
-CSS = """
+VD_URL = "https://claude.ai/artifact/6gMrLe6Ue3ezG3HEu1ACvE"   # 밸류 데스크(종목 페이지 = VD_URL#코드)
+
+
+def vdl(code):
+    """종목 코드 → 밸류 데스크 종목 페이지 링크(PDF에서 누르면 열림)"""
+    return f"<a class='vd' href='{VD_URL}#{esc(code)}'>{esc(code)}</a>"
+
+
+CSS = """a.vd{color:#2a5bd7;text-decoration:none}
+
 @page{size:A4;margin:14mm 12mm 14mm 12mm;@bottom-right{content:counter(page) " / " counter(pages);font:8pt NG;color:#888}
       @bottom-left{content:"아침 브리핑 · %(date)s";font:8pt NG;color:#888}}
 body{font-family:NG,sans-serif;font-size:9.3pt;line-height:1.55;color:#15181d}
@@ -760,18 +769,18 @@ def build_pdf(state, since_ts):
         wset = {r["code"] for r in watch}  # 관심 종목 표에 이미 나오는 공시는 빼서 중복 줄임
         picks = [(i, w) for i, w in picks if disc[i]["code"] not in wset] or picks
         parts.append("<h3>주목 공시</h3><table class='disc'><tr><th>기업</th><th>내용</th><th>포인트</th></tr>" + "".join(
-            f"<tr><td>{esc(disc[i]['name'])} <span class='note'>{esc(disc[i]['code'])} · {esc(disc[i].get('mct') or '')}</span></td>"
+            f"<tr><td>{esc(disc[i]['name'])} <span class='note'>{vdl(disc[i]['code'])} · {esc(disc[i].get('mct') or '')}</span></td>"
             f"<td>{esc(disc[i]['txt'])}</td><td>{esc(why)}</td></tr>" for i, why in picks) + "</table>")
     if earn:
         parts.append(f"<h3>오늘 실적 발표 예정 <span class='note'>전체 {earn_n}종목 중 시총 1,000억엔↑·관심 종목, 시총 순</span></h3>"
                      "<table><tr><th>종목</th><th>업종</th><th>시총</th></tr>" + "".join(
-                         f"<tr><td>{'⭐ ' if r['watch'] else ''}{esc(r['ko'])} <span class='note'>{esc(r['code'])}</span></td><td>{esc(r['sector'])}</td>"
+                         f"<tr><td>{'⭐ ' if r['watch'] else ''}{esc(r['ko'])} <span class='note'>{vdl(r['code'])}</span></td><td>{esc(r['sector'])}</td>"
                          f"<td class='n'>{oku(r['cap']) if r['cap'] else '-'}</td></tr>" for r in earn) + "</table>")
     if react:
         def rrow(r):
             tag = ("⭐ " if r["watch"] else "") + esc(r["ko"])
             info = " · ".join(filter(None, [("스크리닝 통과" + (f"({r['tag']})" if r["tag"] else "")) if r["pass"] else "", r["txt"]]))
-            return (f"<tr><td>{tag} <span class='note'>{esc(r['code'])}</span></td><td class='n'>{oku(r['cap'])}</td>"
+            return (f"<tr><td>{tag} <span class='note'>{vdl(r['code'])}</span></td><td class='n'>{oku(r['cap'])}</td>"
                     f"<td class='n {cls(r['chg'])}'>{r['chg']:+.2f}%</td><td>{esc(info[:150])}</td></tr>")
         parts.append(f"<h3>실적 발표 다음 날 주가 반응 <span class='note'>{react_d[4:6]}/{react_d[6:]} 발표 → {jp_day[5:].replace('-', '/')} 등락 · 시총 300억엔↑·관심 종목, 상승·하락 각 8</span></h3>"
                      "<table><tr><th>종목</th><th>시총</th><th>등락</th><th>실적 내용</th></tr>" + "".join(rrow(r) for r in react) + "</table>")
@@ -781,7 +790,7 @@ def build_pdf(state, since_ts):
             ch = f"{r['chg']:+.2f}%" if r["chg"] is not None else "-"
             gap = f"{r['gap']:+.1f}%" if r["gap"] is not None else "-"
             nh = " <b class='up'>신고가</b>" if r["nh"] else ""
-            return (f"<tr><td>{esc(r['ko'])} <span class='note'>{esc(r['code'])}</span>{nh}</td><td class='n'>{px}</td>"
+            return (f"<tr><td>{esc(r['ko'])} <span class='note'>{vdl(r['code'])}</span>{nh}</td><td class='n'>{px}</td>"
                     f"<td class='n {cls(r['chg'])}'>{ch}</td><td class='n'>{gap}</td><td>{esc(' / '.join(r['disc'])[:160])}</td></tr>")
         parts.append("<h3>관심 종목 <span class='note'>전 거래일 등락 큰 순 · 기간 중 공시</span></h3><table class='watch'><tr><th>종목</th><th>종가</th>"
                      "<th>등락</th><th>52주 고가 대비</th><th>공시</th></tr>" + "".join(wrow(r) for r in watch) + "</table>")

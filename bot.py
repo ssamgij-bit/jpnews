@@ -548,6 +548,9 @@ def admin_send(text):
     return tg_send(text, os.getenv("TELEGRAM_ADMIN_CHAT_ID") or None)
 
 
+VD_URL = "https://claude.ai/artifact/6gMrLe6Ue3ezG3HEu1ACvE"   # 밸류 데스크(종목 페이지 = VD_URL#코드)
+
+
 def esc(s):
     return html.escape(s or "", quote=False)
 
@@ -573,8 +576,8 @@ def fmt_alert(it, tri, w):
     if w.get("insight"):
         lines.append(f"\n•{esc(w['insight'].strip())}")
     cos = company_line(w.get("companies"))
-    if cos:
-        lines.append(f"\n언급 기업: {esc(cos)}")
+    if cos:  # 종목 코드 → 밸류 데스크 종목 페이지
+        lines.append("\n언급 기업: " + re.sub(r"\((\d{3}[0-9A-Z]|\d{6})(?= )", lambda m: f'(<a href="{VD_URL}#{m.group(1)}">{m.group(1)}</a>', esc(cos)))
     lines.append(f"\n&gt;{esc(it['title'])} <a href=\"{esc(it['url'])}\">원문</a> · {t} JST")
     return "\n".join(lines)
 
