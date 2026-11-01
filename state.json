@@ -1815,7 +1815,21 @@
 "米巨大テックm7米国株23時間取引でも注目成長のカギはai戦略": 1793572515.4054825,
 "滋賀甲賀で住宅火災1人遺体で見つかる家族3人と連絡取れず": 1793572515.4092674,
 "inghanaoilmakesonefortunebreaksanother": 1793572515.4137986,
-"日経平均は神経質米中間選挙や日米決算に関心今週の東京株式市場": 1793572515.4178867
+"日経平均は神経質米中間選挙や日米決算に関心今週の東京株式市場": 1793572515.4178867,
+"facebookrespondsonprivacyasneweulawlooms": 1793573117.9195414,
+"ソフトバンクｇ出資のオーペイ米ｉｐｏ撤回外国当局の調査理由": 1793573117.9235244,
+"ドルは上値重い米中間選挙の民主優勢は下押し圧力今週の外為市場": 1793573117.927614,
+"davos2018ceoseyemoreglobalgrowth": 1793573117.931729,
+"walmarthikesminimumwageannounceslayoffs": 1793573117.9361446,
+"goldenglobewinnerstalkabouttimesupmovement": 1793573117.9406931,
+"thousandsofbelgiansbravethecoldtotakeadipinthenorthsea": 1793573117.9459994,
+"jpmorganrollsout$20blninvestmentplan": 1793573117.9503973,
+"nasdaqfallss&pflat": 1793573117.9537387,
+"economychinagdpbeatstheforecasters": 1793573117.9580193,
+"davoseuropereadiesripostetotrumpsamericafirst": 1793573117.9628017,
+"frenchcityrollsoutappforreportingcrime": 1793573117.9673316,
+"メキシコ第3四半期成長率が予想超え早期利下げ観測後退": 1793573117.9712386,
+"日米豪印供給網強化へ協力恣意的な輸出規制に懸念表明": 1793573117.9751003
 },
 "recent": [
 {
@@ -3359,13 +3373,21 @@
 "ko": "닛케이 평균은 신경질적 흐름, 미 중간선거 및 미일 실적에 관심=이번 주 도쿄 주식시장",
 "gist": "이번 주 도쿄 주식시장은 미국 중간선거와 미일 주요 기업의 실적 발표를 주시하며 신경질적인 장세를 보일 전망이다.",
 "ts": 1793572520.224147
+},
+{
+"id": "n573117_1",
+"ko": "소프트뱅크그룹 출자 오페이(OPay), '외국 당국 조사'로 미국 IPO 철회",
+"gist": "소프트뱅크그룹이 출자한 기업 오페이가 외국 당국의 조사를 이유로 미국 기업공개(IPO)를 철회했다.",
+"ts": 1793573123.0814207,
+"mid": 2421,
+"sent": true
 }
 ],
 "digest": [],
 "pending": [],
 "daily": {
 "date": "2026-11-02",
-"count": 16
+"count": 17
 },
 "last_digest": "2026-10-06 1545",
 "model": {
@@ -9635,6 +9657,20 @@
 "url": "https://www.nikkei.com/article/DGXZQOFL297WCTZ21C26A0000000/",
 "src": "니케이",
 "score": 4
+},
+{
+"ts": 1793573132.198696,
+"ko": "소프트뱅크그룹 출자 오페이(OPay), '외국 당국 조사'로 미국 IPO 철회",
+"gist": "소프트뱅크그룹이 출자한 기업 오페이가 외국 당국의 조사를 이유로 미국 기업공개(IPO)를 철회했다.",
+"b": [
+"1) 소프트뱅크그룹이 출자한 핀테크 기업 오페이(OPay)가 미국 증시 상장(IPO) 신청을 철회함.",
+"2) 상장 철회 배경으로 외국 당국의 조사 건이 명시되었음."
+],
+"ins": "(추정) 소프트뱅크그룹의 비상장 핀테크 포트폴리오 투자 회수(Exit) 일정 지연과 평가손실 우려가 주가에 단기적 부담으로 작용할 수 있으나, 해당 조사의 구체적 영향 범위가 한정적일 경우 실질적인 펀더멘털 타격은 제한적일 수 있음.",
+"cos": "",
+"url": "https://jp.mobile.reuters.com/jp/economy/U26AP3X7ZBM4PPQNST34XF4PLE-2026-11-01/",
+"src": "로이터",
+"score": 4
 }
 ],
 "ideas_date": "2026-10-31",
@@ -9643,7 +9679,7 @@
 "sent": 14
 },
 "20261102": {
-"sent": 16,
+"sent": 17,
 "tri_fail": 1
 }
 }
