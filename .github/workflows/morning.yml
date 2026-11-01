@@ -47,6 +47,7 @@ jobs:
           TELEGRAM_ADMIN_CHAT_ID: ${{ secrets.TELEGRAM_ADMIN_CHAT_ID }}
           GH_TOKEN: ${{ github.token }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          WATCH_KEY: ${{ secrets.WATCH_KEY }}   # 관심 종목 = japan stock 봇 구독 목록(jpall 저장소와 같은 값)
           MORNING_NOW: ${{ (github.event.inputs.relay != 'true' && github.event.inputs.now == 'true') && '1' || '0' }}
         run: |
           git config user.name "morning-bot"
