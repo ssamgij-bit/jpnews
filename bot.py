@@ -727,6 +727,15 @@ def maybe_ideas(state, now):
         save_state(state)
 
 
+def bump(state, key, n=1):
+    """하루 단위 작동 기록(KST, 최근 10일) — 봇 상태 감시가 '돌지만 결과가 비는' 고장을 잡는 데 씀"""
+    d = datetime.now(JST).strftime("%Y%m%d")
+    c = state.setdefault("cnt", {})
+    c.setdefault(d, {})[key] = c.get(d, {}).get(key, 0) + n
+    for k in sorted(c)[:-10]:
+        c.pop(k, None)
+
+
 def main():
     state = load_state()
     now = datetime.now(JST)
@@ -761,6 +770,7 @@ def main():
             llm_ok = True if llm_ok is None else llm_ok
         except Exception as ex:
             llm_ok = False
+            bump(state, "tri_fail")
             print(f"[warn] 선별 실패, 다음 실행에 재시도: {ex}", file=sys.stderr)
             for it in chunk:
                 it.setdefault("first_try", time.time())
@@ -803,6 +813,9 @@ def main():
                                  and time.time() - r.get("ts", 0) < 3 * 86400), None)
                 mid = tg_send(fmt_follow(it, a, w), reply_to=prev["mid"]) if prev else tg_send(fmt_alert(it, a, w))
                 if mid:
+                    bump(state, "sent")
+                    if not w.get("bullets"):
+                        bump(state, "nosum")  # 요약 실패로 제목·링크만 보냄
                     if isinstance(mid, int) and mid is not True:
                         rec["mid"] = mid
                     state["daily"]["count"] += 1

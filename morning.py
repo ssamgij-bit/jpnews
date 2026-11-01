@@ -665,6 +665,13 @@ def build_pdf(state, since_ts):
     earn_txt = ", ".join(f"{r['ko']}({r['code']}, {oku(r['cap'])}{', 관심 종목' if r['watch'] else ''})" for r in earn) or "(없음)"
     watch = watch_rows(since_ts)
     react, react_d = earnings_reaction(jp_day)
+    if react_d and react_d == state.get("react_last"):  # 일본 휴장일 다음 날: 같은 실적 반응을 다시 싣지 않음
+        react = []
+    state["_react_new"] = react_d if react else state.get("react_last")
+    pw = t - timedelta(days=1)
+    while pw.weekday() >= 5:
+        pw -= timedelta(days=1)
+    jp_closed = bool(jp_day) and jp_day < pw.strftime("%Y-%m-%d")  # 직전 평일이 일본 휴장일
     # ── 3)·4) 쌓아 둔 메시지
     com = stashes("community_state.json", since_ts)
     com_txt = "\n".join(strip_html(b)[:1500] for x in com if x["kind"] == "community" for b in x["blocks"][:1])[:3000] or "(없음)"
@@ -727,6 +734,8 @@ def build_pdf(state, since_ts):
     jt = q_table(q, JP_IDX)
     if jgb and jt:
         jt = jt.replace("</table>", f"<tr><td>일본 국채 10년 <span class='note'>{esc(jgb[0])}</span></td><td class='n'>{jgb[1]:.3f}%</td><td class='n {cls(jgb[2])}'>{jgb[2]:+.1f}bp</td></tr></table>")
+    if jp_closed:
+        parts.append(f"<p class='note'>※ {pw:%m/%d}({'월화수목금토일'[pw.weekday()]})은 일본 휴장일 — 일본 지수·업종·실적 반응은 마지막 거래일 {jp_day[5:].replace('-', '/')} 기준(이미 실은 내용은 생략).</p>")
     parts.append(jt)
     if jp.get("summary"):
         parts.append("<h3>시장 흐름</h3>" + li(jp["summary"]))
@@ -849,9 +858,12 @@ def main():
         if sec > 0:
             print(f"[info] {sec / 60:.0f}분 대기 후 발송"); time.sleep(sec)
     if send_pdf(pdf, cap, f"아침브리핑_{today}.pdf"):
+        new_react = st.pop("_react_new", None)
         if not FORCE:  # 테스트 발송(MORNING_NOW)은 기간 기준을 바꾸지 않음
             st["last_ts"] = t_start
             st["sent"] = today
+            if new_react:
+                st["react_last"] = new_react
         if not DRY_RUN:
             save_state(st)
     else:
