@@ -55,22 +55,14 @@ jobs:
             # 다음 평일 16:40·17:10·17:40 JST까지(최대 5시간 20분) 기다림. 시각이 아직이면 대기만 하고 다음 실행에 넘김
             python relay_wait.py "16:40,17:10,17:40" "0-4" 19200 || exit 0
           fi
+          bash state.sh pull && touch .pulled
           timeout 25m python highs.py "${{ github.event.inputs.market || 'auto' }}"
       - name: Save state
         if: always()
         run: |
-          git config user.name "new-highs-bot"
-          git config user.email "actions@users.noreply.github.com"
           [ -f highs_state.json ] || exit 0
-          git add highs_state.json
-          git diff --cached --quiet && exit 0
-          git commit -m "highs state update [skip ci]"
-          # 다른 봇이 같은 순간에 저장하면 push가 거부될 수 있어 최대 5번 재시도
-          for i in 1 2 3 4 5; do
-            git pull --rebase -X theirs && git push && exit 0
-            sleep $((i * 5))
-          done
-          exit 1
+          [ -f .own_highs_state.json ] || [ -f .pulled ] || exit 0   # 상태를 가져오기 전에 끝난 실행(대기만 하다 종료)은 저장하지 않음
+          STATE_MSG="highs state update" bash state.sh push highs_state.json
       - name: Notify crash
         if: failure()
         env:

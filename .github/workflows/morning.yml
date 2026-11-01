@@ -52,14 +52,11 @@ jobs:
         run: |
           git config user.name "morning-bot"
           git config user.email "actions@users.noreply.github.com"
-          save_state() {
+          save_state() {  # 상태는 state 브랜치에 저장(main 이력과 분리)
             [ -f morning_state.json ] || return 0
-            git add morning_state.json
-            git diff --cached --quiet && return 0
-            git commit -qm "morning state [skip ci]"
-            for i in 1 2 3 4 5; do git pull -q --rebase -X theirs && git push -q && return 0; sleep $((i * 5)); done
-            return 1
+            STATE_MSG="morning state" bash state.sh push morning_state.json
           }
+          bash state.sh pull
           if [ "$RELAY" != "1" ]; then  # 직접 실행: 한 번만
             rc=0; timeout 30m python morning.py || rc=$?; save_state; exit $rc
           fi
@@ -67,7 +64,7 @@ jobs:
           rc=0; timeout 60m python morning.py --catchup || rc=$?; save_state || true
           # 다음 평일 08:10 JST까지(최대 5시간 20분) 기다렸다가, 만들고 08:30에 발송
           python relay_wait.py "08:10" "0-4" 19200 || exit 0
-          git pull -q --rebase -X theirs || true   # 다른 봇이 쌓아 둔 최신 자료(커뮤니티·신고가·뉴스)
+          bash state.sh pull; git checkout -q origin/main -- '*.py' 2>/dev/null || true   # 다른 봇이 쌓아 둔 최신 자료(커뮤니티·신고가·뉴스) + 최신 코드
           rc=0; timeout 60m python morning.py --wait || rc=$?
           save_state
           exit $rc

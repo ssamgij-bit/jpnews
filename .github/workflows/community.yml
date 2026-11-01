@@ -67,17 +67,10 @@ jobs:
         run: |
           git config user.name "jp-community-bot"
           git config user.email "actions@users.noreply.github.com"
-          save_state() {
-            git add community_state.json
-            git diff --cached --quiet && return 0
-            git commit -qm "community state update [skip ci]"
-            # 다른 봇이 같은 순간에 저장하면 push가 거부될 수 있어 최대 5번 재시도
-            for i in 1 2 3 4 5; do
-              git pull -q --rebase -X theirs && git push -q && return 0
-              sleep $((i * 5))
-            done
-            return 1
+          save_state() {  # 상태는 state 브랜치에 저장(main 이력과 분리)
+            STATE_MSG="community state update" bash state.sh push community_state.json
           }
+          bash state.sh pull
           if [ "$RELAY" != "1" ]; then  # 직접 실행(테스트): 한 번만
             rc=0; timeout 11m python community.py || rc=$?; save_state; exit $rc
           fi
@@ -86,7 +79,7 @@ jobs:
           while [ $(( end - $(date +%s) )) -gt 60 ]; do
             python relay_wait.py "*:50" "" $(( end - $(date +%s) )) $grace || break
             grace=0  # 두 번째부터는 방금 돈 회차를 다시 돌지 않게
-            git pull -q --rebase -X theirs || true
+            bash state.sh pull; git checkout -q origin/main -- '*.py' 2>/dev/null || true   # 최신 상태 파일(state 브랜치) + 최신 코드
             if timeout 11m python community.py; then fails=0; else fails=$((fails + 1)); echo "::warning::커뮤니티봇 실행 실패($fails회 연속)"; fi
             save_state || echo "::warning::상태 저장 실패"
             [ $fails -ge 3 ] && exit 1

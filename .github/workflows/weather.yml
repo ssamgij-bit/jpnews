@@ -37,16 +37,11 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           FORCE: ${{ github.event.inputs.force }}
-        run: python weather.py
+        run: bash state.sh pull && touch .pulled; python weather.py
       - name: Save state
         run: |
-          git config user.name "github-actions"
-          git config user.email "github-actions@users.noreply.github.com"
-          git add weather_state.json 2>/dev/null || exit 0
-          git diff --cached --quiet && exit 0
-          git commit -m "weather state [skip ci]"
-          for i in 1 2 3 4 5; do git pull --rebase -X theirs && git push && exit 0; sleep $((i * 5)); done
-          exit 1
+          [ -f weather_state.json ] || exit 0
+          STATE_MSG="weather state" bash state.sh push weather_state.json
 
       - name: 다음 실행 이어 붙이기
         if: ${{ !cancelled() && github.event.inputs.force != '1' }}
