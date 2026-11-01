@@ -1804,7 +1804,11 @@
 "米中間選挙ミシガン上院予備選敗退の民主下院議員が共和候補支持": 1793570112.8648398,
 "動画pickupnews11月2日": 1793570712.4195282,
 "湾岸諸国米国のイラン再攻撃を警戒報復激化で地域戦争拡大の恐れ": 1793570712.4235592,
-"トランプ氏大規模集会に勝機託す熱狂的maga支持層を再び投票所へ": 1793570712.4276886
+"トランプ氏大規模集会に勝機託す熱狂的maga支持層を再び投票所へ": 1793570712.4276886,
+"特朗普称不希望以总理干扰美伊谈判": 1793571316.4179952,
+"中間選挙決算雇用統計が焦点ａｉ懸念続く今週の米株式市場": 1793571316.4222515,
+"ｏｐｅｃプラス12月生産目標据え置き27年は難しい判断": 1793571316.4263103,
+"アラスカ上院選の結果認定阻止地裁認めず共和党に打撃": 1793571316.4302778
 },
 "recent": [
 {
@@ -3345,32 +3349,7 @@
 }
 ],
 "digest": [],
-"pending": [
-{
-"source": "bloomberg",
-"label": "블룸버그",
-"gn": true,
-"title": "湾岸諸国、米国のイラン再攻撃を警戒－報復激化で地域戦争拡大の恐れ",
-"lead": "",
-"link": "https://news.google.com/rss/articles/CBMijgFBVV95cUxNbWdvci14RC1rdF9QQmt1U1BIV2MzOWVhLUdCVVlpMkk2UDV5THJsUUd1ckR3QmVqd1ZZdHJnUGlIZXFJZmNTcUVpLWtSSUthV21tRGZWdlhfci1wOVR2MjlTOUJlRGFPSkZySDRSZkRac25RRlZmX1JfcndYWXhBN1lDNmpZcEthZG5STDBn?oc=5",
-"ts": 1793569939,
-"key": "湾岸諸国米国のイラン再攻撃を警戒報復激化で地域戦争拡大の恐れ",
-"id": "n570712_0",
-"first_try": 1793570728.6970887
-},
-{
-"source": "bloomberg",
-"label": "블룸버그",
-"gn": true,
-"title": "トランプ氏、大規模集会に勝機託す－熱狂的MAGA支持層を再び投票所へ",
-"lead": "",
-"link": "https://news.google.com/rss/articles/CBMijgFBVV95cUxNQ2xfM2dxdXlkeWt5X1F5Q0JwVlltMkplcE8tc3FnSFNPWmkyeFF2MFU5RXRLR2oyZzEyMm9kN2otNFJoUGN6Nngta3pEUW80VF9icHBzTk9EMW0xRnZlN2ZiN2Y4U0ZTNU1DaHMzQTFwR0lPRm5BOVFVRGFxTkZMV0lQSFpVWGpfZ0ItM2x3?oc=5",
-"ts": 1793570007,
-"key": "トランプ氏大規模集会に勝機託す熱狂的maga支持層を再び投票所へ",
-"id": "n570712_1",
-"first_try": 1793570728.6970923
-}
-],
+"pending": [],
 "daily": {
 "date": "2026-11-02",
 "count": 16
@@ -3433,7 +3412,7 @@
 },
 "version": 3,
 "health": {
-"llm": 1,
+"llm": 0,
 "src": {
 "니케이|://assets.wor.jp/rss/rdf/nikkei/news.rdf": 0,
 "니케이|assets.wor.jp/rss/rdf/nikkei/markets.rdf": 0,
