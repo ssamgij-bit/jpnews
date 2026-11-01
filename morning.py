@@ -233,6 +233,26 @@ def jpall_state():
     return _JPALL
 
 
+_WATCH = []
+def watch_codes():
+    """관심 종목 = japan stock 봇(@JP_stock_yh_bot) 주인 구독 목록(한 곳에서 관리).
+    공시봇 state의 관심 종목은 암호화돼 있어 직접 못 읽음 → 워커 /watchlist 를 WATCH_KEY로 읽음"""
+    if not _WATCH:
+        key = os.environ.get("WATCH_KEY", "")
+        try:
+            if key:
+                j = requests.get(os.environ.get("WATCH_URL", "https://jp-disclosure-bot.ssamgij.workers.dev/watchlist"),
+                                 headers={"x-watch-key": key, "User-Agent": "Mozilla/5.0"}, timeout=30).json()
+                _WATCH.extend(str(c)[:4].upper() for c in (j.get("codes") or []))
+        except Exception as ex:
+            print(f"[warn] 관심 종목 읽기 실패: {ex}", file=sys.stderr)
+        if not _WATCH:
+            _WATCH.extend((jpall_state().get("watch") or {}).keys())
+        if not _WATCH:
+            print("[warn] 관심 종목 없음(WATCH_KEY 비밀값 확인)", file=sys.stderr)
+    return _WATCH
+
+
 _NAMES = {}
 def jp_names():
     """종목코드 → {jp, ko, mkt} (공시봇이 JPX 목록으로 만든 한국어 이름)"""
@@ -279,7 +299,7 @@ def jp_earnings_today(day):
     if not codes:
         return [], 0
     q = jp_quotes(codes)
-    names, watch = jp_names(), st.get("watch") or {}
+    names, watch = jp_names(), set(watch_codes())
     try:
         import highs
         sk = highs.SECTOR_KO
@@ -295,7 +315,7 @@ def jp_earnings_today(day):
 def watch_rows(since_ts):
     """관심 종목: 전일 등락·52주 고가 근접·기간 중 공시"""
     st = jpall_state()
-    codes = list((st.get("watch") or {}).keys())
+    codes = list(watch_codes())
     if not codes:
         return []
     q, names = jp_quotes(codes), jp_names()
@@ -316,6 +336,48 @@ def watch_rows(since_ts):
                      "disc": disc.get(c, [])})
     rows.sort(key=lambda r: -(abs(r["chg"] or 0)))
     return rows
+
+
+EARN_STATE = "https://raw.githubusercontent.com/ssamgij-bit/jpall/earn-state/earn.json"
+
+
+def earnings_reaction(jp_day):
+    """전 거래일(jp_day) 주가 반응: 그 전 거래일에 실적 발표한 종목(실적 스크리닝 봇 기록) — 주로 장 마감 후 발표라 다음 거래일에 반영.
+    → [{code, ko, chg, cap, pass, tag, txt}], 발표일"""
+    if not jp_day:
+        return [], ""
+    try:
+        log = requests.get(EARN_STATE, timeout=60).json().get("log") or []
+    except Exception as ex:
+        print(f"[warn] 실적 봇 기록 읽기 실패: {ex}", file=sys.stderr)
+        return [], ""
+    jd = jp_day.replace("-", "")
+    days = sorted({x[0] for x in log if x and x[0] < jd})
+    if not days:
+        return [], ""
+    d0 = days[-1]
+    rows = {}
+    for x in log:
+        if x[0] == d0:
+            rows[x[1]] = x
+    if not rows:
+        return [], d0
+    q, names, watch = jp_quotes(list(rows)), jp_names(), set(watch_codes())
+    hl = {}
+    for h in jpall_state().get("hl", []):
+        if h.get("code") in rows and h.get("sec") in ("beat", "miss", "up", "down", "newfc", "prog", "watch"):
+            hl.setdefault(h["code"], h.get("txt", ""))
+    out = []
+    for c, x in rows.items():
+        qq = q.get(c) or {}
+        chg, cap = qq.get("regularMarketChangePercent"), qq.get("marketCap") or 0
+        if chg is None or not (cap >= 5e10 or c in watch):
+            continue
+        out.append({"code": c, "ko": (names.get(c) or {}).get("ko") or qq.get("shortName", c), "chg": chg, "cap": cap,
+                    "pass": bool(x[3]), "tag": x[4] if len(x) > 4 else "", "txt": hl.get(c, ""), "watch": c in watch})
+    up = sorted([r for r in out if r["chg"] > 0], key=lambda r: -r["chg"])[:8]
+    dn = sorted([r for r in out if r["chg"] <= 0], key=lambda r: r["chg"])[:8]
+    return up + dn, d0
 
 
 def jgb10():
@@ -402,7 +464,7 @@ JP_PROMPT = """너는 한국 자산운용사 주식운용본부의 일본 주식
 - 수치는 [지수]·[마감 정리]·[공시]에 있는 값만 쓴다. 지어내지 마라. 근거 없는 해석은 '(추정)'.
 - headline: 한 줄(40자 이내).
 - summary: 지수·업종·수급·테마 흐름 4~6줄. 오늘 아침 미국 시장 흐름이 일본에 줄 영향도 1줄(추정 표시).
-- news: [뉴스] 중 투자에 중요한 기사 최대 6개. title(한국어 제목 그대로 또는 짧게), why(왜 중요한지 1문장, 60자 이내).
+- news: [뉴스] 중 투자에 중요한 기사 최대 6개. [공시]와 같은 사건을 다룬 기사는 news에서 빼고 disc에만 넣어라(중복 금지). title(한국어 제목 그대로 또는 짧게), why(왜 중요한지 1문장, 60자 이내).
 - disc: [공시] 중 주목할 공시 최대 10개. i(공시 번호), why(투자 관점 한 줄, 60자 이내 — 수정 폭·지속성·시총 고려).
 - watch: 오늘 일본 증시 체크 포인트 2~4줄(아래 [오늘 실적 발표 예정]·지표·이벤트, 자료에 있는 것만).
 - top3: 오늘 아침 꼭 알아야 할 3줄(각 50자 이내). 1줄 미국, 1줄 일본, 1줄 오늘 주목할 것(공시·실적 발표·화제 중). 한국 관련 내용 금지.
@@ -602,6 +664,7 @@ def build_pdf(state, since_ts):
     earn, earn_n = jp_earnings_today(t.strftime("%Y-%m-%d"))
     earn_txt = ", ".join(f"{r['ko']}({r['code']}, {oku(r['cap'])}{', 관심 종목' if r['watch'] else ''})" for r in earn) or "(없음)"
     watch = watch_rows(since_ts)
+    react, react_d = earnings_reaction(jp_day)
     # ── 3)·4) 쌓아 둔 메시지
     com = stashes("community_state.json", since_ts)
     com_txt = "\n".join(strip_html(b)[:1500] for x in com if x["kind"] == "community" for b in x["blocks"][:1])[:3000] or "(없음)"
@@ -614,7 +677,7 @@ def build_pdf(state, since_ts):
     wd = "월화수목금토일"[t.weekday()]
     parts = [f"<h1>아침 브리핑 {t:%Y-%m-%d}({wd})</h1>",
              f"<div class='sub'>{t:%H:%M} KST 작성 · 대상 기간 {since:%m/%d %H:%M} ~ {t:%m/%d %H:%M} · 미국 {us_day or '-'} 종가 · 일본 {jp_day or '-'} 종가</div>",
-             "<div class='toc'>1. 글로벌 시황 · 2. 일본 증시 시황(실적 발표 예정·관심 종목) · 3. 커뮤니티·X·note 화제 · 4. 일본 52주 신고가·상승률 상위</div>"]
+             "<div class='toc'>1. 글로벌 시황 · 2. 일본 증시 시황(실적 발표 예정·실적 반응·관심 종목) · 3. 커뮤니티·X·note 화제 · 4. 일본 52주 신고가·상승률 상위</div>"]
     top3 = [x for x in (jp.get("top3") or []) if str(x).strip()][:3] or [x for x in (us.get("headline"), jp.get("headline")) if x]
     if top3:
         parts.append("<div class='top3'><div class='t3h'>오늘의 3줄 요약</div>" + "".join(f"<div>{i}. {esc(str(x).lstrip('•·- 0123456789.'))}</div>" for i, x in enumerate(top3, 1)) + "</div>")
@@ -685,6 +748,8 @@ def build_pdf(state, since_ts):
         picks = [(d["i"] - 1, d.get("why", "")) for d in (jp.get("disc") or []) if isinstance(d.get("i"), int) and 0 < d["i"] <= len(disc)]
         if not picks:
             picks = [(i, disc[i].get("why") or disc[i].get("why0") or "") for i in range(min(10, len(disc)))]
+        wset = {r["code"] for r in watch}  # 관심 종목 표에 이미 나오는 공시는 빼서 중복 줄임
+        picks = [(i, w) for i, w in picks if disc[i]["code"] not in wset] or picks
         parts.append("<h3>주목 공시</h3><table class='disc'><tr><th>기업</th><th>내용</th><th>포인트</th></tr>" + "".join(
             f"<tr><td>{esc(disc[i]['name'])} <span class='note'>{esc(disc[i]['code'])} · {esc(disc[i].get('mct') or '')}</span></td>"
             f"<td>{esc(disc[i]['txt'])}</td><td>{esc(why)}</td></tr>" for i, why in picks) + "</table>")
@@ -693,6 +758,14 @@ def build_pdf(state, since_ts):
                      "<table><tr><th>종목</th><th>업종</th><th>시총</th></tr>" + "".join(
                          f"<tr><td>{'⭐ ' if r['watch'] else ''}{esc(r['ko'])} <span class='note'>{esc(r['code'])}</span></td><td>{esc(r['sector'])}</td>"
                          f"<td class='n'>{oku(r['cap']) if r['cap'] else '-'}</td></tr>" for r in earn) + "</table>")
+    if react:
+        def rrow(r):
+            tag = ("⭐ " if r["watch"] else "") + esc(r["ko"])
+            info = " · ".join(filter(None, [("스크리닝 통과" + (f"({r['tag']})" if r["tag"] else "")) if r["pass"] else "", r["txt"]]))
+            return (f"<tr><td>{tag} <span class='note'>{esc(r['code'])}</span></td><td class='n'>{oku(r['cap'])}</td>"
+                    f"<td class='n {cls(r['chg'])}'>{r['chg']:+.2f}%</td><td>{esc(info[:150])}</td></tr>")
+        parts.append(f"<h3>실적 발표 다음 날 주가 반응 <span class='note'>{react_d[4:6]}/{react_d[6:]} 발표 → {jp_day[5:].replace('-', '/')} 등락 · 시총 500억엔↑·관심 종목, 상승·하락 각 8</span></h3>"
+                     "<table><tr><th>종목</th><th>시총</th><th>등락</th><th>실적 내용</th></tr>" + "".join(rrow(r) for r in react) + "</table>")
     if watch:
         def wrow(r):
             px = f"{r['px']:,.0f}" if r["px"] else "-"

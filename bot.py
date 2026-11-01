@@ -341,7 +341,7 @@ false = 일본이 언급되지 않거나 주변적으로만 언급된 해외 뉴
 [3. 중복: dup_of]
 RECENT(이미 처리한 사건)나 NEW 안의 다른 기사와 같은 사건이면 dup_of에 그 id를 넣어라.
 같은 사건의 후속 보도라도 새 숫자·공식 발표·결정·당사자 반응 등 실질적으로 새로운 사실이 없으면 중복이다.
-새 사실이 있으면 dup_of는 null로 두고 new_info에 무엇이 새로운지 한 구절로 쓴다.
+새 사실이 있으면 dup_of는 null로 두고 new_info에 무엇이 새로운지 한 구절로 쓴다. 이때 follow_of에 이어지는 RECENT 기사 id를 넣어라(없으면 null).
 NEW 안에서 같은 사건을 다룬 기사가 여럿이면 정보가 가장 많은 하나만 남기고 나머지는 dup_of로 처리한다."""
 
 TRIAGE_PROMPT = """너는 한국 자산운용사의 일본 주식 담당 애널리스트를 돕는 뉴스 데스크다.
@@ -350,7 +350,7 @@ NEW 기사들(일본어·중국어 제목과 본문 일부)을 선별해 JSON �
 """ + RULES + """
 
 [4. 출력 필드] 기사마다: id, japan(true/false), score(1~5 정수), category(시장|거시·정책|기업|정치|국제|사회),
-dup_of(id 또는 null), new_info(문자열 또는 null), ko_title(정확한 한국어 제목 한 줄), gist(핵심 사실 한 문장).
+dup_of(id 또는 null), new_info(문자열 또는 null), follow_of(RECENT id 또는 null), ko_title(정확한 한국어 제목 한 줄), gist(핵심 사실 한 문장).
 고유명사(지명·기관·인물)는 원문대로 정확히 옮겨라(예: 駐日米軍=주일미군). JSON 외 텍스트를 출력하지 마라.
 
 RECENT:
@@ -387,7 +387,7 @@ TRIAGE_SCHEMA = {
         "properties": {
             "id": {"type": "STRING"}, "japan": {"type": "BOOLEAN"}, "score": {"type": "INTEGER"},
             "category": {"type": "STRING"}, "dup_of": {"type": "STRING", "nullable": True},
-            "new_info": {"type": "STRING", "nullable": True},
+            "new_info": {"type": "STRING", "nullable": True}, "follow_of": {"type": "STRING", "nullable": True},
             "ko_title": {"type": "STRING"}, "gist": {"type": "STRING"},
         },
         "required": ["id", "japan", "score", "category", "ko_title", "gist"],
@@ -518,19 +518,24 @@ def write_up(state, items):
 
 
 # ───────────────────────── 텔레그램 ─────────────────────────
-def tg_send(text, chat=None):
+def tg_send(text, chat=None, reply_to=None):
+    """보내면 메시지 id(참), 실패하면 False. reply_to: 같은 사건의 앞 알림에 답장으로 붙임(후속 보도 묶기)"""
     if DRY_RUN:
-        print("──── SEND ────\n" + text)
+        print("──── SEND ────" + (f" (답장 → {reply_to})" if reply_to else "") + "\n" + text)
         return True
     tok = os.environ["TELEGRAM_BOT_TOKEN"]
     chat = chat or os.environ["TELEGRAM_CHAT_ID"]
+    body = {"chat_id": chat, "text": text, "parse_mode": "HTML", "disable_web_page_preview": True}
+    if reply_to:
+        body["reply_parameters"] = {"message_id": reply_to, "allow_sending_without_reply": True}
     for _ in range(3):
-        r = requests.post(f"https://api.telegram.org/bot{tok}/sendMessage",
-                          json={"chat_id": chat, "text": text, "parse_mode": "HTML",
-                                "disable_web_page_preview": True}, timeout=20)
+        r = requests.post(f"https://api.telegram.org/bot{tok}/sendMessage", json=body, timeout=20)
         if r.status_code == 200:
             time.sleep(1.1)
-            return True
+            try:
+                return r.json()["result"]["message_id"] or True
+            except Exception:
+                return True
         if r.status_code == 429:
             time.sleep(r.json().get("parameters", {}).get("retry_after", 5) + 1)
             continue
@@ -545,6 +550,17 @@ def admin_send(text):
 
 def esc(s):
     return html.escape(s or "", quote=False)
+
+
+def fmt_follow(it, tri, w):
+    """후속 보도(앞 알림에 답장으로 붙음): 새로 나온 사실 위주로 짧게"""
+    t = datetime.fromtimestamp(it["ts"], JST).strftime("%m-%d %H:%M")
+    lines = [f"<b>↪ 후속: {esc(w.get('ko_title') or tri.get('ko_title'))}</b> ({esc(it['label'])}) ★{tri['score']}",
+             f"\n•새 내용: {esc(tri.get('new_info') or '')}"]
+    for b in (w.get("bullets") or [])[:2]:
+        lines.append(f"\n•{esc(b.lstrip('•· ').strip())}")
+    lines.append(f"\n&gt;{esc(it['title'])} <a href=\"{esc(it['url'])}\">원문</a> · {t} JST")
+    return "\n".join(lines)
 
 
 def fmt_alert(it, tri, w):
@@ -781,7 +797,14 @@ def main():
                 w = ws.get(it["id"])
                 if not w or not w.get("bullets"):  # 요약을 못 만들면 제목·링크만 보냄
                     w = {"ko_title": rec["ko"], "bullets": [], "insight": ""}
-                if tg_send(fmt_alert(it, a, w)):
+                prev = None
+                if a.get("new_info") and a.get("follow_of"):  # 같은 사건 후속 → 앞 알림에 답장으로 묶음(최근 3일)
+                    prev = next((r for r in state["recent"] if r.get("id") == a["follow_of"] and r.get("mid")
+                                 and time.time() - r.get("ts", 0) < 3 * 86400), None)
+                mid = tg_send(fmt_follow(it, a, w), reply_to=prev["mid"]) if prev else tg_send(fmt_alert(it, a, w))
+                if mid:
+                    if isinstance(mid, int) and mid is not True:
+                        rec["mid"] = mid
                     state["daily"]["count"] += 1
                     state.setdefault("week", []).append({"ts": time.time(), "ko": w.get("ko_title") or rec["ko"], "gist": rec.get("gist", ""),
                                                          "b": (w.get("bullets") or [])[:3], "ins": w.get("insight", ""),
