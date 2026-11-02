@@ -451,7 +451,7 @@ US_PROMPT = """너는 한국 자산운용사 주식운용본부의 글로벌 시
 {posts}
 """
 JP_SCHEMA = {"type": "OBJECT", "properties": {
-    "headline": {"type": "STRING"}, "summary": STR_ARR, "watch": STR_ARR, "top3": STR_ARR,
+    "headline": {"type": "STRING"}, "summary": STR_ARR, "sectors": STR_ARR, "watch": STR_ARR, "top3": STR_ARR,
     "news": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {
         "title": {"type": "STRING"}, "why": {"type": "STRING"}}, "required": ["title", "why"]}},
     "disc": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {
@@ -463,7 +463,8 @@ JP_PROMPT = """너는 한국 자산운용사 주식운용본부의 일본 주식
 규칙
 - 수치는 [지수]·[마감 정리]·[공시]에 있는 값만 쓴다. 지어내지 마라. 근거 없는 해석은 '(추정)'.
 - headline: 한 줄(40자 이내).
-- summary: 지수·업종·수급·테마 흐름 4~6줄. 오늘 아침 미국 시장 흐름이 일본에 줄 영향도 1줄(추정 표시).
+- summary: 지수·수급·테마 흐름 4~6줄. 오늘 아침 미국 시장 흐름이 일본에 줄 영향도 1줄(추정 표시).
+- sectors: [지수]의 33업종 등락 중 가장 많이 오른 업종·가장 많이 내린 업종을 2~4줄로. 각 줄은 '업종명 등락률: 이유' 형식(예: '해운 +3.1%: 운임 지수 반등과 ○○ 실적 상향'). 이유는 [마감 정리]·[뉴스]·[공시]·[미국 증시 요약]에서 찾고, 자료에 이유가 없으면 '(추정)'을 붙이거나 '뚜렷한 재료 없음'이라고 써라.
 - news: [뉴스] 중 투자에 중요한 기사 최대 6개. [공시]와 같은 사건을 다룬 기사는 news에서 빼고 disc에만 넣어라(중복 금지). title(한국어 제목 그대로 또는 짧게), why(왜 중요한지 1문장, 60자 이내).
 - disc: [공시] 중 주목할 공시 최대 10개. i(공시 번호), why(투자 관점 한 줄, 60자 이내 — 수정 폭·지속성·시총 고려).
 - watch: 오늘 일본 증시 체크 포인트 2~4줄(아래 [오늘 실적 발표 예정]·지표·이벤트, 자료에 있는 것만).
@@ -746,8 +747,6 @@ def build_pdf(state, since_ts):
             parts.append("<h3>체크 포인트</h3>" + li(us["watch"]))
         if not us:
             parts.append("<p class='note'>(AI 정리 실패: 시세 표만 싣습니다)</p>")
-        parts.append(f"<div class='note'>시세: Yahoo Finance(직전 거래일 종가) · 상승·하락 상위: finviz · 참고: 텔레그램 채널 "
-                     f"{', '.join(l for _, l in CHANNELS)}의 공개 글({len(posts)}건)을 AI가 재정리.</div>")
         # 2
         parts.append("<h2>2. 일본 증시 시황</h2>")
         if jp.get("headline"):
@@ -767,6 +766,8 @@ def build_pdf(state, since_ts):
                 parts.append(f"<img class='chart' src='{chart_png(pick, f'33업종 등락률 상·하위 {k}(%) · 전 거래일')}'>")
             except Exception as ex:
                 print(f"[warn] 업종 차트 실패: {ex}", file=sys.stderr)
+        if jp.get("sectors"):
+            parts.append("<h3>업종 등락과 이유</h3>" + li(jp["sectors"]))
         if wrap:
             w = wrap[-1]
             parts.append("<h3>전 거래일 마감 정리</h3>" + "".join(f"<div class='blk'>{tg_html(b)}</div>" for b in w["blocks"][:-1][:(None, None, 5, 4, 3, 2)[lv]]))
@@ -810,8 +811,6 @@ def build_pdf(state, since_ts):
                          "<th>등락</th><th>52주 고가 대비</th><th>공시</th></tr>" + "".join(wrow(r) for r in watch[:(99, 30, 20, 15, 12, 10)[lv]]) + "</table>")
         if jp.get("watch"):
             parts.append("<h3>체크 포인트</h3>" + li(jp["watch"]))
-        parts.append("<div class='note'>지수: Yahoo Finance(TOPIX·그로스250은 연동 ETF로 대용) · 마감 정리: 카부탄·피스코 마감 시황 기반 신고가 봇 요약 · "
-                     f"뉴스 {len(news)}건(뉴스봇 발송분) · 공시 {len(disc)}건(공시봇 하이라이트) · '(추정)'은 근거 없는 해석.</div>")
         # 3
         order = ["insight", "community", "x", "note", "weekly", "urgent"]
         # 같은 종류 다이제스트가 여러 번 쌓였으면(주말 합산) 최신 것만, 실시간 알림(★)은 ★5만 소수 — 다이제스트와 겹침
