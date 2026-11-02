@@ -60,8 +60,9 @@ def save_state(s):
     json.dump(s, open(STATE_PATH, "w", encoding="utf-8"), ensure_ascii=False, indent=0)
 
 
-def gemini_obj(state, prompt, schema, tag):
-    """객체 JSON 응답(AI). 실패하면 None"""
+def gemini_obj(state, prompt, schema, tag, check=None):
+    """객체 JSON 응답(AI). 실패하면 None. check(out)가 거짓이면(내용이 빈약·깨짐) 다음 모델로 — 끝까지 없으면 가장 나은 것"""
+    best = None
     key = os.getenv("GEMINI_API_KEY", "")
     if not key:
         return None
@@ -83,12 +84,24 @@ def gemini_obj(state, prompt, schema, tag):
                 txt = "".join(p.get("text", "") for p in (cand.get("content") or {}).get("parts", []) if not p.get("thought"))
                 out = json.loads(re.sub(r"^```(?:json)?|```$", "", txt.strip()).strip())
                 if isinstance(out, dict) and out:
+                    if check and not check(out):
+                        print(f"[warn] [{tag}] {m}: 응답이 빈약하거나 깨짐 → 다음 모델", file=sys.stderr)
+                        best = best or out
+                        continue
                     print(f"[info] [{tag}] {m} 성공")
                     return out
             except Exception as ex:
                 print(f"[warn] [{tag}] {m}: {ex}", file=sys.stderr)
         time.sleep(8)
-    return None
+    return best
+
+
+MOVE_RE = re.compile(r"^[+-]?\d+(?:\.\d+)?%$")
+
+
+def us_ok(o):
+    st = [x for x in (o.get("stocks") or []) if MOVE_RE.match(str(x.get("move", "")).strip())]
+    return len(o.get("summary") or []) >= 3 and len(st) >= 4 and (o.get("sectors") or o.get("macro"))
 
 
 # ───────────────────────── 시세(Yahoo) ─────────────────────────
@@ -893,7 +906,27 @@ def build_pdf(state, since_ts):
     qtxt += "\n[대형주] " + ", ".join(f"{s} {c:+.2f}%" for s, c in mega)
     ftxt = lambda rows: ", ".join(f"{r['tk']}({r['name']}, {r['ind']}) {r['pct']:+.2f}%" for r in rows if r.get("pct") is not None) or "(없음)"
     us = gemini_obj(state, US_PROMPT.format(day=us_day, quotes=qtxt, gain=ftxt(gain), lose=ftxt(lose),
-                                            posts="\n\n".join(posts)[:42000] or "(없음)"), US_SCHEMA, "미국 시황") or {}
+                                            posts="\n\n".join(posts)[:42000] or "(없음)"), US_SCHEMA, "미국 시황", check=us_ok) or {}
+    # 주목 종목 정리: 등락률이 깨진 줄은 시세 값으로 고치거나 버림
+    fixed = []
+    for x in us.get("stocks") or []:
+        mv = str(x.get("move", "")).strip()
+        tk = str(x.get("ticker", "")).strip().upper()
+        if not MOVE_RE.match(mv):
+            if tk in q and q[tk].get("chg") is not None:
+                mv = f"{q[tk]['chg']:+.1f}%"
+            else:
+                m_ = re.search(r"[+-]\d+(?:\.\d+)?%", mv)
+                mv = m_.group(0) if m_ else ""
+        if mv and len(str(x.get("why", ""))) <= 160:
+            fixed.append(dict(x, move=mv))
+    us["stocks"] = fixed
+    if not gain and not lose and mega:   # finviz 실패: 대형주 등락 상·하위로 대신
+        gain = [{"tk": s_, "name": "", "pct": c_} for s_, c_ in mega[:8]]
+        lose = [{"tk": s_, "name": "", "pct": c_} for s_, c_ in mega[::-1][:8]]
+        mv_lab = "대형주"
+    else:
+        mv_lab = "S&P500"
     # ── 2) 일본
     wraps = stashes("highs_state.json", since_ts)
     wrap = [x for x in wraps if x["kind"] == "wrap"]
@@ -970,7 +1003,7 @@ def build_pdf(state, since_ts):
         if (gain or lose) and ul < 3:
             mk = lambda rows: "".join(f"<tr><td>{esc(r['tk'])} <span class='note'>{esc(r['name'][:28])}</span></td><td class='n {cls(r['pct'])}'>{r['pct']:+.2f}%</td></tr>"
                                       for r in rows[:(8, 6, 5)[ul]] if r.get("pct") is not None)
-            parts.append("<div class='grid'><div><h3>S&P500 상승 상위</h3><table>" + mk(gain) + "</table></div><div><h3>S&P500 하락 상위</h3><table>"
+            parts.append(f"<div class='grid'><div><h3>{mv_lab} 상승 상위</h3><table>" + mk(gain) + f"</table></div><div><h3>{mv_lab} 하락 상위</h3><table>"
                          + mk(lose) + "</table></div></div>")
         if (ern_pre or ern_post) and ul < 2:
             ek = lambda rows: "".join(f"<tr><td>{esc(r['tk'])} <span class='note'>{esc(r['name'][:26])}</span></td><td class='n'>{esc(r['cap'])}</td></tr>" for r in rows) or "<tr><td class='note'>없음</td><td></td></tr>"
