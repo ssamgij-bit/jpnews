@@ -1,11 +1,5 @@
 {
 "seen": {
-"saudiarabiakicksoffipoofworldsbiggestoilcompany": 1793403919.347948,
-"francesmacrontargetedinspywarecasereport": 1793403919.3555138,
-"duringholidayshoppingperiodpopeblastsvirusofconsumerism": 1793403919.364096,
-"planerecyclersbetonpartsboom": 1793403919.3707178,
-"wallstreetrisesonfedsignalonrates": 1793403919.3772507,
-"bidenurgessafethanksgiving;trumpallegesfraud": 1793403919.3852408,
 "goldmansettles1mdbdisputefor$39bln": 1793404512.5407026,
 "trumppardonsformeradviserflynn": 1793404512.5473862,
 "saudiaramcopricesworldsbiggestipo": 1793404512.5544317,
@@ -1629,7 +1623,12 @@
 "coronaviruscasesinnycsoartoover3600": 1793661913.9205637,
 "スペイン列車事故日本人2人の死亡確認地元当局が身元特定": 1793662512.2231815,
 "fedmaybefallingbehindoninflationfightmarketexpertsays": 1793662512.2285519,
-"米ウクライナとロシアの協議仲介1011日にｕａｅで開催と米高官": 1793662512.2328808
+"米ウクライナとロシアの協議仲介1011日にｕａｅで開催と米高官": 1793662512.2328808,
+"スペイン列車事故日本人2人目の死亡確認": 1793663123.0850813,
+"米選挙情勢分析ミシガン州の上院選を接戦から民主党寄りに": 1793663123.08934,
+"ny円相場反落1ドル157円90銭158円00銭選挙前の持ち高調整": 1793663123.0939543,
+"a股分红派息转增一览7股今日股权登记": 1793663123.0975835,
+"ｍｌｂカブス鈴木誠也にクオリファイングオファー提示": 1793663123.101746
 },
 "recent": [
 {
@@ -4851,6 +4850,18 @@
 "ko": "일본, 31년 만에 상업 포경 재개",
 "gist": "일본이 국제포경위원회(IWC) 탈퇴 후 31년 만에 상업 포경을 공식 재개했다.",
 "ts": 1793660117.7848554
+},
+{
+"id": "n663124_1",
+"ko": "뉴욕 엔화 환율, 반락해 1달러당 157엔대 후반… 선거 앞둔 포지션 조정",
+"gist": "미국 중간선거를 앞두고 경계감에 따른 엔화 매도와 달러 매수가 유입되며 뉴욕 외환시장에서 엔-달러 환율이 반락했다.",
+"ts": 1793663127.7357948
+},
+{
+"id": "n663125_3",
+"ko": "MLB 컵스, 스즈키 세야 선수에게 퀄리파잉 오퍼 제시",
+"gist": "미국 메이저리그 시카고 컵스가 스즈키 세야 선수에게 퀄리파잉 오퍼(연봉 제시)를 단행했다.",
+"ts": 1793663127.7358055
 }
 ],
 "digest": [],
