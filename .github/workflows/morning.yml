@@ -37,7 +37,7 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-      - run: pip install -r requirements.txt yfinance weasyprint matplotlib koreanize-matplotlib
+      - run: pip install -r requirements.txt yfinance weasyprint matplotlib koreanize-matplotlib openpyxl
       - name: PDF 도구 확인(pango)
         run: python -c "import weasyprint" || (sudo apt-get update -qq && timeout 300 sudo apt-get install -y -qq libpango-1.0-0 libpangoft2-1.0-0)
       - name: Morning brief
