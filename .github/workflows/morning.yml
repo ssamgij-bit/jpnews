@@ -17,7 +17,7 @@ on:
         default: false
 
 concurrency:
-  group: morning-brief${{ (github.event_name == 'schedule' || inputs.relay) && '' || '-manual' }}
+  group: morning-brief-${{ (github.event_name == 'schedule' || inputs.relay) && 'relay' || 'manual' }}   # '' 은 거짓으로 취급돼 예전 식은 항상 -manual이었음
   cancel-in-progress: false
 
 permissions:
