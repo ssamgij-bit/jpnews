@@ -115,6 +115,9 @@ def quotes(syms):
     for s in syms:
         try:
             c = (df[s]["Close"] if len(syms) > 1 else df["Close"]).dropna()
+            n = now()
+            if (s.endswith(".T") or s == "^N225") and len(c) and c.index[-1].strftime("%Y-%m-%d") == n.strftime("%Y-%m-%d") and (n.hour, n.minute) < (15, 30):
+                c = c.iloc[:-1]   # 장중(테스트 발송 등): 오늘 봉은 아직 확정 전
             if len(c) < 2:
                 continue
             a, b = float(c.iloc[-2]), float(c.iloc[-1])
@@ -436,13 +439,28 @@ def sector_movers(secs, n_sec=3, n_stk=3):
     return out
 
 
-def jp_sector_rows():
-    try:
-        import highs
-        return highs.jp_sectors()
-    except Exception as ex:
-        print(f"[warn] 업종 등락 실패: {ex}", file=sys.stderr)
-        return []
+def jp_sector_rows(jp_day="", wrap=None):
+    """33업종 등락 [(업종, %)] 상승률 순 — 전 거래일 마감 기준.
+    1) 신고가 봇이 마감 때 저장한 전체 목록 2) 마감 정리의 상·하위 5 3) 장 시작 전·마감 후에만 카부탄 현재 값(장중 값이 섞이지 않게)"""
+    sc = load_json("highs_state.json").get("sectors_close") or {}
+    if sc.get("rows") and (not jp_day or sc.get("day") == jp_day):
+        return [(k, float(v)) for k, v in sc["rows"]]
+    for w in reversed(wrap or []):
+        if jp_day and w.get("day") and w["day"] != jp_day:
+            continue
+        b = next((x for x in w.get("blocks", []) if "업종 등락 상·하위" in x[:40]), "")
+        rows = [(m.group(1), float(m.group(2))) for p in re.split(r"\s·\s|[▲▼\n]", strip_html(b))
+                if (m := re.fullmatch(r"\s*(\S+) ([+-]\d+(?:\.\d+)?)%\s*", p))]
+        if rows:
+            return sorted(dict(rows).items(), key=lambda x: -x[1])
+    n = now()
+    if (n.hour, n.minute) < (9, 0) or (n.hour, n.minute) >= (15, 30):
+        try:
+            import highs
+            return highs.jp_sectors()
+        except Exception as ex:
+            print(f"[warn] 업종 등락 실패: {ex}", file=sys.stderr)
+    return []
 
 
 def disclosure_items(since_ts):
@@ -794,7 +812,7 @@ td.n{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
 .up{color:#cf2f3f} .dn{color:#2360c4}
 .grid{display:flex;gap:4mm} .grid>div{flex:1}
 table.disc td:first-child{width:24%} table.disc td:nth-child(2){width:42%}
-img.chart{width:82%;margin:1mm 0;display:block}
+img.chart{width:82%;margin:1mm 0;display:block} img.chart.sm{width:62%}
 .stash{margin:2mm 0 5mm} .sh{font-weight:700;font-size:10.8pt;margin:3mm 0 0.5mm;color:#15181d;border-left:3px solid #9a6a12;padding-left:2mm;page-break-after:avoid}
 .shs{color:#777;font-size:8pt;margin:0 0 2mm 3mm}
 .blk{margin:0 0 2.5mm;page-break-inside:auto;orphans:2;widows:2}
@@ -891,7 +909,7 @@ def build_pdf(state, since_ts):
     jgb = jgb10()
     if jgb:
         jp_idx += f", 일본 국채 10년 {jgb[1]:.3f}% ({jgb[2]:+.1f}bp, {jgb[0]})"
-    secs = jp_sector_rows()
+    secs = jp_sector_rows(jp_day, wrap)
     if secs:
         jp_idx += "\n[33업종 등락 상위] " + ", ".join(f"{k} {v:+.2f}%" for k, v in secs[:5]) + " / [하위] " + ", ".join(f"{k} {v:+.2f}%" for k, v in secs[::-1][:5])
     earn, earn_n = jp_earnings_today(t.strftime("%Y-%m-%d"))
@@ -920,7 +938,7 @@ def build_pdf(state, since_ts):
     hi = [x for x in wraps if x["kind"] in ("highs", "gainers")]
 
     # ── HTML: 분량(목표 PAGE_MAX쪽)에 맞춰 단계(lv)별로 덜 중요한 부분부터 줄임
-    def assemble(lv):
+    def assemble(lv, ul=0):
         wd = "월화수목금토일"[t.weekday()]
         parts = [f"<h1>아침 브리핑 {t:%Y-%m-%d}({wd})</h1>",
                  f"<div class='sub'>{t:%H:%M} KST 작성 · 대상 기간 {since:%m/%d %H:%M} ~ {t:%m/%d %H:%M} · 미국 {us_day or '-'} 종가 · 일본 {jp_day or '-'} 종가</div>"]
@@ -934,11 +952,11 @@ def build_pdf(state, since_ts):
         parts.append("<div class='grid'><div><h3>지수</h3>" + q_table(q, US_IDX) + "</div><div><h3>금리·환율·원자재</h3>"
                      + q_table(q, MACRO) + "</div></div>")
         if us.get("summary"):
-            parts.append("<h3>시장 흐름</h3>" + li(us["summary"]))
+            parts.append("<h3>시장 흐름</h3>" + li(us["summary"][:(9, 9, 7, 6, 5, 4)[ul]]))
         sec_rows = [(n, q[s]["chg"]) for s, n in SECTORS if s in q and q[s]["chg"] is not None]
-        if sec_rows:
+        if sec_rows and ul < 4:
             try:
-                parts.append(f"<img class='chart' src='{chart_png(sec_rows, 'S&P500 섹터 ETF 등락률(%)')}'>")
+                parts.append(f"<img class='chart{' sm' if ul >= 2 else ''}' src='{chart_png(sec_rows, 'S&P500 섹터 ETF 등락률(%)')}'>")
             except Exception as ex:
                 print(f"[warn] 섹터 차트 실패: {ex}", file=sys.stderr)
         if us.get("sectors"):
@@ -948,24 +966,24 @@ def build_pdf(state, since_ts):
                 f"<tr><td>{esc(s.get('name', ''))} <span class='note'>{esc(s.get('ticker', ''))}</span></td>"
                 f"<td class='n {cls(-1 if str(s.get('move', '')).startswith('-') else 1)}'>{esc(s.get('move', ''))}</td><td>{esc(s.get('why', ''))}"
                 + (f"<div class='jpl'>🇯🇵 {esc(s['jp'].lstrip('→ '))}</div>" if (s.get('jp') or '').strip() else "") + "</td></tr>"
-                for s in us["stocks"][:(10, 10, 8, 7, 6, 5)[lv]]) + "</table>")
-        if (gain or lose) and lv < 3:
+                for s in us["stocks"][:(10, 8, 7, 6, 5, 4)[ul]]) + "</table>")
+        if (gain or lose) and ul < 3:
             mk = lambda rows: "".join(f"<tr><td>{esc(r['tk'])} <span class='note'>{esc(r['name'][:28])}</span></td><td class='n {cls(r['pct'])}'>{r['pct']:+.2f}%</td></tr>"
-                                      for r in rows[:8] if r.get("pct") is not None)
+                                      for r in rows[:(8, 6, 5)[ul]] if r.get("pct") is not None)
             parts.append("<div class='grid'><div><h3>S&P500 상승 상위</h3><table>" + mk(gain) + "</table></div><div><h3>S&P500 하락 상위</h3><table>"
                          + mk(lose) + "</table></div></div>")
-        if (ern_pre or ern_post) and lv < 4:
+        if (ern_pre or ern_post) and ul < 2:
             ek = lambda rows: "".join(f"<tr><td>{esc(r['tk'])} <span class='note'>{esc(r['name'][:26])}</span></td><td class='n'>{esc(r['cap'])}</td></tr>" for r in rows) or "<tr><td class='note'>없음</td><td></td></tr>"
             parts.append("<h3>오늘 밤 실적 발표(미국, 시총 100억 달러↑)</h3><div class='grid'><div><table><tr><th>장 전</th><th>시총($B)</th></tr>" + ek(ern_pre)
                          + "</table></div><div><table><tr><th>장 마감 후</th><th>시총($B)</th></tr>" + ek(ern_post) + "</table></div></div>")
         if us.get("macro"):
-            parts.append("<h3>매크로</h3>" + li(us["macro"]))
+            parts.append("<h3>매크로</h3>" + li(us["macro"][:(9, 9, 4, 3, 3, 2)[ul]]))
         if us.get("watch"):
-            parts.append("<h3>체크 포인트</h3>" + li(us["watch"]))
+            parts.append("<h3>체크 포인트</h3>" + li(us["watch"][:(9, 9, 4, 3, 3, 2)[ul]]))
         if not us:
             parts.append("<p class='note'>(AI 정리 실패: 시세 표만 싣습니다)</p>")
         # 2
-        parts.append("<h2 class='pb'>2. 일본 증시 시황</h2>")
+        parts.append("<!--JP--><h2 class='pb'>2. 일본 증시 시황</h2>")
         if jp.get("headline"):
             parts.append(f"<div class='hl'>{esc(jp['headline'])}</div>")
         jt = q_table(q, JP_IDX)
@@ -978,7 +996,7 @@ def build_pdf(state, since_ts):
             parts.append("<h3>시장 흐름</h3>" + li(jp["summary"]))
         if secs:
             try:
-                k = 8 if lv < 2 else 5
+                k = min(8 if lv < 2 else 5, max(1, len(secs) // 2))
                 pick = secs[:k] + [x for x in secs[-k:] if x not in secs[:k]]
                 parts.append(f"<img class='chart' src='{chart_png(pick, f'33업종 등락률 상·하위 {k}(%) · 전 거래일')}'>")
             except Exception as ex:
@@ -1068,8 +1086,14 @@ def build_pdf(state, since_ts):
         return doc, top3
 
     from weasyprint import HTML
+    ul = 0
+    for ul in range(6):   # 미국(1장)은 2쪽 안에: 넘치면 미국 부분만 단계별로 줄임
+        d0, _ = assemble(0, ul)
+        n_us = len(HTML(string=d0.split("<!--JP-->")[0] + "</body></html>", base_url=DIR).render().pages)
+        print(f"[info] 미국 단계 {ul}: {n_us}쪽", file=sys.stderr)
+        if n_us <= 2: break
     for lv in range(6):
-        doc, top3 = assemble(lv)
+        doc, top3 = assemble(lv, ul)
         rd = HTML(string=doc, base_url=DIR).render()
         print(f"[info] 분량 단계 {lv}: {len(rd.pages)}쪽", file=sys.stderr)
         if len(rd.pages) <= PAGE_MAX: break

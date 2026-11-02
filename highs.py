@@ -767,6 +767,8 @@ def jp_wrap(state, day, final):
     except Exception as ex:
         print(f"[warn] 업종 등락률 실패: {ex}", file=sys.stderr)
         sec = []
+    if sec:   # 아침 브리핑이 쓰는 마감 기준 33업종 등락(아침에 카부탄을 다시 읽으면 장중 값일 수 있음)
+        state["sectors_close"] = {"day": day, "rows": sec}
     nk, tp = jp_index(".N225"), jp_index(".TOPX")
     res = _ask(state, WRAP_PROMPT.format(role=ROLE, rules=RULES, day=day, nk=nk or "-", tp=tp or "-",
                                          sectors="\n".join(f"- {k}: {v:+.2f}" for k, v in sec) or "(없음)",
