@@ -556,30 +556,152 @@ def tg_html(s):
     return s
 
 
-def stash_html(items, title_fallback, caps=None):
-    """caps: 종류별 최대 항목 수(분량 줄이기). 잘리면 '외 n건' 표시"""
-    out = []
-    for x in items:
-        head = tg_html(x.get("head", "")).replace("&gt;&gt;", "")
-        bl = x.get("blocks", [])
-        if x.get("kind") in ("x", "note", "weekly"):  # 줄 단위로 쌓인 메시지: 항목(빈 줄로 시작) 단위로 다시 묶음
-            groups, cur = [], []
-            for b in bl:
-                if b.startswith("\n") and cur:
-                    groups.append("\n".join(cur)); cur = []
-                cur.append(b)
-            if cur: groups.append("\n".join(cur))
-            bl = groups
-        cap = (caps or {}).get(x.get("kind"))
-        more = len(bl) - cap if cap is not None and len(bl) > cap else 0
-        if more: bl = bl[:cap]
-        body = "".join(f"<div class='blk'>{re.sub(r'^(<br>)+', '', tg_html(b.strip()))}</div>" for b in bl)
-        if more: body += f"<div class='note'>… 외 {more}건 생략(분량 조절)</div>"
-        out.append(f"<div class='stash'><div class='sh'>{head or esc(title_fallback)}</div>{body}</div>")
+LINK_RE = re.compile(r"^(?:&gt;|>)?\s*(<a .*)$")
+TAG_RE = re.compile(r"^\[([^\]]{1,10})\]\s*")
+
+
+def _plain(s):
+    return H.unescape(re.sub(r"<[^>]+>", "", s or "")).strip()
+
+
+def _li_html(t):
+    """불릿 한 줄: 맨 앞 [분류]는 작은 꼬리표, (추정)은 흐리게"""
+    t = t.strip().lstrip("•·").strip()
+    tag = ""
+    m = TAG_RE.match(_plain(t)) if t.startswith("[") else None
+    if m:
+        tag = f"<span class='tag'>{esc(m.group(1))}</span>"
+        t = t[t.index("]") + 1:].strip()
+    if t.startswith("(추정)"):
+        return f"<li class='est'>{tag}{t}</li>"
+    t = re.sub(r"^([^:<]{1,10}):\s*", r"<b class='k'>\1</b> ", t)   # '관찰:', '확인할 점:' 같은 머리말은 굵게
+    return f"<li>{tag}{t}</li>"
+
+
+def pretty(b):
+    """텔레그램 메시지 조각 → PDF용 구조(제목·라벨·목록·링크 줄). 줄바꿈 나열이 아니라 문서처럼"""
+    out, ul, links = [], [], []
+    def flush():
+        if ul: out.append("<ul class='b'>" + "".join(ul) + "</ul>"); ul.clear()
+    for raw in (b or "").replace("━━━━━━━━━━", "").split("\n"):
+        ln = raw.strip()
+        if not ln: continue
+        m = LINK_RE.match(ln)
+        if m and ln.lstrip("&gt; ").startswith("<a"):
+            links.append(m.group(1)); continue
+        if ln.startswith(("•", "·")):
+            ul.append(_li_html(ln)); continue
+        flush()
+        lab = re.fullmatch(r"<b>\[([^\]]+)\]</b>\s*(.*)", ln)
+        if lab:
+            out.append(f"<div class='lbl'>{esc(lab.group(1))}</div>" + (f"<p>{lab.group(2)}</p>" if lab.group(2) else "")); continue
+        tt = re.fullmatch(r"<b>(?:&gt;)?\s*(\d+\.\s*)?(.+?)</b>\s*(.*)", ln)
+        if tt:
+            num = f"<span class='num'>{tt.group(1).strip().rstrip('.')}</span>" if tt.group(1) else ""
+            title = tt.group(2)
+            tm = TAG_RE.match(_plain(title))
+            if tm:
+                title = f"<span class='tag'>{esc(tm.group(1))}</span>" + title[title.index("]") + 1:].strip()
+            meta = re.sub(r"^[—–-]\s*", "", tt.group(3).strip())
+            out.append(f"<div class='ct'>{num}{title}" + (f" <span class='meta'>{meta}</span>" if meta else "") + "</div>"); continue
+        if ln.startswith("(추정)"):
+            out.append(f"<p class='est'>{ln}</p>"); continue
+        out.append(f"<p>{ln}</p>")
+    flush()
+    if links:
+        out.append("<div class='lnk'>" + " · ".join(links) + "</div>")
     return "".join(out)
 
 
-PAGE_MAX = 12   # 아침 브리핑 목표 분량(쪽). 넘으면 덜 중요한 부분부터 줄임
+def _regroup(bl):
+    """줄 단위로 쌓인 메시지(X·note·주간 순위): 빈 줄로 시작하는 줄에서 항목을 나눔"""
+    groups, cur = [], []
+    for b in bl:
+        if b.startswith("\n") and cur:
+            groups.append("\n".join(cur)); cur = []
+        cur.append(b)
+    if cur: groups.append("\n".join(cur))
+    return groups
+
+
+def rank_table(groups):
+    """X·note·기업 순위 → 표(순위 | 주제·분류 | 지표 | 한 줄 설명)"""
+    rows = []
+    for g in groups:
+        lines = [x.strip() for x in g.strip().split("\n") if x.strip()]
+        if not lines: continue
+        m = re.fullmatch(r"<b>(\d+)\.\s*(.+?)</b>\s*(.*)", lines[0])
+        if not m:
+            continue
+        title, meta = m.group(2), re.sub(r"^[—–-]\s*|^\(|\)$", "", m.group(3).strip())
+        tm = TAG_RE.match(_plain(title))
+        tag = ""
+        if tm:
+            tag = f"<span class='tag'>{esc(tm.group(1))}</span>"; title = title[title.index("]") + 1:].strip()
+        desc = " ".join(x.lstrip("•· ") for x in lines[1:] if not LINK_RE.match(x) or not x.lstrip("&gt; ").startswith("<a"))
+        link = next((LINK_RE.match(x).group(1) for x in lines[1:] if LINK_RE.match(x) and x.lstrip("&gt; ").startswith("<a")), "")
+        link = re.sub(r">[^<]*</a>", ">↗</a>", link) if link else ""
+        rows.append(f"<tr><td class='rk'>{m.group(1)}</td><td>{tag}<b>{title}</b> {link}<div class='meta'>{meta}</div></td><td>{desc}</td></tr>")
+    return "<table class='rank'><tr><th></th><th style='width:38%'>주제</th><th>내용</th></tr>" + "".join(rows) + "</table>" if rows else ""
+
+
+def stock_table(blocks, gainers=False):
+    """신고가·상승률 상위 종목 조각 → 표(순위 | 종목·사업 | 등락·종가 | 시총·PER·PBR | 이유)"""
+    rows = []
+    for b in blocks:
+        lines = [x.strip() for x in b.strip().split("\n") if x.strip()]
+        m = re.fullmatch(r"<b>(\d+)\.\s*(★\s*)?(.+?)\((\w{4}) JP\)</b>\s*(.*)", lines[0]) if lines else None
+        if not m:
+            continue
+        rk, star, name, code, rest = m.groups()
+        info = _plain(lines[1]) if len(lines) > 1 and not lines[1].startswith("•") else ""
+        biz = next((_plain(x)[1:].strip().removeprefix("사업:").strip() for x in lines if x.startswith("•") and "사업:" in x[:6]), "")
+        why = next((_plain(x)[1:].strip().removeprefix("이유:").strip() for x in lines if x.startswith("•") and "이유:" in x[:6]), "")
+        pct = re.search(r"([+-]\d+(?:\.\d+)?%)", rest + " " + info)
+        px = re.search(r"종가 ([\d,\.]+엔)", info)
+        cap = re.search(r"시총 ([\d,\.]+(?:조|억)\s*엔)", rest + " " + info)
+        per = re.search(r"PER ([\d\.,]+배)", info); pbr = re.search(r"PBR ([\d\.,]+배)", info)
+        pv = pct.group(1) if pct else ""
+        rows.append(
+            f"<tr><td class='rk'>{rk}</td>"
+            f"<td><b>{'★ ' if star else ''}{esc(_plain(name))}</b> {vdl(code)}<div class='meta'>{esc(short(biz, 46))}</div></td>"
+            f"<td class='n'><span class='{cls(float(pv[:-1]) if pv else 0)}'>{pv}</span><div class='meta'>{px.group(1) if px else ''}</div></td>"
+            f"<td class='n'>{cap.group(1).replace(' ', '') if cap else ''}<div class='meta'>{(per.group(1) if per else '-')} · {(pbr.group(1) if pbr else '-')}</div></td>"
+            f"<td class='why'>{esc(short(why, 120))}</td></tr>")
+    return ("<table class='stk'><tr><th></th><th style='width:27%'>종목</th><th>등락·종가</th><th>시총·PER·PBR</th><th>오른 이유</th></tr>"
+            + "".join(rows) + "</table>") if rows else ""
+
+
+def stash_html(items, title_fallback, caps=None):
+    """쌓인 텔레그램 정리(커뮤니티·X·note·신고가 등) → PDF 문서 형식. caps: 종류별 최대 항목 수(잘리면 '외 n건')"""
+    out = []
+    for x in items:
+        kind = x.get("kind")
+        head_txt = re.sub(r"^&gt;&gt;|^>>", "", re.sub(r"<[^>]+>", "", x.get("head", "")).strip()).strip()
+        first, _, rest_h = head_txt.partition("\n")
+        title = re.sub(r"^\[([^\]]+)\]\s*", r"\1 · ", first) or title_fallback
+        sub = rest_h.strip()
+        bl = x.get("blocks", [])
+        cap = (caps or {}).get(kind)
+        if kind in ("x", "note", "weekly"):
+            bl = _regroup(bl)
+        more = len(bl) - cap if cap is not None and len(bl) > cap else 0
+        if more: bl = bl[:cap]
+        if kind in ("x", "note", "weekly"):
+            body = rank_table(bl)
+        elif kind in ("highs", "gainers"):
+            body = stock_table(bl, kind == "gainers")
+            pre = re.split(r"\n\s*\n", x.get("head", ""), maxsplit=1)
+            if len(pre) > 1: body = f"<div class='intro'>{pretty(pre[1])}</div>" + body
+            sub = re.sub(r"<[^>]+>", "", pre[0]).split("\n", 1)[1].strip() if "\n" in pre[0] else sub
+        else:
+            body = "".join(f"<div class='card'>{pretty(b)}</div>" for b in bl)
+        if more: body += f"<div class='note'>… 외 {more}건 생략(분량 조절)</div>"
+        out.append(f"<div class='stash'><div class='sh'>{esc(title)}</div>" + (f"<div class='shs'>{esc(sub)}</div>" if sub else "") + body + "</div>")
+    return "".join(out)
+
+
+PAGE_MAX = 15   # 아침 브리핑 목표 분량(쪽). 넘으면 덜 중요한 부분부터 줄임
 VD_URL = "https://claude.ai/artifact/6gMrLe6Ue3ezG3HEu1ACvE"   # 밸류 데스크(종목 페이지 = VD_URL#코드)
 
 
@@ -607,8 +729,22 @@ td.n{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
 .grid{display:flex;gap:4mm} .grid>div{flex:1}
 table.disc td:first-child{width:24%} table.disc td:nth-child(2){width:42%}
 img.chart{width:82%;margin:1mm 0;display:block}
-.stash{margin:2mm 0 4mm} .sh{font-weight:700;font-size:10.5pt;margin:2mm 0 1.5mm;color:#9a6a12}
-.blk{border-left:2px solid #e3e3e3;padding:0.5mm 0 0.5mm 3mm;margin:0 0 2.5mm;page-break-inside:auto;orphans:2;widows:2}
+.stash{margin:2mm 0 5mm} .sh{font-weight:700;font-size:10.8pt;margin:3mm 0 0.5mm;color:#15181d;border-left:3px solid #9a6a12;padding-left:2mm;page-break-after:avoid}
+.shs{color:#777;font-size:8pt;margin:0 0 2mm 3mm}
+.blk{margin:0 0 2.5mm;page-break-inside:auto;orphans:2;widows:2}
+.card{border:1px solid #e7e2d6;border-radius:2mm;background:#fcfbf7;padding:2.2mm 3.5mm;margin:0 0 2.2mm;page-break-inside:avoid}
+.card p{margin:0.8mm 0}
+.ct{font-weight:700;font-size:9.6pt;margin:0.5mm 0 1mm} .ct .num{display:inline-block;min-width:4.5mm;color:#9a6a12}
+.meta{color:#7a7a7a;font-size:7.8pt;font-weight:400}
+.lbl{display:inline-block;font-size:7.6pt;font-weight:700;color:#9a6a12;letter-spacing:0.2mm;margin:1.2mm 0 0.3mm}
+ul.b{margin:0.5mm 0 1mm;padding-left:4mm} ul.b li{margin:0.4mm 0}
+.est{color:#666;font-style:italic} b.k{color:#7a5410}
+.tag{display:inline-block;font-size:7.2pt;font-weight:700;padding:0 1.4mm;margin-right:1.4mm;border-radius:1mm;background:#f2e8d3;color:#7a5410;font-style:normal}
+.lnk{font-size:7.6pt;color:#999;margin-top:1mm} .lnk a{color:#2a5bd7}
+.intro{margin:0 0 2mm} .intro p{margin:0.6mm 0}
+table.rank td,table.stk td{font-size:8.3pt;padding:1.3mm 1.6mm} td.rk{color:#9a6a12;font-weight:700;width:5mm;text-align:center}
+table.stk td.why{font-size:8pt;color:#333} table.rank tr,table.stk tr{page-break-inside:avoid}
+.wrapg{display:flex;gap:4mm} .wrapg>div{flex:1}
 a{color:#2360c4;text-decoration:none}
 .note{color:#777;font-size:7.8pt;margin-top:1mm}
 .toc{font-size:9pt;color:#444;margin:2mm 0 4mm}
@@ -766,11 +902,15 @@ def build_pdf(state, since_ts):
                 parts.append(f"<img class='chart' src='{chart_png(pick, f'33업종 등락률 상·하위 {k}(%) · 전 거래일')}'>")
             except Exception as ex:
                 print(f"[warn] 업종 차트 실패: {ex}", file=sys.stderr)
-        if jp.get("sectors"):
+        wb = wrap[-1]["blocks"][:-1] if wrap else []
+        sec_b = [b for b in wb if re.match(r"<b>\[(오른|내린) 업종\]</b>", b.strip())]
+        if len(sec_b) == 2:   # 마감 정리(카부탄·피스코 마감 시황 기반)의 업종별 이유를 좌우로
+            parts.append("<h3>업종 등락과 이유</h3><div class='wrapg'>" + "".join(f"<div>{pretty(b)}</div>" for b in sec_b) + "</div>")
+        elif jp.get("sectors"):
             parts.append("<h3>업종 등락과 이유</h3>" + li(jp["sectors"]))
-        if wrap:
-            w = wrap[-1]
-            parts.append("<h3>전 거래일 마감 정리</h3>" + "".join(f"<div class='blk'>{tg_html(b)}</div>" for b in w["blocks"][:-1][:(None, None, 5, 4, 3, 2)[lv]]))
+        rest_b = [b for b in wb if b not in sec_b][:(None, None, 4, 3, 2, 2)[lv]]
+        if rest_b:
+            parts.append("<h3>전 거래일 마감 정리</h3>" + "".join(f"<div class='blk'>{pretty(b)}</div>" for b in rest_b))
         if not jp.get("news") and news:  # AI 실패: 뉴스봇이 보낸 기사 상위 8개 그대로
             jp["news"] = [{"title": r.get("ko", ""), "why": r.get("gist", "")[:80]} for r in news[-8:]]
         if jp.get("news"):
