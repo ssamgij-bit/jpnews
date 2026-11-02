@@ -17,7 +17,7 @@ on:
         default: false
 
 concurrency:
-  group: morning-brief${{ (github.event_name == 'schedule' || github.event.inputs.relay == 'true') && '' || '-manual' }}
+  group: morning-brief${{ (github.event_name == 'schedule' || inputs.relay) && '' || '-manual' }}
   cancel-in-progress: false
 
 permissions:
