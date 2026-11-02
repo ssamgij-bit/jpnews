@@ -858,6 +858,15 @@ def build_pdf(state, since_ts):
     gain, lose = finviz_movers()
     ern_pre, ern_post = us_earnings()
     posts = []
+    try:   # 네이버 프리미엄 버터대디 요약(맥의 요약봇이 japan stock 봇 저장소에 올려 둠) — 미국 시황 참고 글 맨 앞
+        r = requests.get("https://jp-disclosure-bot.ssamgij.workers.dev/notes", timeout=20,
+                         params={"since": int((t - timedelta(hours=30)).timestamp() * 1000)},
+                         headers={"x-watch-key": os.environ.get("WATCH_KEY", ""), "User-Agent": "morning-brief"})
+        for x in (r.json() if r.status_code == 200 else []):
+            posts.append(f"### {x.get('src', '')}(네이버 프리미엄 요약) {datetime.fromtimestamp(x['ts'] / 1000, JST):%m/%d %H:%M}\n{x.get('title', '')}\n{x.get('text', '')}")
+        print(f"[info] 네프콘 요약 {len(posts)}건", file=sys.stderr)
+    except Exception as ex:
+        print(f"[warn] 네프콘 요약 읽기 실패: {ex}", file=sys.stderr)
     for ch, label in CHANNELS:
         for ts, txt in tg_posts(ch, t - timedelta(hours=18)):
             posts.append(f"### {label} {ts:%m/%d %H:%M}\n{txt}")
