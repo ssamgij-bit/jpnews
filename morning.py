@@ -1034,6 +1034,8 @@ def main():
             print(f"[info] 아직 {SEND_AT[0]:02d}:{SEND_AT[1]:02d} 전"); return
     since_ts = st.get("last_ts") or (time.time() - 26 * 3600)
     since_ts = max(since_ts, time.time() - 4 * 86400)  # 오래 끊겼어도 최대 4일치
+    if FORCE:   # 테스트 발송: 마지막 발송 이후가 아니라 최근 26시간(MORNING_HOURS로 바꿀 수 있음) — 평소 브리핑과 같은 분량으로 확인
+        since_ts = time.time() - float(os.getenv("MORNING_HOURS") or (74 if now().weekday() == 0 else 26)) * 3600   # 월요일은 주말 포함
     t_start = time.time()
     pdf, cap = build_pdf(st, since_ts)
     print(f"[info] PDF {len(pdf) / 1024:.0f}KB, {time.time() - t_start:.0f}초")
