@@ -411,7 +411,61 @@ def jgb10():
 SIZE_W = {"Core30": 8, "Large70": 3, "Mid400": 1}   # 업종 지수 영향 가중(시총 규모 대용)
 
 
-def sector_movers(secs, n_sec=3, n_stk=3):
+DIGEST_RE = re.compile(r"前日に動いた銘柄|本日の注目個別銘柄|話題株ダイジェスト|注目銘柄|動いた銘柄")
+
+
+def stock_evidence(code, jp_day):
+    """종목 등락 이유 근거(카부탄): 그 거래일 전후 종목 기사 본문 + 시황 다이제스트 속 해당 종목 문단 + 최근 제목. → 문자열 목록"""
+    import highs
+    out = []
+    try:
+        top = highs.get(f"https://s.kabutan.jp/stocks/{code}/")
+        m = re.search(r"<title>\s*(.+?)【", top)
+        short = highs.text_of(m.group(1)).strip() if m else ""
+        h = highs.get(f"https://s.kabutan.jp/stocks/{code}/news/")
+    except Exception as ex:
+        print(f"[warn] 카부탄 {code}: {ex}", file=sys.stderr)
+        return out
+    d0 = datetime.strptime(jp_day, "%Y-%m-%d") if jp_day else now().replace(tzinfo=None)
+    lo, hi = (d0 - timedelta(days=2)).strftime("%Y-%m-%d"), (d0 + timedelta(days=3)).strftime("%Y-%m-%d")
+    own, dig, titles = [], [], []
+    for li in re.findall(r"<li[^>]*>(.*?)</li>", h, re.S):
+        t = re.search(r'datetime="(\d{4}-\d\d-\d\d) (\d\d:\d\d)', li)
+        a = re.search(r'href="(/stocks/[^"]+/news/[^"]+)"', li)
+        tt = re.search(r'<div class="w-full[^"]*">(.*?)</div>', li, re.S)
+        if not (t and tt) or not (lo <= t.group(1) <= hi):
+            continue
+        title = highs.text_of(tt.group(1)).strip()
+        titles.append(f"{t.group(1)[5:]} {title[:90]}")
+        if not a:
+            continue
+        if DIGEST_RE.search(title):
+            dig.append((title, a.group(1)))
+        elif (short and short in title) or re.search(r"決算|上方修正|下方修正|目標株価|格上げ|格下げ|受注|買収|ストップ", title):
+            own.append((title, a.group(1)))
+    for title, u in own[:2]:
+        try:
+            out.append(f"[기사] {title} — {highs._article(u, 700)}")
+        except Exception:
+            pass
+        time.sleep(0.3)
+    for title, u in dig[:3]:
+        try:
+            body = highs._article(u, 20000)
+            i = body.find(f"<{code}>")   # 다이제스트는 '종목명 <코드>' 형식
+            if i < 0 and short:
+                i = body.find(short)
+            if i >= 0:
+                out.append(f"[시황 다이제스트 발췌] {body[max(0, i - 40):i + 260]}")
+        except Exception:
+            pass
+        time.sleep(0.3)
+    if titles:
+        out.append("[최근 기사 제목] " + " / ".join(titles[:8]))
+    return out
+
+
+def sector_movers(secs, n_sec=3, n_stk=3, jp_day=""):
     """상승·하락 상위 업종(각 n_sec개)의 TOPIX500 구성 종목 중 그 방향으로 지수를 크게 움직인 종목(규모 가중 × 등락률)과 카부탄 뉴스 제목.
     → [{sector, pct, stocks: [{code, name, pct, news: [제목]}]}]"""
     import csv
@@ -443,10 +497,7 @@ def sector_movers(secs, n_sec=3, n_stk=3):
         stks = []
         for _, r in cand:
             nm = names.get(r["code"], r["code"])
-            try:
-                nw = highs.jp_news({"code": r["code"], "name": nm}, now())[:5]
-            except Exception:
-                nw = []
+            nw = stock_evidence(r["code"], jp_day)
             stks.append({"code": r["code"], "name": nm, "pct": round(q[f"{r['code']}.T"]["chg"], 2), "news": nw})
         out.append({"sector": k, "pct": v, "stocks": stks})
     return out
@@ -546,7 +597,9 @@ JP_PROMPT = """너는 한국 자산운용사 주식운용본부의 일본 주식
 - headline: 한 줄(40자 이내).
 - summary: 지수·수급·테마 흐름 4~6줄. 오늘 아침 미국 시장 흐름이 일본에 줄 영향도 1줄(추정 표시).
 - sectors: [업종별 주요 종목]의 업종마다 하나씩(순서 그대로). sector(업종명), pct(업종 등락률 그대로), why(업종이 오르거나 내린 이유 1~2문장 — [마감 정리]·[뉴스]·[공시]·[미국 증시 요약] 근거, 근거가 없으면 '(추정)'),
-  stocks: 그 업종에 주어진 종목마다 name(한국어 이름), code, pct(주어진 등락률 그대로), why(그 종목이 오르거나 내린 이유 1문장 — 종목 뉴스 제목·[마감 정리]·[공시] 근거, 없으면 '(추정)'을 붙인 해석 또는 '업종 흐름 동반, 개별 재료 없음').
+  stocks: 그 업종에 주어진 종목마다 name(한국어 이름), code, pct(주어진 등락률 그대로), why(그 종목이 오르거나 내린 이유 1~2문장, 90자 이내).
+  why는 [기사]·[시황 다이제스트 발췌]·[최근 기사 제목]·[마감 정리]·[공시]에서 구체적 재료를 찾아 써라: 실적(분기 영업이익 증감률·컨센서스 대비), 가이던스 상향·하향 폭, M&A·자사주, 증권사 목표가·등급 변경, 수주·신제품, 업황 지표 등 — 수치와 날짜가 있으면 넣어라.
+  '업종 흐름 동반'은 정말 개별 재료가 전혀 없을 때만 쓰고, 근거 없이 짐작한 이유는 '(추정)'을 붙여라.
 - news: [뉴스] 중 투자에 중요한 기사 최대 6개. [공시]와 같은 사건을 다룬 기사는 news에서 빼고 disc에만 넣어라(중복 금지). title(한국어 제목 그대로 또는 짧게), why(왜 중요한지 1문장, 60자 이내).
 - disc: [공시] 중 주목할 공시 최대 10개. i(공시 번호), why(투자 관점 한 줄, 60자 이내 — 수정 폭·지속성·시총 고려).
 - watch: 오늘 일본 증시 체크 포인트 2~4줄(아래 [오늘 실적 발표 예정]·지표·이벤트, 자료에 있는 것만).
@@ -961,12 +1014,12 @@ def build_pdf(state, since_ts):
     com_txt = "\n".join(strip_html(b)[:1500] for x in com if x["kind"] == "community" for b in x["blocks"][:1])[:3000] or "(없음)"
     us_sum = " ".join(us.get("summary") or [])[:800] or qtxt[:600]
     try:
-        movers = sector_movers(secs)
+        movers = sector_movers(secs, jp_day=jp_day)
     except Exception as ex:
         print(f"[warn] 업종 주요 종목 실패: {ex}", file=sys.stderr); movers = []
     mv_txt = "\n".join(f"## {m['sector']} {m['pct']:+.2f}%\n" + "\n".join(
-        f"- {x['name']}({x['code']}) {x['pct']:+.2f}% | 뉴스: " + (" / ".join(x["news"]) or "없음") for x in m["stocks"]) for m in movers) or "(없음)"
-    jp = gemini_obj(state, JP_PROMPT.format(day=jp_day, us=us_sum, idx=jp_idx or "-", wrap=wrap_txt[:6000], movers=mv_txt[:7000], news=news_txt[:8000],
+        f"- {x['name']}({x['code']}) {x['pct']:+.2f}%\n  " + ("\n  ".join(x["news"]) or "근거 자료 없음") for x in m["stocks"]) for m in movers) or "(없음)"
+    jp = gemini_obj(state, JP_PROMPT.format(day=jp_day, us=us_sum, idx=jp_idx or "-", wrap=wrap_txt[:6000], movers=mv_txt[:16000], news=news_txt[:8000],
                                             disc=disc_txt[:9000], earn=earn_txt, com=com_txt), JP_SCHEMA, "일본 시황") or {}
     hi = [x for x in wraps if x["kind"] in ("highs", "gainers")]
 
