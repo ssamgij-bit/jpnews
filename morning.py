@@ -392,6 +392,50 @@ def jgb10():
         return None
 
 
+SIZE_W = {"Core30": 8, "Large70": 3, "Mid400": 1}   # 업종 지수 영향 가중(시총 규모 대용)
+
+
+def sector_movers(secs, n_sec=3, n_stk=3):
+    """상승·하락 상위 업종(각 n_sec개)의 TOPIX500 구성 종목 중 그 방향으로 지수를 크게 움직인 종목(규모 가중 × 등락률)과 카부탄 뉴스 제목.
+    → [{sector, pct, stocks: [{code, name, pct, news: [제목]}]}]"""
+    import csv
+    import highs
+    path = os.path.join(DIR, "data", "jpx_sector.csv")
+    if not secs:
+        return []
+    if os.path.exists(path):
+        rows = list(csv.DictReader(open(path, encoding="utf-8")))
+    else:   # 아직 월간 목록 갱신 전: JPX 상장 종목 목록에서 바로 읽음
+        import refresh_tickers
+        refresh_tickers.jpx()
+        rows = [{"code": c, "sector": sct, "size": sz} for c, sct, sz in refresh_tickers.JPX_SEC]
+    ko = lambda j: highs.SECTOR_KO.get(j, highs.SECTOR_ALIAS.get(j, j))
+    names = {}
+    try:
+        names = {r[0]: r[1] for r in csv.reader(open(os.path.join(DIR, "data", "jpx_list.csv"), encoding="utf-8"))}
+    except Exception:
+        pass
+    want = secs[:n_sec] + [x for x in secs[::-1][:n_sec] if x not in secs[:n_sec]]
+    mem = {k: [r for r in rows if ko(r["sector"]) == k] for k, _ in want}
+    q = quotes(sorted({f"{r['code']}.T" for v in mem.values() for r in v}))
+    out = []
+    highs.JP_MOBILE = True   # GitHub 서버에서는 카부탄 PC판이 막힘
+    for k, v in want:
+        cand = [(SIZE_W.get(r["size"], 1) * (q.get(f"{r['code']}.T") or {}).get("chg", 0) * (1 if v >= 0 else -1), r) for r in mem.get(k, [])
+                if (q.get(f"{r['code']}.T") or {}).get("chg") is not None]
+        cand = [c for c in sorted(cand, key=lambda c: -c[0]) if c[0] > 0][:n_stk]
+        stks = []
+        for _, r in cand:
+            nm = names.get(r["code"], r["code"])
+            try:
+                nw = highs.jp_news({"code": r["code"], "name": nm}, now())[:5]
+            except Exception:
+                nw = []
+            stks.append({"code": r["code"], "name": nm, "pct": round(q[f"{r['code']}.T"]["chg"], 2), "news": nw})
+        out.append({"sector": k, "pct": v, "stocks": stks})
+    return out
+
+
 def jp_sector_rows():
     try:
         import highs
@@ -451,7 +495,13 @@ US_PROMPT = """너는 한국 자산운용사 주식운용본부의 글로벌 시
 {posts}
 """
 JP_SCHEMA = {"type": "OBJECT", "properties": {
-    "headline": {"type": "STRING"}, "summary": STR_ARR, "sectors": STR_ARR, "watch": STR_ARR, "top3": STR_ARR,
+    "headline": {"type": "STRING"}, "summary": STR_ARR, "watch": STR_ARR, "top3": STR_ARR,
+    "sectors": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {
+        "sector": {"type": "STRING"}, "pct": {"type": "NUMBER"}, "why": {"type": "STRING"},
+        "stocks": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {
+            "name": {"type": "STRING"}, "code": {"type": "STRING"}, "pct": {"type": "NUMBER"}, "why": {"type": "STRING"}},
+            "required": ["name", "code", "pct", "why"]}}},
+        "required": ["sector", "pct", "why", "stocks"]}},
     "news": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {
         "title": {"type": "STRING"}, "why": {"type": "STRING"}}, "required": ["title", "why"]}},
     "disc": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {
@@ -464,7 +514,8 @@ JP_PROMPT = """너는 한국 자산운용사 주식운용본부의 일본 주식
 - 수치는 [지수]·[마감 정리]·[공시]에 있는 값만 쓴다. 지어내지 마라. 근거 없는 해석은 '(추정)'.
 - headline: 한 줄(40자 이내).
 - summary: 지수·수급·테마 흐름 4~6줄. 오늘 아침 미국 시장 흐름이 일본에 줄 영향도 1줄(추정 표시).
-- sectors: [지수]의 33업종 등락 중 가장 많이 오른 업종·가장 많이 내린 업종을 2~4줄로. 각 줄은 '업종명 등락률: 이유' 형식(예: '해운 +3.1%: 운임 지수 반등과 ○○ 실적 상향'). 이유는 [마감 정리]·[뉴스]·[공시]·[미국 증시 요약]에서 찾고, 자료에 이유가 없으면 '(추정)'을 붙이거나 '뚜렷한 재료 없음'이라고 써라.
+- sectors: [업종별 주요 종목]의 업종마다 하나씩(순서 그대로). sector(업종명), pct(업종 등락률 그대로), why(업종이 오르거나 내린 이유 1~2문장 — [마감 정리]·[뉴스]·[공시]·[미국 증시 요약] 근거, 근거가 없으면 '(추정)'),
+  stocks: 그 업종에 주어진 종목마다 name(한국어 이름), code, pct(주어진 등락률 그대로), why(그 종목이 오르거나 내린 이유 1문장 — 종목 뉴스 제목·[마감 정리]·[공시] 근거, 없으면 '(추정)'을 붙인 해석 또는 '업종 흐름 동반, 개별 재료 없음').
 - news: [뉴스] 중 투자에 중요한 기사 최대 6개. [공시]와 같은 사건을 다룬 기사는 news에서 빼고 disc에만 넣어라(중복 금지). title(한국어 제목 그대로 또는 짧게), why(왜 중요한지 1문장, 60자 이내).
 - disc: [공시] 중 주목할 공시 최대 10개. i(공시 번호), why(투자 관점 한 줄, 60자 이내 — 수정 폭·지속성·시총 고려).
 - watch: 오늘 일본 증시 체크 포인트 2~4줄(아래 [오늘 실적 발표 예정]·지표·이벤트, 자료에 있는 것만).
@@ -477,6 +528,9 @@ JP_PROMPT = """너는 한국 자산운용사 주식운용본부의 일본 주식
 
 [마감 정리(전 거래일 장 마감 후 작성)]
 {wrap}
+
+[업종별 주요 종목(업종 등락률, 그 방향으로 업종을 크게 움직인 대형·중형주와 등락률, 최근 뉴스 제목)]
+{movers}
 
 [뉴스(뉴스봇이 보낸 기사)]
 {news}
@@ -564,6 +618,14 @@ def _plain(s):
     return H.unescape(re.sub(r"<[^>]+>", "", s or "")).strip()
 
 
+STOCK_RE = re.compile(r"([가-힣A-Za-z0-9&·.\-]{2,24})\((\d{3}[0-9A-Z])(?: JP)?\)")
+
+
+def hl_stocks(t):
+    """문장 속 '종목명(코드)'를 굵게 + 코드는 밸류 데스크 링크(이미 HTML 이스케이프된 문자열에 사용)"""
+    return STOCK_RE.sub(lambda m: f"<b>{m.group(1)}</b><span class='cd'>({vdl(m.group(2))})</span>", t)
+
+
 def _li_html(t):
     """불릿 한 줄: 맨 앞 [분류]는 작은 꼬리표, (추정)은 흐리게"""
     t = t.strip().lstrip("•·").strip()
@@ -575,7 +637,10 @@ def _li_html(t):
     if t.startswith("(추정)"):
         return f"<li class='est'>{tag}{t}</li>"
     t = re.sub(r"^([^:<]{1,10}):\s*", r"<b class='k'>\1</b> ", t)   # '관찰:', '확인할 점:' 같은 머리말은 굵게
-    return f"<li>{tag}{t}</li>"
+    m = re.match(r"^([^:<(]{1,14})\(([+-][\d.]+%)\):\s*", t)   # '항공(+5.12%): 이유' → 업종·등락 강조
+    if m:
+        t = f"<b>{m.group(1)}</b> <span class='{'up' if m.group(2)[0] == '+' else 'dn'}'>{m.group(2)}</span> " + t[m.end():]
+    return f"<li>{tag}{hl_stocks(t)}</li>"
 
 
 def pretty(b):
@@ -701,7 +766,7 @@ def stash_html(items, title_fallback, caps=None):
     return "".join(out)
 
 
-PAGE_MAX = 15   # 아침 브리핑 목표 분량(쪽). 넘으면 덜 중요한 부분부터 줄임
+PAGE_MAX = 999   # 아침 브리핑 목표 분량(쪽). 넘으면 덜 중요한 부분부터 줄임
 VD_URL = "https://claude.ai/artifact/6gMrLe6Ue3ezG3HEu1ACvE"   # 밸류 데스크(종목 페이지 = VD_URL#코드)
 
 
@@ -714,16 +779,17 @@ CSS = """a.vd{color:#2a5bd7;text-decoration:none}
 
 @page{size:A4;margin:14mm 12mm 14mm 12mm;@bottom-right{content:counter(page) " / " counter(pages);font:8pt NG;color:#888}
       @bottom-left{content:"아침 브리핑 · %(date)s";font:8pt NG;color:#888}}
-body{font-family:NG,sans-serif;font-size:9.3pt;line-height:1.55;color:#15181d}
+body{font-family:NG,sans-serif;font-size:9.4pt;line-height:1.62;color:#1d2127}
 h1{font-size:17pt;margin:0 0 2mm} .sub{color:#666;font-size:8.5pt}
-h2{font-size:12.5pt;border-bottom:2px solid #9a6a12;padding-bottom:1mm;margin:6mm 0 2.5mm;page-break-after:avoid}
-h2.newpage{page-break-before:auto}
-h3{font-size:10.5pt;margin:4mm 0 1.5mm;color:#9a6a12;page-break-after:avoid}
+h2{font-size:12.5pt;background:#23272e;color:#fff;padding:2mm 3.5mm;border-radius:1.5mm;margin:5mm 0 3mm;page-break-after:avoid}
+h2.newpage{page-break-before:auto} h2.pb{page-break-before:always}
+h3{font-size:10.6pt;margin:5mm 0 2mm;color:#23272e;border-left:3px solid #9a6a12;padding-left:2mm;page-break-after:avoid}
 .hl{background:#f3e7cf;border-radius:2mm;padding:2.5mm 3.5mm;font-weight:700;font-size:10.5pt;margin:2mm 0}
-ul{margin:1mm 0 2mm;padding-left:5mm} li{margin:0.6mm 0}
+ul{margin:1mm 0 2mm;padding-left:5mm} li{margin:0.9mm 0}
 table{border-collapse:collapse;width:100%;font-size:8.6pt;margin:1.5mm 0 3mm}
-th{background:#f1f2ee;font-weight:700;text-align:left;padding:1.2mm 2mm;border-bottom:1px solid #ccc}
-td{padding:1.1mm 2mm;border-bottom:1px solid #e6e6e6;vertical-align:top}
+th{background:#ece6d8;font-weight:700;text-align:left;padding:1.4mm 2mm;border-bottom:1.5px solid #c9bda3;font-size:8.4pt}
+td{padding:1.4mm 2mm;border-bottom:1px solid #ebe7de;vertical-align:top} tr:nth-child(odd) td{background:#fbfaf6} tr{page-break-inside:avoid}
+.cd{color:#888;font-size:8pt}
 td.n{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
 .up{color:#cf2f3f} .dn{color:#2360c4}
 .grid{display:flex;gap:4mm} .grid>div{flex:1}
@@ -780,7 +846,7 @@ def short(x, n):
 
 
 def li(lines):
-    return "<ul>" + "".join(f"<li>{esc(str(x).lstrip('•·- '))}</li>" for x in (lines or []) if str(x).strip()) + "</ul>"
+    return "<ul>" + "".join(f"<li>{hl_stocks(esc(str(x).lstrip('•·- ')))}</li>" for x in (lines or []) if str(x).strip()) + "</ul>"
 
 
 def build_pdf(state, since_ts):
@@ -834,7 +900,13 @@ def build_pdf(state, since_ts):
     com = stashes("community_state.json", since_ts)
     com_txt = "\n".join(strip_html(b)[:1500] for x in com if x["kind"] == "community" for b in x["blocks"][:1])[:3000] or "(없음)"
     us_sum = " ".join(us.get("summary") or [])[:800] or qtxt[:600]
-    jp = gemini_obj(state, JP_PROMPT.format(day=jp_day, us=us_sum, idx=jp_idx or "-", wrap=wrap_txt[:6000], news=news_txt[:8000],
+    try:
+        movers = sector_movers(secs)
+    except Exception as ex:
+        print(f"[warn] 업종 주요 종목 실패: {ex}", file=sys.stderr); movers = []
+    mv_txt = "\n".join(f"## {m['sector']} {m['pct']:+.2f}%\n" + "\n".join(
+        f"- {x['name']}({x['code']}) {x['pct']:+.2f}% | 뉴스: " + (" / ".join(x["news"]) or "없음") for x in m["stocks"]) for m in movers) or "(없음)"
+    jp = gemini_obj(state, JP_PROMPT.format(day=jp_day, us=us_sum, idx=jp_idx or "-", wrap=wrap_txt[:6000], movers=mv_txt[:7000], news=news_txt[:8000],
                                             disc=disc_txt[:9000], earn=earn_txt, com=com_txt), JP_SCHEMA, "일본 시황") or {}
     hi = [x for x in wraps if x["kind"] in ("highs", "gainers")]
 
@@ -884,7 +956,7 @@ def build_pdf(state, since_ts):
         if not us:
             parts.append("<p class='note'>(AI 정리 실패: 시세 표만 싣습니다)</p>")
         # 2
-        parts.append("<h2>2. 일본 증시 시황</h2>")
+        parts.append("<h2 class='pb'>2. 일본 증시 시황</h2>")
         if jp.get("headline"):
             parts.append(f"<div class='hl'>{esc(jp['headline'])}</div>")
         jt = q_table(q, JP_IDX)
@@ -904,18 +976,30 @@ def build_pdf(state, since_ts):
                 print(f"[warn] 업종 차트 실패: {ex}", file=sys.stderr)
         wb = wrap[-1]["blocks"][:-1] if wrap else []
         sec_b = [b for b in wb if re.match(r"<b>\[(오른|내린) 업종\]</b>", b.strip())]
-        if len(sec_b) == 2:   # 마감 정리(카부탄·피스코 마감 시황 기반)의 업종별 이유를 좌우로
+        jsec = [x for x in (jp.get("sectors") or []) if isinstance(x, dict) and x.get("sector")]
+        if jsec:   # 업종 이유 + 그 업종을 움직인 종목과 종목별 이유
+            def sbox(x):
+                p = x.get("pct") or 0
+                h = (f"<div class='card'><div class='ct'>{esc(x['sector'])} <span class='{cls(p)}'>{p:+.2f}%</span></div>"
+                     f"<p>{esc(x.get('why', ''))}</p><ul class='b'>")
+                for st in (x.get("stocks") or [])[:3]:
+                    sp = st.get("pct") or 0
+                    h += (f"<li><b>{esc(st.get('name', ''))}</b> {vdl(str(st.get('code', '')))} <span class='{cls(sp)}'>{sp:+.2f}%</span>"
+                          f" — <span class='{'est' if str(st.get('why', '')).startswith('(추정)') else ''}'>{esc(st.get('why', ''))}</span></li>")
+                return h + "</ul></div>"
+            ups = [x for x in jsec if (x.get("pct") or 0) >= 0]; dns = [x for x in jsec if (x.get("pct") or 0) < 0]
+            parts.append("<h3>업종 등락과 이유</h3><div class='wrapg'><div><div class='lbl'>오른 업종</div>" + "".join(sbox(x) for x in ups)
+                         + "</div><div><div class='lbl'>내린 업종</div>" + "".join(sbox(x) for x in dns) + "</div></div>")
+        elif len(sec_b) == 2:   # AI 실패: 마감 정리(카부탄·피스코 마감 시황 기반)의 업종별 이유를 좌우로
             parts.append("<h3>업종 등락과 이유</h3><div class='wrapg'>" + "".join(f"<div>{pretty(b)}</div>" for b in sec_b) + "</div>")
-        elif jp.get("sectors"):
-            parts.append("<h3>업종 등락과 이유</h3>" + li(jp["sectors"]))
-        rest_b = [b for b in wb if b not in sec_b][:(None, None, 4, 3, 2, 2)[lv]]
+        rest_b = [b for b in wb if b not in sec_b and "업종 등락 상·하위" not in b[:40]]
         if rest_b:
-            parts.append("<h3>전 거래일 마감 정리</h3>" + "".join(f"<div class='blk'>{pretty(b)}</div>" for b in rest_b))
+            parts.append("<h3>전 거래일 마감 정리</h3>" + "".join(f"<div class='card'>{pretty(b)}</div>" for b in rest_b))
         if not jp.get("news") and news:  # AI 실패: 뉴스봇이 보낸 기사 상위 8개 그대로
             jp["news"] = [{"title": r.get("ko", ""), "why": r.get("gist", "")[:80]} for r in news[-8:]]
         if jp.get("news"):
             parts.append("<h3>주목 뉴스</h3><table><tr><th>기사</th><th>왜 중요한가</th></tr>" + "".join(
-                f"<tr><td>{esc(n.get('title', ''))}</td><td>{esc(n.get('why', ''))}</td></tr>" for n in jp["news"][:(8, 6, 5, 5, 4, 3)[lv]]) + "</table>")
+                f"<tr><td><b>{esc(n.get('title', ''))}</b></td><td>{hl_stocks(esc(n.get('why', '')))}</td></tr>" for n in jp["news"][:(8, 6, 5, 5, 4, 3)[lv]]) + "</table>")
         if disc:
             picks = [(d["i"] - 1, d.get("why", "")) for d in (jp.get("disc") or []) if isinstance(d.get("i"), int) and 0 < d["i"] <= len(disc)]
             if not picks:
@@ -924,13 +1008,8 @@ def build_pdf(state, since_ts):
             picks = [(i, w) for i, w in picks if disc[i]["code"] not in wset] or picks
             picks = picks[:(10, 10, 8, 7, 6, 5)[lv]]
             parts.append("<h3>주목 공시</h3><table class='disc'><tr><th>기업</th><th>내용</th><th>포인트</th></tr>" + "".join(
-                f"<tr><td>{esc(disc[i]['name'])} <span class='note'>{vdl(disc[i]['code'])} · {esc(disc[i].get('mct') or '')}</span></td>"
+                f"<tr><td><b>{esc(disc[i]['name'])}</b> <span class='note'>{vdl(disc[i]['code'])} · {esc(disc[i].get('mct') or '')}</span></td>"
                 f"<td>{esc(disc[i]['txt'])}</td><td>{esc(short(why, 110))}</td></tr>" for i, why in picks) + "</table>")
-        if earn:
-            ek = earn[:(40, 30, 24, 18, 14, 10)[lv]]   # 표 대신 한 문단으로(종목·업종·시총) — 한 줄씩 쓰면 1쪽 넘게 차지
-            parts.append(f"<h3>오늘 실적 발표 예정 <span class='note'>전체 {earn_n}종목 중 시총 1,000억엔↑·관심 종목, 시총 순</span></h3><p class='earnl'>" + " · ".join(
-                f"{'⭐' if r['watch'] else ''}<b>{esc(r['ko'])}</b> <span class='note'>{vdl(r['code'])} {esc(r['sector'])} {oku(r['cap']) if r['cap'] else ''}</span>" for r in ek)
-                + (f" <span class='note'>외 {len(earn) - len(ek)}종목</span>" if len(earn) > len(ek) else "") + "</p>")
         if react:
             def rrow(r):
                 tag = ("⭐ " if r["watch"] else "") + esc(r["ko"])

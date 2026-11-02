@@ -22,11 +22,17 @@ def jpx():
     m = re.search(r'href="([^"]+data_j\.xlsx?)"', page)
     url = "https://www.jpx.co.jp" + m.group(1)
     wb = openpyxl.load_workbook(io.BytesIO(requests.get(url, headers=UA, timeout=60).content), read_only=True)
-    rows = []
+    rows, sec = [], []
     for r in list(wb.active.iter_rows(values_only=True))[1:]:
         if r[3] and ("内国株式" in r[3] or "外国株式" in r[3]):
             rows.append((str(r[1]), str(r[2]).strip()))
+            if r[9] and str(r[9]).startswith("TOPIX ") and "Small" not in str(r[9]):   # TOPIX500(업종 지수를 실제로 움직이는 대형·중형주)
+                sec.append((str(r[1]), str(r[5]).strip(), str(r[9]).replace("TOPIX ", "")))
+    JPX_SEC[:] = sec
     return rows
+
+
+JPX_SEC = []   # (코드, 33업종, 규모) — jpx()가 채움 → jpx_sector.csv
 
 
 def krx():
@@ -63,3 +69,5 @@ if __name__ == "__main__":
             write(name, header, fn(), minimum)
         except Exception as ex:
             print(f"[warn] {name} 갱신 실패: {ex}", file=sys.stderr)
+    if JPX_SEC:
+        write("jpx_sector.csv", ["code", "sector", "size"], JPX_SEC, 400)
