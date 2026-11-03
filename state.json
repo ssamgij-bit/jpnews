@@ -1729,7 +1729,13 @@
 "wallstreetendsflat": 1793726719.785902,
 "philippineinventorunveilshisflyingsportscar": 1793726719.7907124,
 "southkoreasnewcryptocurrencyrules": 1793726719.7951055,
-"mgmtocreatecontentforwalmartsvuduservice": 1793727317.5797558
+"mgmtocreatecontentforwalmartsvuduservice": 1793727317.5797558,
+"デジタルバンクとはスマホ前提システムを再構築": 1793727918.312121,
+"hongkongcabinetreshufflenotaprioritylamsays": 1793727918.3178184,
+"norwayteststinyelectricplaneseespassengerflightsby2025": 1793727918.323738,
+"jaguarattackswomantakingselfieatzoo": 1793727918.3286057,
+"techstocksdragdownnasdaq": 1793727918.3326507,
+"欧州で旅客機7便に爆破予告空港一時閉鎖も爆発物見つからず": 1793727918.3371174
 },
 "recent": [
 {
@@ -4839,6 +4845,12 @@
 "ko": "미국 지질조사국: 일본 화산열도 지역 규모 5.2 지진 발생",
 "gist": "일본 화산열도 인근 해역에서 규모 5.2의 지진이 발생했다.",
 "ts": 1793726149.9137568
+},
+{
+"id": "n727918_0",
+"ko": "디지털 뱅크란 무엇인가… 스마트폰 전제와 시스템 재구축",
+"gist": "최신 IT를 활용해 스마트폰 거래를 기본으로 하는 디지털 뱅크의 특징과 미쓰비시UFJ가 2027년 설립 예정인 디지털 뱅크의 구상을 설명했다.",
+"ts": 1793727939.4180593
 }
 ],
 "digest": [],
@@ -4897,7 +4909,7 @@
 "deep-research-preview-04-2026",
 "deep-research-pro-preview-12-2025"
 ],
-"checked": 1793641512.1408396,
+"checked": 1793727919.5789094,
 "dead": {
 "gemini-2.5-flash": 1793396219.4289932,
 "gemini-2.5-flash-lite": 1793640940.3639119
