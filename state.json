@@ -2830,7 +2830,9 @@
 "nuclearpowerdeclineisthreattoclimateiea": 1793810712.2539852,
 "s&pnasdaqpostworstweekssincepandemicstart": 1793810712.26267,
 "nearly3millionfileweeklyjoblessclaimsaboveestimates": 1793810712.2721934,
-"バンス氏共和党の選挙敗北はイラン戦争と対イスラエル関係が要因": 1793810712.2799652
+"バンス氏共和党の選挙敗北はイラン戦争と対イスラエル関係が要因": 1793810712.2799652,
+"renaultnissanshelvemergeraimtorepairtiessources": 1793811314.6975505,
+"schmidtlogsoffasalphabetchairman": 1793811314.7048817
 },
 "recent": [
 {
@@ -6002,13 +6004,21 @@
 "ts": 1793809561.5174913,
 "mid": 2654,
 "sent": true
+},
+{
+"id": "n811314_0",
+"ko": "르노·닛산, 경영 통합 구상 보류하고 관계 회복 추진",
+"gist": "르노와 닛산이 전면적인 합병 계획을 보류하고 양사 간의 관계 회복과 협력 복원에 집중하기로 했다.",
+"ts": 1793811328.4371848,
+"mid": 2655,
+"sent": true
 }
 ],
 "digest": [],
 "pending": [],
 "daily": {
 "date": "2026-11-05",
-"count": 5
+"count": 6
 },
 "last_digest": "2026-10-06 1545",
 "model": {
@@ -14468,6 +14478,20 @@
 "url": "https://finance.sina.com.cn/7x24/?id=5193888",
 "src": "신랑재경",
 "score": 4
+},
+{
+"ts": 1793811363.6564128,
+"ko": "르노·닛산, 경영 통합 구상 보류하고 관계 회복 추진",
+"gist": "르노와 닛산이 전면적인 합병 계획을 보류하고 양사 간의 관계 회복과 협력 복원에 집중하기로 했다.",
+"b": [
+"르노와 닛산이 양사의 경영 통합 추진을 보류한 것으로 밝혀짐.",
+"양사는 기존 파트너십의 균열을 수복하고 협력 관계를 회복하는 데 집중할 전망임."
+],
+"ins": "(추정) 지배구조 및 합병 관련 불확실성이 완화되어 단기 투자 심리에 긍정적일 수 있으나, 독자 생존에 따른 규모의 경제 확보 지연 및 글로벌 전기차 경쟁력 약화 리스크가 존재함.",
+"cos": "닛산자동차(7201 JP)",
+"url": "https://www.reuters.com/jp/video/watch/idOVCFKP7YJ/",
+"src": "로이터",
+"score": 4
 }
 ],
 "ideas_date": "2026-10-31",
@@ -14490,7 +14514,7 @@
 "tri_fail": 1
 },
 "20261105": {
-"sent": 5
+"sent": 6
 }
 }
 }
