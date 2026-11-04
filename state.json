@@ -2757,15 +2757,44 @@
 "retailzarashakesoffcurrencydrag;boohoobucksmarket": 1793805911.9543362,
 "businesscastsdoubtoverbrexitdealfinancialservicesseehurdlesahead": 1793805911.964674,
 "米国株と国債が上昇民主党の大勝を好感ドルは下落": 1793805911.971356,
-"米ism非製造業指数10月は3カ月ぶり低水準コスト圧力継続": 1793805911.978704
+"米ism非製造業指数10月は3カ月ぶり低水準コスト圧力継続": 1793805911.978704,
+"theroleoftechstocksinsociallyresponsiblefunds": 1793806514.374732,
+"weekaheadtradeviesforspotlightwithfedtechsastrump/ximeet": 1793806514.3841238,
+"cabletvandstreamingservicesgobigforchristmas": 1793806514.3924031,
+"underthehoodofamazonsgrandambitions": 1793806514.3999305,
+"greatexpectationsasdickensportraitgoesonshowinlondon": 1793806514.4089622,
+"ukcarindustrywarnsnextpmnodealbrexitisnotanoption": 1793806514.417777,
+"poundreboundsonbrexitdealhopes": 1793806514.4247549,
+"officialssayauroragunmanmighthavebeenfiredondayofshooting": 1793806514.4341576,
+"wallstreetcloseslower": 1793806514.440284,
+"dowdupontsandrewliverisstepsdown": 1793806514.4475484,
+"ryanairsolearyoptimisticdespiteunionissues": 1793806514.4557202,
+"emptyshelvespoorcustomerservicebehindsearsdemise": 1793806514.4645498,
+"amidcontroversyturkeyopensworldslargestairport": 1793806514.4731617,
+"samsungslashescapexcallsendtochipboom": 1793806514.4809856,
+"stevienicksdefleppardearlyfavoritesforrockhalloffame": 1793806514.4901261,
+"thelittledrummergirlcasttalkpoliticsandtv": 1793806514.4982493,
+"男と女とエックスｎｙ市が出生証明書に第３の性認める字幕9日": 1793806514.5054533,
+"gmchinasalesslowastradewarperilsgrow": 1793806514.5132027,
+"trumpreiteratesnodealwithturkeyoverpastor": 1793806514.5214736,
+"dronefootageshowsdevastationinquakehitpetoboindonesia": 1793806514.5307415,
+"saudisfacebusinessbacklashovermissingjournalist": 1793806514.5397005,
+"olddogsnewtrickshuntthemalaria": 1793806514.5469146,
+"usretailsalesinchupinseptember": 1793806514.5542269,
+"factoriesfacesupplyheadacheswithomicronrisk": 1793806514.5627356,
+"lenovoztetumbleasinvestorsfretoverimpactofchinashackreport": 1793806514.572741,
+"toyotasoftbankteamupaspushtoselfdriveaccelerates": 1793806514.581716,
+"hyundaimotorpostsbigprofitmissonusrecalls;sharestumble": 1793806514.5912185,
+"bigaquaculturebulldozesborneo": 1793806514.5983703,
+"tokyosiconicfishmarketmoves": 1793806514.6053586,
+"usmusttakeactionoversaudijournalistrubio": 1793806514.6137147,
+"morebankingexecutivespulloutofsaudiinvestmentconference": 1793806514.6234524,
+"dows&p500dipslightly": 1793806514.6297185,
+"argentinasbeefindustryfeelsbiteofeconomiccrisis": 1793806514.638726,
+"airbussaystoughertomeetjetdeliverygoalaftersnags": 1793806514.6477768,
+"アングル米中間選挙の民主勝利市場に新たな波乱外交財政リスク警戒": 1793806514.6554272
 },
 "recent": [
-{
-"id": "n633714_0",
-"ko": "2일 다이카이치 총리의 동정",
-"gist": "다이카이치 총리가 각료회의를 주재하고 각 부처 장관들과 면담하는 등 주요 정치 일정을 소화했다.",
-"ts": 1793633716.598817
-},
 {
 "id": "n634313_1",
 "ko": "팀 미라이, 식품 소비세 감세 법안 반대 방침 결정… 물가 대책 효과 의문시",
@@ -5903,13 +5932,41 @@
 "ts": 1793804740.0635927,
 "mid": 2650,
 "sent": true
+},
+{
+"id": "n806514_16",
+"ko": "뉴욕시, 출생증명서에 제3의 성 인정",
+"gist": "뉴욕시가 출생증명서에 남성과 여성 외에 제3의 성을 기재하는 것을 인정하기로 했다.",
+"ts": 1793806541.968485
+},
+{
+"id": "n806514_25",
+"ko": "도요타와 소프트뱅크, 자율주행 기술 개발 위해 전략적 제휴 체결",
+"gist": "도요타자동차와 소프트뱅크가 자율주행 기술 개발 가속화를 위해 전략적 제휴를 체결했다.",
+"ts": 1793806541.9685013,
+"mid": 2651,
+"sent": true
+},
+{
+"id": "n806514_28",
+"ko": "도쿄의 상징적인 수산시장 이전",
+"gist": "도쿄의 대표적인 수산시장인 츠키지 시장이 도요스로 이전했다.",
+"ts": 1793806542.3526413
+},
+{
+"id": "n806514_34",
+"ko": "미국 중간선거 민주당 승리, 시장의 외교 및 재정 리스크 경계감 고조",
+"gist": "미국 중간선거에서 민주당이 승리함에 따라 일본 시장 내 외교 및 재정 정책 리스크에 대한 경계감이 확산되고 있다.",
+"ts": 1793806542.352646,
+"mid": 2652,
+"sent": true
 }
 ],
 "digest": [],
 "pending": [],
 "daily": {
 "date": "2026-11-05",
-"count": 1
+"count": 3
 },
 "last_digest": "2026-10-06 1545",
 "model": {
@@ -14312,6 +14369,34 @@
 "url": "https://www.reuters.com/jp/video/watch/idOVD1CTAX7/",
 "src": "로이터",
 "score": 4
+},
+{
+"ts": 1793806648.8652031,
+"ko": "도요타와 소프트뱅크, 자율주행 기술 개발 위해 전략적 제휴 체결",
+"gist": "도요타자동차와 소프트뱅크가 자율주행 기술 개발 가속화를 위해 전략적 제휴를 체결했다.",
+"b": [
+"1) 도요타자동차와 소프트뱅크가 자율주행 서비스 개발을 위한 합작 법인을 설립함.",
+"2) 양사는 모빌리티 서비스 플랫폼 구축을 통해 자율주행 기술의 상용화를 가속화할 전망임."
+],
+"ins": "(추정) 완성차 업체와 IT 기업 간의 협업이 자율주행 생태계 주도권 확보를 위한 필수 전략으로 자리 잡고 있음. 다만, 기술 표준화 과정에서의 주도권 다툼이나 규제 환경 변화가 사업 속도에 변수로 작용할 수 있음.",
+"cos": "도요타자동차(7203 JP)",
+"url": "https://www.reuters.com/jp/video/watch/idOV90NHDAJ/",
+"src": "로이터",
+"score": 4
+},
+{
+"ts": 1793806650.6917677,
+"ko": "미국 중간선거 민주당 승리, 시장의 외교 및 재정 리스크 경계감 고조",
+"gist": "미국 중간선거에서 민주당이 승리함에 따라 일본 시장 내 외교 및 재정 정책 리스크에 대한 경계감이 확산되고 있다.",
+"b": [
+"1) 미국 중간선거에서 민주당의 승리로 인해 향후 정책 방향성에 대한 시장의 불확실성이 커짐.",
+"2) 외교적 마찰과 재정 정책 변화에 따른 시장 변동성 확대 가능성을 경계하고 있음."
+],
+"ins": "(추정) 미국 정치 지형 변화는 글로벌 무역 정책과 재정 지출에 직접적인 영향을 미쳐 일본 수출 기업 및 금융 시장의 변동성을 키울 수 있음. 단, 정책 추진 과정에서의 의회 내 갈등으로 인한 정책 마비 가능성도 배제할 수 없음.",
+"cos": "",
+"url": "https://www.reuters.com/jp/opinion/RG4DOTDS3BNA7B35ABO5B2BOPI-2026-11-04/",
+"src": "로이터",
+"score": 5
 }
 ],
 "ideas_date": "2026-10-31",
@@ -14334,7 +14419,7 @@
 "tri_fail": 1
 },
 "20261105": {
-"sent": 1
+"sent": 3
 }
 }
 }
