@@ -1,6 +1,5 @@
 {
 "seen": {
-"株式市場ニュース最新情報と分析ブルームバーグ": 1793558710.0843072,
 "stsとは船舶間で貨物受け渡し中東危機で輸送のカギに": 1793561113.425681,
 "レセプショニスト10日上場橋本代表受付システムai機能で成長": 1793561113.431359,
 "ウクライナ局地的な停戦で住民退避攻撃の応酬続く": 1793561113.4364152,
@@ -2876,7 +2875,10 @@
 "frbへの政治圧力に歯止め民主の上院奪還でトランプ氏の人事に壁": 1793816716.5206501,
 "カナダ米中間選挙後も対米通商方針維持米高官と近く協議": 1793816716.5277107,
 "米民主党ウォール街にメス銀行規制や予測市場に厳しい視線": 1793817313.3559158,
-"バンス副大統領共和党敗北はイラン戦争が原因トランプ氏と一線": 1793817313.3633425
+"バンス副大統領共和党敗北はイラン戦争が原因トランプ氏と一線": 1793817313.3633425,
+"ubsロンドンで約200人削減クレディスイスとの統合完了近い": 1793817916.3972657,
+"欧州市況株国債ともに上昇米中間選挙受けリスク資産買い": 1793817916.4041371,
+"トランプ氏イラン戦争必要だった中間選挙敗北の一因と認める": 1793817916.4112923
 },
 "recent": [
 {
@@ -6083,32 +6085,7 @@
 }
 ],
 "digest": [],
-"pending": [
-{
-"source": "bloomberg",
-"label": "블룸버그",
-"gn": true,
-"title": "米民主党、ウォール街にメス－銀行規制や予測市場に厳しい視線",
-"lead": "",
-"link": "https://news.google.com/rss/articles/CBMijgFBVV95cUxNS2I4MzN4Z1JETDJmNk8zWWMyTExsRW5kRE1MNzhLQ1Zlem15bWc1eldNVjVQWmRTeEVXdnhaUlJuN21VTWZTek1TWWYzdkowNW9MUEdKTG1rNTM5SG9zTVVYdUFDWWd4UXdHZ2lPbDlqWVFuYUdES2g4TjJNeFU0Nm1nTmpUdENkMEJDZV9R?oc=5",
-"ts": 1793816280,
-"key": "米民主党ウォール街にメス銀行規制や予測市場に厳しい視線",
-"id": "n817313_0",
-"first_try": 1793817415.1468635
-},
-{
-"source": "reuters",
-"label": "로이터",
-"gn": true,
-"title": "バンス副大統領、共和党敗北は「イラン戦争が原因」 トランプ氏と一線",
-"lead": "",
-"link": "https://news.google.com/rss/articles/CBMihwFBVV95cUxPRWdKRFdEOEh2Sy1sX3VyeVREcG5SRGxSMDdSY0Fub0NxcTlmRjZOTVJMT2FUbUNzMVdvQ016NmJlUkdmTjd5WEU0eUgyUWUzY2ozMVppWFRFY2dJN0tLOTNxdGRpdW55bXI4QXlfbGhzZ3lxY1RTS0J2S0ZfaUxxMnV2Mk5aQXc?oc=5",
-"ts": 1793816533,
-"key": "バンス副大統領共和党敗北はイラン戦争が原因トランプ氏と一線",
-"id": "n817313_1",
-"first_try": 1793817415.146874
-}
-],
+"pending": [],
 "daily": {
 "date": "2026-11-05",
 "count": 8
@@ -6171,7 +6148,7 @@
 },
 "version": 3,
 "health": {
-"llm": 1,
+"llm": 0,
 "src": {
 "니케이|://assets.wor.jp/rss/rdf/nikkei/news.rdf": 0,
 "니케이|assets.wor.jp/rss/rdf/nikkei/markets.rdf": 0,
