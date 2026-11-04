@@ -1,11 +1,5 @@
 {
 "seen": {
-"坂元達裕がプレミアリーグ初得点鈴木彩艶はオウンゴール献上": 1793498711.9611535,
-"クラブツーリズム432万件の個人情報流出の恐れ不正アクセスで": 1793498711.9675832,
-"平田憲聖は9位に後退中島啓太22位米男子ゴルフ第3日": 1793498711.9744897,
-"三重県沖震源で福島震度3m61異常震域か": 1793498711.9808311,
-"瀬古歩夢のルアーブルが監督解任フランス1部今季未勝利で最下位": 1793498711.9883072,
-"バイナンス63億ドル被害の90％補填完了ｆｂｉ北朝鮮系組織が関与": 1793498711.9960802,
 "イランの首都テヘランを歩く経済制裁下も若者で賑わうカフェ": 1793499316.2692676,
 "アメリカ中間選挙激戦州を現場取材トランプ政権の命運を左右": 1793499316.2762115,
 "国際秩序米中間選挙後に始まる分水嶺の2年民主主義の修正力試す": 1793499316.2834406,
@@ -2106,15 +2100,44 @@
 "greeksstrikeoverlabourreforms": 1793757313.624233,
 "airbnbhikesipopricerange": 1793757313.6310513,
 "サッカーｐｓｇが欧州ｃｌ最速の4得点記録マンｕは逆転勝利": 1793757313.638679,
-"日経平均は下げ幅拡大2％超安ａｉ株ポジション落とす動き": 1793757313.6459763
+"日経平均は下げ幅拡大2％超安ａｉ株ポジション落とす動き": 1793757313.6459763,
+"アメリカ中間選挙上院民主9共和3当選確実随時更新": 1793757913.263445,
+"朝鲜说美国持续发出对朝敌对信号": 1793757913.2691891,
+"铠侠股价下跌13%软银集团下跌71%爱德万测试下跌81%": 1793757913.2763891,
+"株価一時2000円超値下がり半導体などの銘柄に売り注文広がる": 1793757913.2837174,
+"日本芯片股大幅下挫": 1793757913.2888913,
+"抖音李亮字节时间将腾讯从垄断中解套将字节摁在可能垄断的叙事中": 1793757913.2963407,
+"oscarbuzzgrowsforbranaghsbelfast": 1793757913.3040442,
+"superfansglimpseofukroyalsmeanstransatlantictravelcamping": 1793757913.314023,
+"teslalikelytotakebitcoinagainsoonmusk": 1793757913.322079,
+"uspipelinepartlyrestartsamidpanicbuying": 1793757913.3303852,
+"adidasslipsineuropeasstansmithssuperstarsgooutoffashion": 1793757913.3400602,
+"stockstobuyinarecessionfundmanager": 1793757913.348075,
+"mondaysbigrallyisprematurefinancialadvisor": 1793757913.3565862,
+"noendinsightforamazonshutdowninfrance": 1793757913.3646512,
+"gigihadidpregnantwithzaynmaliksbabytmz": 1793757913.3727405,
+"carrefourubereatsteamuptodeliveressentials": 1793757913.3814497,
+"breakingviewstvbankhealth": 1793757913.381806,
+"globalcondemnationoftrumpwhofundingfreeze": 1793757913.3904462,
+"trumpfauciseehopewithgileadsdrug": 1793757913.3981545,
+"trumpwarnsamericansofatoughtwoweeksaheadincoronavirusfight": 1793757913.4082196,
+"dummiesreplacefansatbaseballintaiwan": 1793757913.4162962,
+"over26millionfileforjoblessclaims": 1793757913.4241993,
+"hsbcprofitnearlyhalvesasbadloanfearsmount": 1793757913.4327638,
+"meghanduchessofsussextalksaboutelephantdocumentary": 1793757913.4422708,
+"bpsprofittumblesdebtclimbsasviruscrisishammersoildemand": 1793757913.452191,
+"oilpricesslideagaindespitehugeoutputcuts": 1793757913.4606717,
+"applesnewbudgetiphonegetslukewarmchinareception": 1793757913.4697382,
+"countrystarsperformforfansfromhome": 1793757913.4777036,
+"frenchretailersclearedtoreopenfrommay11": 1793757913.4861786,
+"beerbybikebelgianbrewersinnovatetosurvive": 1793757913.4948766,
+"veteranraisesoverfivemillionpoundsforukhealthservice": 1793757913.5047972,
+"casinomentalityofmarketsisconcernadvisor": 1793757913.5134761,
+"boeingdealcantberevivedembraerceo": 1793757913.5213754,
+"ホンダeu域内での自動車生産再開検討も新ルールの最終決着次第": 1793757913.5290647,
+"日韓台湾企業の対米投資は継続へシティ幹部": 1793757913.5357368
 },
 "recent": [
-{
-"id": "n585112_5",
-"ko": "미국은 원유 대체 조달처로 중요, 중간선거 결과 주시=아카자와 경제산업상",
-"gist": "아카자와 경제산업상이 미국이 원유 대체 조달처로서 중요하다고 강조하며 미국의 중간선거 결과를 면밀히 주시하고 있다고 밝혔다.",
-"ts": 1793585116.5703492
-},
 {
 "id": "n585718_0",
 "ko": "PwC컨설팅, 기조 시스템 개발의 AI 활용 지원… IT 업무 7할 삭감도",
@@ -5092,13 +5115,27 @@
 "ts": 1793754931.41172,
 "mid": 2564,
 "sent": true
+},
+{
+"id": "n757913_0",
+"ko": "김여정 노동당 부부장, 미국의 대조선 적대시 정책 비판",
+"gist": "김여정 북한 노동당 부부장이 미국이 한미일 군사연습과 제재 등 대조선 적대시 정책을 지속하고 있다고 비판하며 강력한 반발을 예고했다.",
+"ts": 1793758076.9166684
+},
+{
+"id": "n757913_1",
+"ko": "키옥시아 13%·소프트뱅크그룹 7.1%·어드반테스트 8.1% 하락",
+"gist": "도쿄 증시 하락세 속에서 키옥시아, 소프트뱅크그룹, 어드반테스트 등 주요 반도체 및 기술 관련 주식이 급락세를 기록했다.",
+"ts": 1793758076.9166827,
+"mid": 2565,
+"sent": true
 }
 ],
 "digest": [],
 "pending": [],
 "daily": {
 "date": "2026-11-04",
-"count": 20
+"count": 21
 },
 "last_digest": "2026-10-06 1545",
 "model": {
@@ -12630,6 +12667,20 @@
 "url": "https://www.bloomberg.com/jp/news/articles/2026-11-04/TNYCZQT96OSI00?srnd=jp-homepage",
 "src": "블룸버그",
 "score": 4
+},
+{
+"ts": 1793758088.680768,
+"ko": "키옥시아 13%·소프트뱅크그룹 7.1%·어드반테스트 8.1% 하락",
+"gist": "도쿄 증시 하락세 속에서 키옥시아, 소프트뱅크그룹, 어드반테스트 등 주요 반도체 및 기술 관련 주식이 급락세를 기록했다.",
+"b": [
+"1) 일본 주요 기술 및 반도체 관련 종목의 주가가 동반 급락세를 보임.",
+"2) 키옥시아 주가가 13% 하락한 가운데 소프트뱅크그룹은 7.1%, 어드반테스트는 8.1% 하락함."
+],
+"ins": "(추정) 글로벌 반도체 및 기술주 전반에 대한 투자 심리 위축이 일본 대표 기술주의 하락세를 이끈 것으로 보이며, 반도체 업황 회복 지연에 따른 추가 변동성 리스크를 고려할 필요가 있으나 단기 과매도에 따른 기술적 반등 가능성도 상존함.",
+"cos": "어드반테스트(6857 JP), 키옥시아 홀딩스(285A JP)",
+"url": "https://finance.sina.com.cn/7x24/?id=5191968",
+"src": "신랑재경",
+"score": 4
 }
 ],
 "ideas_date": "2026-10-31",
@@ -12647,7 +12698,7 @@
 "tri_fail": 1
 },
 "20261104": {
-"sent": 20
+"sent": 21
 }
 }
 }
