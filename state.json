@@ -1,27 +1,5 @@
 {
 "seen": {
-"任天堂の宮本茂氏ai時代でもできることは残るゲーム初の文化勲章": 1793591711.5858672,
-"名鉄初の特定技能外国人が業務始める検査場でブレーキ装置整備": 1793591711.5928056,
-"抗菌薬や炭素繊維の供給網を推定fronteo原材料から解析": 1793591711.599744,
-"年賀はがき販売始まる発行枚数は前年比25％減": 1793591711.6061227,
-"茨城鹿嶋男性4人が海に転落1人死亡新たに1人見つかるも死亡": 1793591711.6092794,
-"共和党票仓因美国农民不满摇摆": 1793591711.6138732,
-"関文科相同志社理事長の会見十分な説明なされていない": 1793591711.620416,
-"marriottpostssurpriseprofit": 1793591711.6271555,
-"privacyactiviststargetapplestrackingtool": 1793591711.6350267,
-"germanytohalve2019growthforecastgovernmentsource": 1793591711.6435695,
-"wedon’tthrowdictatorslifelinesbolton": 1793591711.6510906,
-"whitehousesoftenstoneonborderthreat": 1793591711.658508,
-"crownsharestumbleafterwynncancels$71blncasinotakeover": 1793591711.6676245,
-"jaguarlandroverplanningtoallowhelpfulcardriverstoearncryptocurrency": 1793591711.6784642,
-"usdesignatesiransrevolutionaryguardasterroristorganization": 1793591711.6880112,
-"tescoprofitsjumpasbritonskeepspendingdespitebrexitfatigue": 1793591711.6975245,
-"ｎｙ株大幅高ｊｐモルガンの決算を好感１２日": 1793591711.7037914,
-"boeingsoftwarereengagedbeforecrashsources": 1793591711.7117767,
-"chinesewomanarrestedattrumpsmaralago": 1793591711.719318,
-"鎮火後のノートルダム大聖堂内部の様子を放送仏テレビ16日": 1793591711.7262561,
-"アングル民主勝利でもトランプ氏は関税路線堅持政策転換シナリオ見込めず": 1793591711.7338996,
-"バイナンス緊急対策チーム徹夜で暗号資産ハッキング被害封じ込め": 1793591711.7411377,
 "愛知男が男性人質に立てこもり警察突入し逮捕男性けがなし": 1793592314.1016726,
 "hsbcprofitssoarbutarchegoshitsubsnomura": 1793592314.1093931,
 "altriatotapeuropeanbondmarkettohelpfundjuulstakebuy": 1793592314.1183605,
@@ -2757,21 +2735,11 @@
 "株価値下がり米中間選挙の結果を受けai半導体銘柄売り注文": 1793849128.6440237,
 "nttドコモ全国で音声通話やデータ通信など利用しにくい状況": 1793849733.6041236,
 "日本10年期国债拍卖投标倍数为321低于12个月平均值324": 1793850326.7296088,
-"アメリカ中間選挙トランプ大統領のゲリマンダー不発に": 1793850326.7363017
+"アメリカ中間選挙トランプ大統領のゲリマンダー不発に": 1793850326.7363017,
+"ai時代に羽ばたくユニコーンとなるには": 1793850924.2182283,
+"ドコモ不正アクセス疑いで通販サイトなど停止各種手続きも制限": 1793850924.2250996
 },
 "recent": [
-{
-"id": "n730325_10",
-"ko": "제22회 '분락의 밤' 개최… 11월 27일 오사카 OIT 우메다 타워",
-"gist": "일본경제신문사가 전통 인형극 분락의 매력을 전파하기 위한 대중 강연 및 좌담회 행사를 개최한다.",
-"ts": 1793730340.4329193
-},
-{
-"id": "n730326_11",
-"ko": "시베리아 억류 귀환 역사 계승… 마이즈루 기념관, 고등전문학교 학생들과 기술 개발",
-"gist": "교토부 마이즈루시의 인양기념관이 체험자들의 기억을 후대에 전하기 위해 첨단 디지털 기술을 활용한 전승 방식을 모색하고 있다.",
-"ts": 1793730340.4329197
-},
 {
 "id": "n733333_0",
 "ko": "달러-엔 환율 0.5% 상승한 158.73엔 기록",
@@ -6061,13 +6029,27 @@
 "ko": "일본 10년물 국채 입찰 응찰 배수 3.21… 12개월 평균치 밑돌아",
 "gist": "일본의 10년물 국채 입찰에서 응찰 배수가 3.21배를 기록하며 12개월 평균치인 3.24배를 하회했다.",
 "ts": 1793850331.8587859
+},
+{
+"id": "n850924_0",
+"ko": "AI 시대에 날아오르는 유니콘이 되려면",
+"gist": "인공지능(AI) 보급으로 소프트웨어 개발 비용이 급감해 스타트업의 시장 진입이 쉬워졌으나, 고객 니즈를 파악하지 못한 제품이 양산될 위험도 커졌다는 분석이다.",
+"ts": 1793850931.132549
+},
+{
+"id": "n850925_1",
+"ko": "NTT도코모, 부정 접근 의혹으로 통신판매 사이트 등 서비스 중단",
+"gist": "NTT도코모가 서버에 대한 외부의 부정 접근 가능성을 이유로 도코모 온라인숍 및 계약 변경 등의 웹사이트 서비스를 긴급 중단했다.",
+"ts": 1793850931.1325634,
+"mid": 2704,
+"sent": true
 }
 ],
 "digest": [],
 "pending": [],
 "daily": {
 "date": "2026-11-05",
-"count": 51
+"count": 52
 },
 "last_digest": "2026-10-06 1545",
 "model": {
@@ -6134,8 +6116,8 @@
 "니케이|assets.wor.jp/rss/rdf/nikkei/economy.rdf": 0,
 "니케이|ssets.wor.jp/rss/rdf/nikkei/business.rdf": 0,
 "니케이|.wor.jp/rss/rdf/nikkei/international.rdf": 0,
-"로이터|https://news.google.com/rss/search": 22,
-"블룸버그|https://news.google.com/rss/search": 22,
+"로이터|https://news.google.com/rss/search": 23,
+"블룸버그|https://news.google.com/rss/search": 23,
 "NHK|news.web.nhk/n-data/conf/na/rss/cat5.xml": 0,
 "NHK|news.web.nhk/n-data/conf/na/rss/cat4.xml": 0,
 "NHK|news.web.nhk/n-data/conf/na/rss/cat6.xml": 0,
@@ -14909,6 +14891,21 @@
 "url": "https://news.web.nhk/newsweb/na/nd-20261105de70883",
 "src": "NHK",
 "score": 4
+},
+{
+"ts": 1793850939.7268903,
+"ko": "NTT도코모, 부정 접근 의혹으로 통신판매 사이트 등 서비스 중단",
+"gist": "NTT도코모가 서버에 대한 외부의 부정 접근 가능성을 이유로 도코모 온라인숍 및 계약 변경 등의 웹사이트 서비스를 긴급 중단했다.",
+"b": [
+"1) NTT도코모는 서버에 외부로부터의 부정 접근이 있었을 가능성이 높다고 발표함.",
+"2) 이에 따라 스마트폰 판매 및 계약 변경 등을 접수하는 웹사이트의 서비스를 일시 중단함.",
+"3) 현재 원인과 영향 범위를 조사 중이며 서비스 재개 시기는 미정임."
+],
+"ins": "(추정) 통신사의 보안 사고는 고객 신뢰 저하와 직결되어 단기적으로 브랜드 가치에 부정적인 영향을 미칠 수 있으며, 규제 당국의 조사 등으로 인해 비용이 증가할 리스크가 존재한다.",
+"cos": "",
+"url": "https://www.nikkei.com/article/DGXZQOUC052N30V01C26A1000000/",
+"src": "니케이",
+"score": 4
 }
 ],
 "ideas_date": "2026-10-31",
@@ -14931,7 +14928,7 @@
 "tri_fail": 1
 },
 "20261105": {
-"sent": 51,
+"sent": 52,
 "tri_fail": 1,
 "nosum": 2
 }
