@@ -1,11 +1,5 @@
 {
 "seen": {
-"cryptomarketcaplosstouchesnear$1trillion": 1793657112.487832,
-"peoplearerushingintocasheconomist": 1793657112.4920468,
-"ecbjoinstrilliondollarclubbutstocksstillstruggle": 1793657112.497093,
-"stocksrallythenslideagainasvirusfearsrevive": 1793657112.501858,
-"breakingviewstvusshale": 1793657112.5024068,
-"コラム機能不全の米高等教育改革は学生ローンから正しいリスク評価が進学判断変える": 1793657112.5069978,
 "germanysamazonworkersonblackfridaystrike": 1793657718.2807515,
 "trumpfeelingverygooddoesntplantotakecoronavirustest": 1793657718.2859972,
 "動画pickupnews11月3日": 1793658315.6376371,
@@ -2792,15 +2786,12 @@
 "南米パラグアイの大統領が辞任表明金融機関破綻の混乱受け": 1793915715.5718083,
 "globaleconomychinastuckincoolspotbuteurozonebrightens": 1793915715.5811386,
 "金融庁海外の未公開資産で運用する個人向け保険けん制関係者": 1793915715.5882754,
-"米国株式市場ナスダック19カ月ぶり大幅安調整入り確認ａｉ規制を懸念": 1793915715.595995
+"米国株式市場ナスダック19カ月ぶり大幅安調整入り確認ａｉ規制を懸念": 1793915715.595995,
+"indiajetairwaysworkersdemandendtogroundedairlinescrisis": 1793916316.8862886,
+"العالمفيأسبوع": 1793916316.89161,
+"著名投資家バーリ氏米半導体etfのプット保有分25%売却残りは保有": 1793916316.899421
 },
 "recent": [
-{
-"id": "n828715_3",
-"ko": "월사금 결제 서비스 Pay2o, 1.7억 엔 조달... 신용카드 불필요로 유출 리스크 저감",
-"gist": "학원 및 체육관 월사금 결제 서비스를 제공하는 페イツーオー가 1억 7000만 엔을 조달하고 인재 채용을 확대한다.",
-"ts": 1793828745.4271617
-},
 {
 "id": "n828715_4",
 "ko": "도쿄제철, 일본제철·JFE와의 전로 대결 직면… 고급강 개발에 사활",
@@ -6106,6 +6097,12 @@
 "ko": "픽업 뉴스 동영상 (11월 6일)",
 "gist": "NHK의 6일 주요 뉴스 요약 동영상 안내.",
 "ts": 1793915717.9154358
+},
+{
+"id": "n916316_2",
+"ko": "유명 투자자 마이클 버리, 미국 반도체 ETF 풋옵션 보유분 25% 매각",
+"gist": "유명 투자자 마이클 버리가 미국 반도체 ETF에 대한 풋옵션 보유 물량의 25%를 매각했으나, 나머지 물량은 계속 보유하기로 했다.",
+"ts": 1793916360.755165
 }
 ],
 "digest": [],
