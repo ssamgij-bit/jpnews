@@ -1,22 +1,5 @@
 {
 "seen": {
-"日本东证指数下午开盘下跌06%报394070点": 1793591118.9226842,
-"日经平均指数抹去早前跌幅现上涨03%报6350401点": 1793591118.929421,
-"parisfashionecosystemonedgeasshowsdisappear": 1793591118.937689,
-"民主党の州に変えさせない共和党の牙城で予想外の接戦トランプ氏は各地に応援入り": 1793591118.9458258,
-"softbankpostsprofitbuttechinvestmentssting": 1793591118.9541688,
-"北朝鮮米韓合同軍事演習を非難核抑止力強化の必要性示す": 1793591118.9610043,
-"alphabetmissesearningsestimatesstockplummets": 1793591118.9692388,
-"thecranberriespaytributetolatesingerwithfinalalbum": 1793591118.9781508,
-"needtoventsomeangerjordanopenstheragerooms": 1793591118.9862888,
-"hologramsaremagicalsaysjasonsapanakadrlaserfounderofholographicstudios": 1793591118.996916,
-"中国海軍が新型駆逐艦や潜水艦を公開70周年記念の観閲式で字幕24日": 1793591119.0044181,
-"s&p500nasdaqcrawltorecordhigh": 1793591119.0114195,
-"wallstreetralliesonupbeatdata": 1793591119.0185015,
-"mrsdowjonesexplainstaxesusingcardib": 1793591119.0260904,
-"australiagovernmentpromisesbackinblackbudgetinelectionrunup": 1793591119.0359392,
-"bestbuycfotoreplacejolyasceo": 1793591119.0428574,
-"ugandakidnappingsurvivordetailsordeal": 1793591119.0505886,
 "任天堂の宮本茂氏ai時代でもできることは残るゲーム初の文化勲章": 1793591711.5858672,
 "名鉄初の特定技能外国人が業務始める検査場でブレーキ装置整備": 1793591711.5928056,
 "抗菌薬や炭素繊維の供給網を推定fronteo原材料から解析": 1793591711.599744,
@@ -2772,15 +2755,11 @@
 "nttdocomo日本全国范围内的移动电话服务出现问题": 1793848523.8723617,
 "美国中选输赢已定ai硬件重挫日韩领跌港a携手大涨恒科创业板齐升": 1793849128.6372924,
 "株価値下がり米中間選挙の結果を受けai半導体銘柄売り注文": 1793849128.6440237,
-"nttドコモ全国で音声通話やデータ通信など利用しにくい状況": 1793849733.6041236
+"nttドコモ全国で音声通話やデータ通信など利用しにくい状況": 1793849733.6041236,
+"日本10年期国债拍卖投标倍数为321低于12个月平均值324": 1793850326.7296088,
+"アメリカ中間選挙トランプ大統領のゲリマンダー不発に": 1793850326.7363017
 },
 "recent": [
-{
-"id": "n730324_9",
-"ko": "재정 위기 뇌관 잠재운 에히메현 세요시, '조기 경종'으로 자구책 마련",
-"gist": "심각한 인구 감소와 재정난에 직면한 지자체들이 잇따라 재정 재건 선언을 하며 행정 효율화에 나서고 있다.",
-"ts": 1793730340.4329188
-},
 {
 "id": "n730325_10",
 "ko": "제22회 '분락의 밤' 개최… 11월 27일 오사카 OIT 우메다 타워",
@@ -6076,6 +6055,12 @@
 "ts": 1793849737.4330697,
 "mid": 2703,
 "sent": true
+},
+{
+"id": "n850326_0",
+"ko": "일본 10년물 국채 입찰 응찰 배수 3.21… 12개월 평균치 밑돌아",
+"gist": "일본의 10년물 국채 입찰에서 응찰 배수가 3.21배를 기록하며 12개월 평균치인 3.24배를 하회했다.",
+"ts": 1793850331.8587859
 }
 ],
 "digest": [],
@@ -6149,8 +6134,8 @@
 "니케이|assets.wor.jp/rss/rdf/nikkei/economy.rdf": 0,
 "니케이|ssets.wor.jp/rss/rdf/nikkei/business.rdf": 0,
 "니케이|.wor.jp/rss/rdf/nikkei/international.rdf": 0,
-"로이터|https://news.google.com/rss/search": 21,
-"블룸버그|https://news.google.com/rss/search": 21,
+"로이터|https://news.google.com/rss/search": 22,
+"블룸버그|https://news.google.com/rss/search": 22,
 "NHK|news.web.nhk/n-data/conf/na/rss/cat5.xml": 0,
 "NHK|news.web.nhk/n-data/conf/na/rss/cat4.xml": 0,
 "NHK|news.web.nhk/n-data/conf/na/rss/cat6.xml": 0,
