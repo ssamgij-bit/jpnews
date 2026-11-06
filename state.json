@@ -1,29 +1,5 @@
 {
 "seen": {
-"トランプ氏イスラエル支援を打ち切り中間選挙で民主候補から批判": 1793744119.9351292,
-"マーベル18兆円買収背後でうごめくnvidia売り買い双方に出資": 1793744119.9424856,
-"nyダウ反落197ドル安景気敏感株に売り米中間選挙で様子見も": 1793744119.9497104,
-"フィリピン途切れぬレッドテープ頻繁な閣僚交代に企業ため息": 1793744119.9567676,
-"russiafreesjailedactorafterpublicoutcryovercrackdown": 1793744119.9659724,
-"californiasenatepassesbillgivinguberdriversstrongerrights": 1793744119.9754617,
-"最高価格のｉｐｈｏｎｅ発表アップルの新戦略とは字幕12日": 1793744119.9825618,
-"willsmithcelebrates50thbirthdaywithgrandcanyonbungeejump": 1793744119.9919472,
-"volvocarsdropipoduetotradetensions": 1793744119.9993448,
-"thebrexitwardrobeatlondonfashionweek": 1793744120.0069828,
-"mollyswedensantidopingdoggivescheatsnewproblemtochewon": 1793744120.0162666,
-"wallstreetrisesasappleadvances": 1793744120.0234108,
-"weekaheadbojcardatainmarketheadlights": 1793744120.0311484,
-"astonmartinspeedsaheadwithupto$67billionoctoberipo": 1793744120.0401237,
-"trumpbelievesmanafortwilltellthetruth": 1793744120.047903,
-"blackberrysprofitdoubles": 1793744120.05446,
-"米国株式市場ｓ＆ｐナスダック反発ａｉ主力株に買い中間選挙結果控え": 1793744120.0621765,
-"ネット取引の草分け松井証券とはゆうちょ銀行4日出資発表へ": 1793744712.729228,
-"インフラや防衛分野に向け国産aiの開発進む": 1793744712.7356744,
-"shellwritesdownupto$23blnonweakereconomicoutlook": 1793744712.744666,
-"europeanwatchdogsdemanddetailonfacebookscryptocurrency": 1793744712.7539914,
-"actorburtreynoldsdiesat82": 1793744712.760676,
-"スーパーマイクロ売上高見通しが予想上回るaiサーバー需要堅調": 1793744712.7680423,
-"ｎｙ市場サマリー3日ｓ＆ｐナスダック反発ドルもみ合い長期債利回り上昇": 1793744712.774882,
 "venezuelacocoagrowersfearnewpestthegovernment": 1793745312.584275,
 "unibrowmodelfindsinspirationinindividuality": 1793745312.592565,
 "diversifyintohighdividendpayingstocksandfundssaysmannikdhillon": 1793745312.6028736,
@@ -3402,15 +3378,11 @@
 "trumpsaysstephenmillertobecomechiefofstaff": 1794002111.9056761,
 "日銀ハト派も賛同した物価2%到達総裁こだわるランチ懇談": 1794002711.687221,
 "米sf連銀総裁追加利上げが必要になる公算大インフレ抑制最優先": 1794002711.6933064,
-"openai新たな資金調達ラウンド第1弾完了企業評価額125兆ドルに": 1794003312.1760066
+"openai新たな資金調達ラウンド第1弾完了企業評価額125兆ドルに": 1794003312.1760066,
+"超党派議員連盟がicc訪問し赤根所長と面会支援を強化": 1794003912.263463,
+"openai新一轮融资缩水报道完成110亿美元首批融资估值125万亿美元软银红杉参投": 1794003912.2701051
 },
 "recent": [
-{
-"id": "n911523_36",
-"ko": "전자부품 아라타스 사장, 오므론으로부터의 독립은 성장 전략",
-"gist": "오므론의 전자부품 사업을 인수한 아라타스가 칼라일 그룹과 협력하여 독자적인 경영 판단을 통해 성장을 도모한다.",
-"ts": 1793911545.3741772
-},
 {
 "id": "n911524_37",
 "ko": "북한 해커, 암호화폐 피해 90% 관여… 실행 부대 8000명 이상으로 한국 분석",
@@ -6802,6 +6774,12 @@
 "ts": 1794002714.59304,
 "mid": 3019,
 "sent": true
+},
+{
+"id": "n3912_0",
+"ko": "초당파 의원연맹, ICC 방문해 아카네 소장 면담… '지원 강화' 표명",
+"gist": "미국의 트럼프 행정부가 국제형사재판소(ICC) 아카네 도모코 소장을 제재 대상으로 지정한 가운데, 일본 초당파 의원연맹이 네덜란드 ICC를 방문해 정부에 대한 지원 강화를 촉구했다.",
+"ts": 1794003913.6093328
 }
 ],
 "digest": [],
