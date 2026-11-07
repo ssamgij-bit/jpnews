@@ -1,10 +1,5 @@
 {
 "seen": {
-"wallstreettumblesonglobaleconomicworries": 1793803522.5794947,
-"boeingmullsupgradeafterlionaircrashsources": 1793803522.587878,
-"globaleconomygermanyshrinkschinaworsens": 1793803522.5959904,
-"trumpfalselyclaimsfraudasbideneyesvictory": 1793803522.60439,
-"imgonnadieinhereamericasbrokenjailhealthcaresystem": 1793803522.6141055,
 "nyダウ平均株価一時1000ドル超の上昇アメリカ中間選挙受け": 1793804715.8916912,
 "iraniansmarchoneveofusoilsanctions": 1793804715.8994584,
 "uksignsfirstbigpostbrexitdealwithjapan": 1793804715.9075058,
@@ -2446,15 +2441,10 @@
 "米バークシャー79月の営業利益58%減自社株買い拡大": 1794058515.4791732,
 "his子会社がモバイルwifiレンタル料で不当表示消費者庁": 1794059119.8313184,
 "kenyansectleaderguiltyof191murdersarrivesforsentencing": 1794059119.8406441,
-"andrewkelly": 1794062715.5725238
+"andrewkelly": 1794062715.5725238,
+"日媒日本新版防卫战略或强化持续作战能力": 1794063314.4517379
 },
 "recent": [
-{
-"id": "n926511_3",
-"ko": "소프트뱅크, 인도 렌스카트 지분 2억 달러 규모 매각 착수",
-"gist": "소프트뱅크가 인도 안경 유통업체 렌스카트의 지분 약 2억 달러어치를 매각하기 위한 절차를 시작했다.",
-"ts": 1793926520.5092766
-},
 {
 "id": "n927118_1",
 "ko": "미국 기술주 매도 여파로 엔화, 안전자산 매력 부각되며 상승",
@@ -5812,6 +5802,12 @@
 "ko": "HIS 자회사, 모바일 Wi-Fi 대여료 부당 표시로 소비자청 제재",
 "gist": "대형 여행사 에이치아이에스(HIS)의 자회사가 모바일 Wi-Fi 대여료 할인 기간이 지났음에도 더 높은 할인율의 캠페인을 계속 표시하여 소비자청으로부터 지적을 받았다.",
 "ts": 1794059121.2714927
+},
+{
+"id": "n63314_0",
+"ko": "일본 언론: 일본 새 방위전략서 '지속작전능력' 강화 검토",
+"gist": "일본 정부가 연말 개정 예정인 국가방위전략에 지속작전능력 강화를 명시하는 방안을 검토 중인 것으로 알려졌다.",
+"ts": 1794063315.5947833
 }
 ],
 "digest": [],
