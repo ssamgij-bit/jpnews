@@ -1,9 +1,5 @@
 {
 "seen": {
-"youthrecreateiraqsancientninevehinvrtechnology": 1793811914.0079854,
-"sputnikvaccineis92%effectiverussia": 1793811914.015772,
-"applestoreworkersinmarylandformfirstusunion": 1793811914.0244627,
-"europeanstocksslideasstimulushopesfailtocheer": 1793811914.033391,
 "quarantinedwithyourkidstry37": 1793812515.8078501,
 "thesubtleandnotsosubtleofkimsreturn": 1793812515.8156772,
 "vaccinehopesdriveeuropeanstockshigheragain": 1793812515.8241317,
@@ -2363,17 +2359,11 @@
 "中国地震台网正式测定11月08日00时04分在日本本州岛北纬3480度东经13770度发生53级地震震源": 1794069315.9644125,
 "バイナンスのcfo退任へ後任にジャスティンイェク氏": 1794069916.414302,
 "ロシア一時管理下のｊｔ傘下企業を3社追加新たに大統領令": 1794069916.4185207,
-"tumelomodiba": 1794070514.9078977
+"tumelomodiba": 1794070514.9078977,
+"地震政府が官邸連絡室設置愛知県で震度5強を受けて": 1794071113.2744372,
+"houstonmayorcurtailspolicecooperationwithice": 1794071113.2792323
 },
 "recent": [
-{
-"id": "n928914_3",
-"ko": "소프트뱅크 5년물 신용부도스와프(CDS) 스프레드 22bp 급등해 466bp 기록… 2022년 이후 최고치",
-"gist": "미국 기술주 폭락 및 투자 심리 악화 여파로 소프트뱅크의 5년물 CDS 스프레드가 2022년 이후 최고치로 급등했다.",
-"ts": 1793928918.0969796,
-"mid": 2855,
-"sent": true
-},
 {
 "id": "n928914_5",
 "ko": "2026년 6G 발전 대회 11월 24~25일 개최… 일본 등 글로벌 산업 조직 참가",
@@ -5723,6 +5713,12 @@
 "ts": 1794069919.2815473,
 "mid": 3037,
 "sent": true
+},
+{
+"id": "n71113_0",
+"ko": "아이치현에서 진도 5강 지진 관측, 정부 총리관저에 연락실 설치",
+"gist": "아이치현에서 진도 5강의 지진이 발생함에 따라 일본 정부가 총리관저 위기관리센터에 관邸연락실을 설치하고 피해 상황을 확인하고 있다.",
+"ts": 1794071114.7638345
 }
 ],
 "digest": [],
