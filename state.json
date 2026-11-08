@@ -1,6 +1,5 @@
 {
 "seen": {
-"索尼电子mdr3r有线耳机现已上市建议零售价为5999美元/9999加元": 1793894712.7328064,
 "トルコ兵にイラン側から銃撃か国境で取り締まり中に死亡": 1793911511.5847208,
 "企業一覧個人情報の漏洩恐れを公表した企業など随時更新": 1793911511.591583,
 "日経平均先物が急落6万円割れ米半導体株安が波及": 1793911511.597985,
@@ -1582,7 +1581,8 @@
 "卓球tリーグ首位金沢が静岡下す女子は九州競り勝つ": 1794153355.336912,
 "北海道網走市長選挙水谷洋一氏が5選": 1794153355.3400536,
 "社会人野球西濃運輸やntt西日本が準決勝へ日本選手権": 1794153355.340818,
-"米ハイテク株不安定な値動き続くかデータセンター規制懸念で": 1794153355.344668
+"米ハイテク株不安定な値動き続くかデータセンター規制懸念で": 1794153355.344668,
+"ポーランドに衝撃7日の銃乱射で6人死亡極右思想の容疑者は重体": 1794153915.6537168
 },
 "recent": [
 {
@@ -3352,8 +3352,8 @@
 "NHK|news.web.nhk/n-data/conf/na/rss/cat4.xml": 0,
 "NHK|news.web.nhk/n-data/conf/na/rss/cat6.xml": 0,
 "NHK|news.web.nhk/n-data/conf/na/rss/cat1.xml": 0,
-"월스트리트견문|i-one-wscn.awtmt.com/apiv1/content/lives": 1,
-"월스트리트견문|awtmt.com/apiv1/content/information-flow": 1,
+"월스트리트견문|i-one-wscn.awtmt.com/apiv1/content/lives": 0,
+"월스트리트견문|awtmt.com/apiv1/content/information-flow": 0,
 "신랑재경|https://zhibo.sina.com.cn/api/zhibo/feed": 0,
 "제일재경|https://www.yicai.com/api/ajax/getlatest": 0
 },
