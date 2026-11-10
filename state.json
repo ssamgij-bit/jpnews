@@ -1679,7 +1679,11 @@
 "エヌビディアceoの不倫が安全保障問題に中国スパイ疑惑巡り米議会が問うべきこと": 1794288312.8982787,
 "街角景気10月は09ポイント低下6カ月ぶりマイナスウオッチャーの見方は維持": 1794288312.9061294,
 "アンソロピック､jpモルガンceoとライブ配信予定ipoマーケティングで": 1794288312.913918,
-"ｕａｃｊ発行済み株式の508％150億円を上限に自社株買い": 1794288312.9207413
+"ｕａｃｊ発行済み株式の508％150億円を上限に自社株買い": 1794288312.9207413,
+"trumpnvidiaceosaidhedidntknowwomanlinkedtohimwasaspy": 1794288914.0747926,
+"フジクラ今期営業益計画4290億円に下方修正株価は一時56%安": 1794288914.082239,
+"アンソロピック有料プラン誤解招く宣伝巡る訴訟連邦地裁が審理継続容認": 1794288914.0897615,
+"米ｆｄａｇｌｐ１製剤に眼疾患リスク警告記載を義務付け": 1794288914.0964124
 },
 "recent": [
 {
@@ -5062,7 +5066,56 @@
 }
 ],
 "digest": [],
-"pending": [],
+"pending": [
+{
+"source": "reuters",
+"label": "로이터",
+"gn": true,
+"title": "Trump: Nvidia CEO said he didn't know woman linked to him was a spy",
+"lead": "",
+"link": "https://news.google.com/rss/articles/CBMia0FVX3lxTE9JT2Q1R1VvQnFVS0hDb3dxS1RjVFg5NHk3V0NFZDVMYmVhMWVZVmFDWlJYNUNyLTNUVEppWnhBbU5HaWVjOEJhdXRCOUMyRVgxSjljWFZ2N3R1WnhOWDV3YVN4MDhMcFhsMVNV?oc=5",
+"ts": 1794282975,
+"key": "trumpnvidiaceosaidhedidntknowwomanlinkedtohimwasaspy",
+"id": "n288914_0",
+"first_try": 1794288935.077839
+},
+{
+"source": "bloomberg",
+"label": "블룸버그",
+"gn": true,
+"title": "フジクラ、今期営業益計画4290億円に下方修正－株価は一時5.6%安",
+"lead": "",
+"link": "https://news.google.com/rss/articles/CBMijgFBVV95cUxNM0hUZ0JtS3o5LVRJVVdLbmpqNGwwbGdlazN5YnRfOEJIaWk0ZUNpR204cmF5djVTVkxMcGdjNHpkNTJWZzFoTUpJVzk3ekNDZEwtSzVPU1gtRzgxRTBCZ1g2cW02eExGYTVobnhHMnhEN0l0ODlyOGNMVjBfMGJLd3pJcTNVcTh2LTJZZENn?oc=5",
+"ts": 1794287820,
+"key": "フジクラ今期営業益計画4290億円に下方修正株価は一時56%安",
+"id": "n288914_1",
+"first_try": 1794288935.077845
+},
+{
+"source": "reuters",
+"label": "로이터",
+"gn": true,
+"title": "アンソロピック有料プラン「誤解招く宣伝」巡る訴訟、連邦地裁が審理継続容認",
+"lead": "",
+"link": "https://news.google.com/rss/articles/CBMifkFVX3lxTE56eThVU3RzcjJ0ZGI1elAtYXFDbEZvQ0xtZnd0YmowN2FsaEdWaG5TM3BJUWNNSjJXcW0tOHdrQTV1M2NUMzJsa2xISUNyV1J5b00yVXE2S0o2T09XMUpKMEtuNUFYRUdwaWVOc05BcHA2UnlrRjZnZEVWb1NQdw?oc=5",
+"ts": 1794288060,
+"key": "アンソロピック有料プラン誤解招く宣伝巡る訴訟連邦地裁が審理継続容認",
+"id": "n288914_2",
+"first_try": 1794288935.0778468
+},
+{
+"source": "reuters",
+"label": "로이터",
+"gn": true,
+"title": "米ＦＤＡ、ＧＬＰ－１製剤に眼疾患リスク警告記載を義務付け",
+"lead": "",
+"link": "https://news.google.com/rss/articles/CBMie0FVX3lxTE14c1c4X3FnMlRhR1BHQ2RVbUpnTkg1OXROcmVVMkszRE5ndGtyaFhnc1hyazVYV25uMm03al9id1Q1aUUxek9SMk5jYkVOS2pnakcxNWZLVnRaV0k4eXk0djVfMUFLQ2lmQnhSZ0g1Z2JFeW1LTjNJS3VQTQ?oc=5",
+"ts": 1794288240,
+"key": "米ｆｄａｇｌｐ１製剤に眼疾患リスク警告記載を義務付け",
+"id": "n288914_3",
+"first_try": 1794288935.0778484
+}
+],
 "daily": {
 "date": "2026-11-10",
 "count": 74
@@ -5126,7 +5179,7 @@
 },
 "version": 3,
 "health": {
-"llm": 0,
+"llm": 1,
 "src": {
 "니케이|://assets.wor.jp/rss/rdf/nikkei/news.rdf": 0,
 "니케이|assets.wor.jp/rss/rdf/nikkei/markets.rdf": 0,
@@ -16151,7 +16204,8 @@
 },
 "20261110": {
 "sent": 74,
-"nosum": 2
+"nosum": 2,
+"tri_fail": 1
 }
 }
 }
