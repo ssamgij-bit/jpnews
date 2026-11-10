@@ -1,8 +1,5 @@
 {
 "seen": {
-"東北新幹線東京～盛岡上下線運転見合わせ午前9時再開見込み": 1794093312.3120415,
-"中国で服役中のアステラス製薬社員来月中旬に出所し帰国の見通し報道": 1794093312.3180766,
-"アングル中国独身の日世界最大級セールでａｉトークンが新たな目玉に": 1794093312.3242044,
 "ポーランド南部のクラクフで銃撃事件6人死亡容疑者は拘束": 1794094511.8609815,
 "焦点米cpi10月は伸び鈍化へ高い上昇続いた2カ月から一服": 1794095112.884918,
 "地方の独自課税嫌われ者か来訪者対象で広がらず神奈川大教授": 1794095712.2349598,
@@ -2160,29 +2157,10 @@
 "今日の株式見通し弱含みｃｐｉ上振れ受けた米株安を嫌気戻り一服か": 1794351918.2804615,
 "安全求め米国債に殺到したトレーダー相場反転で動揺広がる": 1794351918.287314,
 "日本市場米利上げ観測高まり株反落へ円と債券も軟調の公算": 1794351918.294109,
-"カナダ首相中国主席に内政干渉控えるよう要請へａｐｅｃ会合に合わせ会談予定": 1794351918.301872
+"カナダ首相中国主席に内政干渉控えるよう要請へａｐｅｃ会合に合わせ会談予定": 1794351918.301872,
+"高市首相動静2026年11月10日": 1794352519.6657264
 },
 "recent": [
-{
-"id": "n233116_0",
-"ko": "국제 보험계리사 회의, 50년 만에 일본 개최…AI 활용 보험 리스크 분석 논의",
-"gist": "8일부터 도쿄에서 50년 만에 국제 보험계리사 회의(ICA)가 열려 AI를 활용한 보험 리스크 분석 방법 등을 논의한다.",
-"ts": 1794233127.6573043
-},
-{
-"id": "n233116_1",
-"ko": "일본은행, 2027년 6월부터 단관(Tankan) 조사에 임금 항목 신설",
-"gist": "일본은행은 2027년 6월 기업단기경제관측조사(단칸)부터 정사원 임금 변화폭을 조사하는 항목을 신설한다고 발표했다.",
-"ts": 1794233127.65732,
-"mid": 3195,
-"sent": true
-},
-{
-"id": "n233117_2",
-"ko": "홋카이도 왓카나이 다이버 조난 사고, 운영사 임원 서류송치",
-"gist": "홋카이도 왓카나이 앞바다 다이버 조난 사고와 관련해 법정 검사를 받지 않고 선박을 운항한 혐의로 운영사 임원이 서류송치되었다.",
-"ts": 1794233127.6573234
-},
 {
 "id": "n233117_3",
 "ko": "후루카와 타츠즈미 전 후지쯔 상무 별세",
@@ -5530,74 +5508,33 @@
 "ko": "일본 주식 ADR 10일, 매도 우위… 오릭스와 혼다 하락",
 "gist": "미국의 추가 금리 인상 관측이 높아짐에 따라 뉴욕 시장에서 거래된 일본 기업의 미국 예탁증권(ADR) 전반에 매도 우위가 나타났다.",
 "ts": 1794348931.0448036
+},
+{
+"id": "n352519_1",
+"ko": "오늘의 일본 주식 전망: 약세, CPI 상회에 따른 미국 증시 하락 혐기",
+"gist": "미국 소비자물가지수(CPI) 상회에 따른 뉴욕 증시 약세를 싫어하며 도쿄 주식시장은 약세 출발 및 반등 일시 정지가 예상된다.",
+"ts": 1794352523.8499823
+},
+{
+"id": "n352519_0",
+"ko": "문화청의 새로운 현창 제도 '식의 지보' 8명 수상",
+"gist": "일본 문화청이 요식업 및 장인들을 대상으로 신설한 현창 제도 '식의 지보'의 첫 수상자로 소믈리에와 일식 요리사 등 8명을 선정했다.",
+"ts": 1794352523.8499982
+},
+{
+"id": "n352519_3",
+"ko": "일본 시장, 미 금리 인상 관측 고조로 주가 반락 전망…엔화·채권도 약세 가능성",
+"gist": "미국의 추가 금리 인상 관측이 높아짐에 따라 11일 일본 주식시장은 하락세를 보이고 엔화와 채권 가격도 약세를 기록할 것으로 예상된다.",
+"ts": 1794352523.85,
+"mid": 3382,
+"sent": true
 }
 ],
 "digest": [],
-"pending": [
-{
-"source": "nhk",
-"label": "NHK",
-"gn": false,
-"title": "文化庁の新たな顕彰制度「食の至宝」 8人が受賞",
-"lead": "文化庁は食に携わる職人らを対象とした新たな顕彰制度「食の至宝」の初めての受賞者として、ソムリエや和食料理人など8人を選びました。",
-"link": "https://news.web.nhk/newsweb/na/nd-20261111de73866",
-"ts": 1794351479,
-"key": "文化庁の新たな顕彰制度食の至宝8人が受賞",
-"id": "n351918_0",
-"first_try": 1794351959.6765456
-},
-{
-"source": "reuters",
-"label": "로이터",
-"gn": true,
-"title": "今日の株式見通し＝弱含み、ＣＰＩ上振れ受けた米株安を嫌気 戻り一服か",
-"lead": "",
-"link": "https://news.google.com/rss/articles/CBMihgFBVV95cUxQUzFEeEQySi1QUkJnVHBRbDBUUGlTbjY5RkRkYzI5c0FPLVFyVDFmTDJwUURjaXpYX0pEMVNoVHpBVnFCWkgzTVNTTFBCNE10WXU1ZWw2MW16Vy15OW5FSDRwQnZROHplZTYxdkhEQmJnUk9MWG5acHdfTWl3WGx6OEdranFFdw?oc=5",
-"ts": 1794351223,
-"key": "今日の株式見通し弱含みｃｐｉ上振れ受けた米株安を嫌気戻り一服か",
-"id": "n351918_1",
-"first_try": 1794351959.6765494
-},
-{
-"source": "bloomberg",
-"label": "블룸버그",
-"gn": true,
-"title": "安全求め米国債に殺到したトレーダー、相場反転で動揺広がる",
-"lead": "",
-"link": "https://news.google.com/rss/articles/CBMid0FVX3lxTE1nQklUalhSczJYQllxdEVhOTJfTGx2bTNGMGx5ZjhZOWF6X1VKVG5mRkh0eE1iMWJlb1ZjZk5qcGl6dW14WWxBbG9hR2x6TUsxamhHVGhqNzlZbGlVOUwxS3dkcDlNZGFKX0tZSmNEYkF3aV9pdk5N?oc=5",
-"ts": 1794351369,
-"key": "安全求め米国債に殺到したトレーダー相場反転で動揺広がる",
-"id": "n351918_2",
-"first_try": 1794351959.6765506
-},
-{
-"source": "bloomberg",
-"label": "블룸버그",
-"gn": true,
-"title": "日本市場、米利上げ観測高まり株反落へ－円と債券も軟調の公算",
-"lead": "",
-"link": "https://news.google.com/rss/articles/CBMijgFBVV95cUxPamFlRktUU3dId2Jqd3gwa2RsZHptcktJejFzZzBTRHFwOWVXek43YXdqclN4dnJydUpFNVdTR0RkRVBZZm9vQUNDVktjMWNoXzQ4aURaN3NiSk9XdFBsQk5SRUMzT2luUWtIUHRVbGF6b3lFbWtxV0JQWUhsWTdKRjBBU2ExVnV4MUFBT1Fn?oc=5",
-"ts": 1794351544,
-"key": "日本市場米利上げ観測高まり株反落へ円と債券も軟調の公算",
-"id": "n351918_3",
-"first_try": 1794351959.676551
-},
-{
-"source": "reuters",
-"label": "로이터",
-"gn": true,
-"title": "カナダ首相、中国主席に内政干渉控えるよう要請へ ＡＰＥＣ会合に合わせ会談予定",
-"lead": "",
-"link": "https://news.google.com/rss/articles/CBMigwFBVV95cUxQY0dHdTRfU01BNzF5S2NrSUdoSC1FTGR2aWxsWmxDd1RhdENkZkNRTkowVVJoaG04QWlRR05hZlJFOTlwcmp1d1ZfOWZRbklXeEJaYjFvcm9Vd0Zhc0xvQkpHU3oySFZ1eXVfaDRHSU4wQkdmd0F3TkI0RTBlb004VFRZTQ?oc=5",
-"ts": 1794351751,
-"key": "カナダ首相中国主席に内政干渉控えるよう要請へａｐｅｃ会合に合わせ会談予定",
-"id": "n351918_4",
-"first_try": 1794351959.6765516
-}
-],
+"pending": [],
 "daily": {
 "date": "2026-11-11",
-"count": 17
+"count": 18
 },
 "last_digest": "2026-10-06 1545",
 "model": {
@@ -5658,7 +5595,7 @@
 },
 "version": 3,
 "health": {
-"llm": 1,
+"llm": 0,
 "src": {
 "니케이|://assets.wor.jp/rss/rdf/nikkei/news.rdf": 0,
 "니케이|assets.wor.jp/rss/rdf/nikkei/markets.rdf": 0,
@@ -17305,6 +17242,20 @@
 "url": "https://www.nikkei.com/article/DGXZQOUC10AHP0Q6A111C2000000/",
 "src": "니케이",
 "score": 4
+},
+{
+"ts": 1794352534.392462,
+"ko": "일본 시장, 미 금리 인상 관측 고조로 주가 반락 전망…엔화·채권도 약세 가능성",
+"gist": "미국의 추가 금리 인상 관측이 높아짐에 따라 11일 일본 주식시장은 하락세를 보이고 엔화와 채권 가격도 약세를 기록할 것으로 예상된다.",
+"b": [
+"미국 금리 인상 관측이 고조됨에 따라 일본 주식 시장이 반락할 것으로 전망됨.",
+"엔화 가치와 채권 시장 역시 약세를 보일 공산이 큰 것으로 나타남."
+],
+"ins": "(추정) 미 연준의 매파적 통화정책 관측은 일본 증시 및 채권 시장 전반에 단기 매물 압력을 가할 수 있으나, 엔저 가속화에 따른 수출 기업들의 실적 방어력이 하방을 지지할 가능성도 상존함.",
+"cos": "",
+"url": "https://www.bloomberg.com/jp/news/articles/2026-11-10/TOB34QT96OSH00?srnd=jp-homepage",
+"src": "블룸버그",
+"score": 4
 }
 ],
 "ideas_date": "2026-11-07",
@@ -17349,7 +17300,7 @@
 "tri_fail": 1
 },
 "20261111": {
-"sent": 17,
+"sent": 18,
 "tri_fail": 4
 }
 }
