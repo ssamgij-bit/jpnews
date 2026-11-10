@@ -1,7 +1,5 @@
 {
 "seen": {
-"東海道新幹線運転再開": 1794092712.2302055,
-"愛知県で8日未明に最大震度5強の地震気象庁": 1794092712.2350695,
 "東北新幹線東京～盛岡上下線運転見合わせ午前9時再開見込み": 1794093312.3120415,
 "中国で服役中のアステラス製薬社員来月中旬に出所し帰国の見通し報道": 1794093312.3180766,
 "アングル中国独身の日世界最大級セールでａｉトークンが新たな目玉に": 1794093312.3242044,
@@ -2156,7 +2154,13 @@
 "saasの死から再起するitサービス株ai相場一変で半導体株と攻守逆転": 1794350718.8046744,
 "英中銀副総裁追加利上げ支持示唆12月も2月も排除しない": 1794350718.8115542,
 "ｅｃｂの政策金利決定燃料高の波及が左右レーン専務理事": 1794350718.8183403,
-"新しいイスラエル議会が発足大統領再選挙の回避へ尽力を": 1794350718.8250995
+"新しいイスラエル議会が発足大統領再選挙の回避へ尽力を": 1794350718.8250995,
+"浮遊して室内を巡回4万円の防犯ドローンamazon系が開発": 1794351918.2665045,
+"文化庁の新たな顕彰制度食の至宝8人が受賞": 1794351918.2730315,
+"今日の株式見通し弱含みｃｐｉ上振れ受けた米株安を嫌気戻り一服か": 1794351918.2804615,
+"安全求め米国債に殺到したトレーダー相場反転で動揺広がる": 1794351918.287314,
+"日本市場米利上げ観測高まり株反落へ円と債券も軟調の公算": 1794351918.294109,
+"カナダ首相中国主席に内政干渉控えるよう要請へａｐｅｃ会合に合わせ会談予定": 1794351918.301872
 },
 "recent": [
 {
@@ -5529,7 +5533,68 @@
 }
 ],
 "digest": [],
-"pending": [],
+"pending": [
+{
+"source": "nhk",
+"label": "NHK",
+"gn": false,
+"title": "文化庁の新たな顕彰制度「食の至宝」 8人が受賞",
+"lead": "文化庁は食に携わる職人らを対象とした新たな顕彰制度「食の至宝」の初めての受賞者として、ソムリエや和食料理人など8人を選びました。",
+"link": "https://news.web.nhk/newsweb/na/nd-20261111de73866",
+"ts": 1794351479,
+"key": "文化庁の新たな顕彰制度食の至宝8人が受賞",
+"id": "n351918_0",
+"first_try": 1794351959.6765456
+},
+{
+"source": "reuters",
+"label": "로이터",
+"gn": true,
+"title": "今日の株式見通し＝弱含み、ＣＰＩ上振れ受けた米株安を嫌気 戻り一服か",
+"lead": "",
+"link": "https://news.google.com/rss/articles/CBMihgFBVV95cUxQUzFEeEQySi1QUkJnVHBRbDBUUGlTbjY5RkRkYzI5c0FPLVFyVDFmTDJwUURjaXpYX0pEMVNoVHpBVnFCWkgzTVNTTFBCNE10WXU1ZWw2MW16Vy15OW5FSDRwQnZROHplZTYxdkhEQmJnUk9MWG5acHdfTWl3WGx6OEdranFFdw?oc=5",
+"ts": 1794351223,
+"key": "今日の株式見通し弱含みｃｐｉ上振れ受けた米株安を嫌気戻り一服か",
+"id": "n351918_1",
+"first_try": 1794351959.6765494
+},
+{
+"source": "bloomberg",
+"label": "블룸버그",
+"gn": true,
+"title": "安全求め米国債に殺到したトレーダー、相場反転で動揺広がる",
+"lead": "",
+"link": "https://news.google.com/rss/articles/CBMid0FVX3lxTE1nQklUalhSczJYQllxdEVhOTJfTGx2bTNGMGx5ZjhZOWF6X1VKVG5mRkh0eE1iMWJlb1ZjZk5qcGl6dW14WWxBbG9hR2x6TUsxamhHVGhqNzlZbGlVOUwxS3dkcDlNZGFKX0tZSmNEYkF3aV9pdk5N?oc=5",
+"ts": 1794351369,
+"key": "安全求め米国債に殺到したトレーダー相場反転で動揺広がる",
+"id": "n351918_2",
+"first_try": 1794351959.6765506
+},
+{
+"source": "bloomberg",
+"label": "블룸버그",
+"gn": true,
+"title": "日本市場、米利上げ観測高まり株反落へ－円と債券も軟調の公算",
+"lead": "",
+"link": "https://news.google.com/rss/articles/CBMijgFBVV95cUxPamFlRktUU3dId2Jqd3gwa2RsZHptcktJejFzZzBTRHFwOWVXek43YXdqclN4dnJydUpFNVdTR0RkRVBZZm9vQUNDVktjMWNoXzQ4aURaN3NiSk9XdFBsQk5SRUMzT2luUWtIUHRVbGF6b3lFbWtxV0JQWUhsWTdKRjBBU2ExVnV4MUFBT1Fn?oc=5",
+"ts": 1794351544,
+"key": "日本市場米利上げ観測高まり株反落へ円と債券も軟調の公算",
+"id": "n351918_3",
+"first_try": 1794351959.676551
+},
+{
+"source": "reuters",
+"label": "로이터",
+"gn": true,
+"title": "カナダ首相、中国主席に内政干渉控えるよう要請へ ＡＰＥＣ会合に合わせ会談予定",
+"lead": "",
+"link": "https://news.google.com/rss/articles/CBMigwFBVV95cUxQY0dHdTRfU01BNzF5S2NrSUdoSC1FTGR2aWxsWmxDd1RhdENkZkNRTkowVVJoaG04QWlRR05hZlJFOTlwcmp1d1ZfOWZRbklXeEJaYjFvcm9Vd0Zhc0xvQkpHU3oySFZ1eXVfaDRHSU4wQkdmd0F3TkI0RTBlb004VFRZTQ?oc=5",
+"ts": 1794351751,
+"key": "カナダ首相中国主席に内政干渉控えるよう要請へａｐｅｃ会合に合わせ会談予定",
+"id": "n351918_4",
+"first_try": 1794351959.6765516
+}
+],
 "daily": {
 "date": "2026-11-11",
 "count": 17
@@ -5593,7 +5658,7 @@
 },
 "version": 3,
 "health": {
-"llm": 0,
+"llm": 1,
 "src": {
 "니케이|://assets.wor.jp/rss/rdf/nikkei/news.rdf": 0,
 "니케이|assets.wor.jp/rss/rdf/nikkei/markets.rdf": 0,
@@ -17285,7 +17350,7 @@
 },
 "20261111": {
 "sent": 17,
-"tri_fail": 3
+"tri_fail": 4
 }
 }
 }
