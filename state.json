@@ -1,11 +1,5 @@
 {
 "seen": {
-"脱炭素の投資技術移転日aseanが協力cop31で共同報告": 1794256512.4826326,
-"自民維新安全保障3文書改定向けきょうから作業チームが協議": 1794256512.4895496,
-"高市首相高性能ai進展で国際社会連携を仏政府主催の会合で": 1794256512.4964235,
-"0568hkstockprice&latestnews": 1794256512.4973764,
-"001337zkstockprice&latestnews": 1794256512.49832,
-"原油急落ブレント7ドル安トランプ氏がイラン再攻撃の可能性否定": 1794256512.5054462,
 "jt株急落守りの銘柄一転ロシア事業に暗雲で減配リスク警戒": 1794257114.1981413,
 "日銀政策金利到達点予想2%ちょうど付近に低下ai懸念揺さぶる": 1794257114.2049017,
 "ソフトバンクg10日決算ai投資に逆風財務の健全性を市場注視": 1794257114.2117314,
@@ -2858,21 +2852,21 @@
 "antonysguazzin": 1794515112.2230818,
 "欧州市場サマリー12日": 1794515112.2258723,
 "crypto&blockchaincompaniesreporter": 1794515112.2332478,
-"米中古住宅販売10月は55％減16年ぶり低水準": 1794515112.2396145
+"米中古住宅販売10月は55％減16年ぶり低水準": 1794515112.2396145,
+"最高検が生成aiの捜査などへの使用で指針全国の検察庁に周知": 1794515710.837511,
+"美元指数12日上涨": 1794515710.8420901,
+"ruthdavid": 1794515710.8466773,
+"andreaskluth": 1794515710.8515425,
+"joemayes": 1794515710.8560097,
+"haileywaller": 1794515710.8608427,
+"keirawright": 1794515710.8655622,
+"marthaviottibeck": 1794515710.8707604,
+"isabellelee": 1794515710.8755214,
+"rachelcohrszhang": 1794515710.8807275,
+"erinslowey": 1794515710.8853552,
+"スペースxとテスラ史上最大の合併へ協議進展12月にも発表か": 1794515710.8922718
 },
 "recent": [
-{
-"id": "n393327_5",
-"ko": "KNT-CT홀딩스, 중동 위기 및 시스템 투자 여파로 4~9월 순이익 52% 감소",
-"gist": "KNT-CT홀딩스가 여행 수요 부진과 비용 증가로 상반기 순이익이 대폭 감소했다고 발표했다.",
-"ts": 1794393348.5763495
-},
-{
-"id": "n393328_6",
-"ko": "미나미니혼은행, 4~9월 순이익 42% 감소…세금 및 신용 비용 증가 영향",
-"gist": "미나미니혼은행의 상반기 순이익이 대출 금리 상승에 따른 이자 수익 증가에도 불구하고 세금과 신용 비용 증가로 감소했다.",
-"ts": 1794393348.5763502
-},
 {
 "id": "n393328_7",
 "ko": "사이버에이전트, 2027년 9월기 게임 사업 정체로 순이익 19% 감소 전망",
@@ -6228,107 +6222,22 @@
 "ko": "일본 방위연구소, 중국의 남중국해 군사 기지화는 대미 대항 기반",
 "gist": "일본 방위성 산하 방위연구소는 중국이 대만 통일을 목표로 남중국해를 미국에 대항하기 위한 군사적 기반으로 활용하고 있다고 분석했다.",
 "ts": 1794514513.9112566
+},
+{
+"id": "n515710_8",
+"ko": "일본 최고검찰청, 수사 업무에 생성형 AI 활용 지침 마련",
+"gist": "일본 최고검찰청이 암호화폐 거래 수사 등 복잡한 자금 흐름 해명을 위해 생성형 AI를 활용할 수 있도록 하는 지침을 전국 검찰청에 전달했다.",
+"ts": 1794515771.3465295
+},
+{
+"id": "n515710_9",
+"ko": "12일 뉴욕 외환시장, 달러 인덱스 상승 및 엔/달러 환율 159.83엔 마감",
+"gist": "12일 뉴욕 외환시장에서 달러 인덱스가 0.26% 상승한 103.174를 기록했으며, 엔/달러 환율은 159.83엔으로 마감했다.",
+"ts": 1794515771.3465428
 }
 ],
 "digest": [],
-"pending": [
-{
-"source": "nhk",
-"label": "NHK",
-"gn": false,
-"title": "ロシアによる北海道新聞記者拘束1か月 即時解放求め続ける",
-"lead": "ロシアの治安機関が北海道新聞の記者を拘束して13日で1か月となりました。日本側は即時解放などを求めてきましたが、ロシア側は応じる姿勢を示しておらず、日本側は今後も即時解放を強く求めるとともに、「領事面…",
-"link": "https://news.web.nhk/newsweb/na/nd-20261113de75109",
-"ts": 1794514975,
-"key": "ロシアによる北海道新聞記者拘束1か月即時解放求め続ける",
-"id": "n515112_0",
-"first_try": 1794515126.863727
-},
-{
-"source": "bloomberg",
-"label": "블룸버그",
-"gn": true,
-"title": "John Stepek",
-"lead": "",
-"link": "https://news.google.com/rss/articles/CBMiZ0FVX3lxTFBNWWJnWHg0eXVxYTRIdjVOeVh6blF2cXlXY20zUVlqdEV1V3pxZXotbFFrVDJ2cmo3UEtxcVFyVDdiQWhwaUxxenlVS1NRck9jM2lLS19IeVRyTEpicEJLTHRyUUpYZ1E?oc=5",
-"ts": 1794509570,
-"key": "johnstepek",
-"id": "n515112_1",
-"first_try": 1794515126.8637314
-},
-{
-"source": "bloomberg",
-"label": "블룸버그",
-"gn": true,
-"title": "Jillian Deutsch",
-"lead": "",
-"link": "https://news.google.com/rss/articles/CBMibEFVX3lxTFBvbGZsLTROUEFjY296QWZVc1NSdV9ucUgzN044X1BqSGx3d19BVTJxTVZjei1Qc215UlVaVno4VGNJR29EaWdKTUk0OGFZak9zOU4wMEY3VEppcnhQQWJLdXVRTFdBeWw1RnMxQQ?oc=5",
-"ts": 1794509741,
-"key": "jilliandeutsch",
-"id": "n515112_2",
-"first_try": 1794515126.863733
-},
-{
-"source": "bloomberg",
-"label": "블룸버그",
-"gn": true,
-"title": "Allison McNeely",
-"lead": "",
-"link": "https://news.google.com/rss/articles/CBMibEFVX3lxTE5CeE8ydThSM1hpUXlzcG1oWUp4bEFDTVF2Ni1YeUxwejdidGhnWFFibGpuU2ZpeWRGU2RaWU9pcWNZWDNUOXlXME8tcHRxNFJKQ0FpbnVwaHlSd09CZ2t0UGRpXzllaFlPYUF5aQ?oc=5",
-"ts": 1794509956,
-"key": "allisonmcneely",
-"id": "n515112_3",
-"first_try": 1794515126.863734
-},
-{
-"source": "bloomberg",
-"label": "블룸버그",
-"gn": true,
-"title": "Albertina Torsoli",
-"lead": "",
-"link": "https://news.google.com/rss/articles/CBMib0FVX3lxTE9wUkwtUVRzeE5KVlE5dC1pZ0lEUmNJaVQtaXhFZ1JKNVotb25sdGMzUHN3emk2c01qRHdIZFJNMm5RWjFzUEsyeDVWTHdZaE50cHc3am9WZVh4X1FwWkhOc3hMVC04bWxVVWs1dEcxTQ?oc=5",
-"ts": 1794509982,
-"key": "albertinatorsoli",
-"id": "n515112_4",
-"first_try": 1794515126.8638084
-},
-{
-"source": "bloomberg",
-"label": "블룸버그",
-"gn": true,
-"title": "Antony Sguazzin",
-"lead": "",
-"link": "https://news.google.com/rss/articles/CBMibEFVX3lxTE9NZWVNa3U3d0JyZTJGT3JBV2taTER1dkhJUUk4Nk9FdXlGb2NQeGpUN0MzeXBfUzVGN081XzFwVWM4Z3lxb1NHZjJmV2xXSFNodmlKcDc0ZXJ6c080Tkk2aENEMVhIbG1xUmVHQw?oc=5",
-"ts": 1794511523,
-"key": "antonysguazzin",
-"id": "n515112_5",
-"first_try": 1794515126.86381
-},
-{
-"source": "bloomberg",
-"label": "블룸버그",
-"gn": true,
-"title": "Crypto & Blockchain Companies Reporter",
-"lead": "",
-"link": "https://news.google.com/rss/articles/CBMiZEFVX3lxTFBCa1BfbnlqODZueGozYWR5bzJxcHhxZE16ZmJPekhIRG0zNFBsRFh2UFlHYjJYb0ZzbWxJR0dFem43OUVuYW5NWl9JU3g5ZG5xN2w5QXBPb3N5ZC01NFM3LVM0Tk8?oc=5",
-"ts": 1794514585,
-"key": "crypto&blockchaincompaniesreporter",
-"id": "n515112_6",
-"first_try": 1794515126.8638108
-},
-{
-"source": "reuters",
-"label": "로이터",
-"gn": true,
-"title": "米中古住宅販売、10月は5.5％減 16年ぶり低水準",
-"lead": "",
-"link": "https://news.google.com/rss/articles/CBMihgFBVV95cUxNUDBkMExQU2JTZVR1TTU5TmlZajRoWmZTM2NzZV9Xc3dxbUFKU05vbjFCNjhielhIOHUwSlY4REJWM1NzQWpZWUZmVXBGcG1wUDFKb3VfUzFIcVY4Vm9id3NxMGFub01DOVpMTnl2MGcxaHlaWWRyelRCdXBBdHVOZUdVc3NLdw?oc=5",
-"ts": 1794514664,
-"key": "米中古住宅販売10月は55％減16年ぶり低水準",
-"id": "n515112_7",
-"first_try": 1794515126.8638115
-}
-],
+"pending": [],
 "daily": {
 "date": "2026-11-13",
 "count": 17
@@ -6393,7 +6302,7 @@
 },
 "version": 3,
 "health": {
-"llm": 1,
+"llm": 0,
 "src": {
 "니케이|://assets.wor.jp/rss/rdf/nikkei/news.rdf": 0,
 "니케이|assets.wor.jp/rss/rdf/nikkei/markets.rdf": 0,
@@ -6414,76 +6323,6 @@
 "alerted": []
 },
 "week": [
-{
-"ts": 1793823974.056064,
-"ko": "마루베니, 인도를 다음 '북미'로 지정…관련 사업 10년 내 10배 확대 추진",
-"gist": "마루베니가 인도를 향후 핵심 성장 시장으로 지정하고 관련 사업 규모를 10년 내 10배로 확대하겠다는 전략을 밝혔다.",
-"b": [
-"1) 마루베니의 오모토 마사유키 사장은 인도를 다음 '북미'로 규정하고 관련 사업을 향후 10년간 10배로 확대하겠다고 발표함.",
-"2) 14억 인구를 기반으로 소비 시장과 제조업이 함께 성장하는 인도를 세계 경제의 새로운 성장축으로 보고 경영 자원과 인재를 집중 투입할 방침임."
-],
-"ins": "(추정) 인도 내 소비재 및 제조업 성장에 따른 종합상사의 신시장 선점 효과가 기대되나, 현지 규제 변화나 글로벌 경기 둔화 시 사업 확장 속도가 지연될 리스크가 있음.",
-"cos": "마루베니(8002 JP)",
-"url": "https://www.nikkei.com/article/DGXZQOGM30ATN0Q6A031C2000000/",
-"src": "니케이",
-"score": 4
-},
-{
-"ts": 1793823975.8528457,
-"ko": "후지TV, 2027년부터 모든 드라마 제작에 생성 AI 전면 도입…민방 최초",
-"gist": "후지텔레비전이 2027년부터 제작하는 모든 실적 드라마에 생성형 AI를 전면 도입하여 작업 시간을 대폭 단축하기로 했다.",
-"b": [
-"1) 후지 미디어 홀딩스 산하 후지텔레비전이 2027년 10월부터 연간 16편 제작하는 모든 실사 드라마 제작에 생성 AI를 전면 활용할 계획임.",
-"2) 민방 키국 최초의 전면 도입으로 구글의 이미지 생성 툴 등을 활용해 작업 시간을 최대 80% 단축할 방침임."
-],
-"ins": "(추정) 미디어 제작 현장의 인공지능 전면 도입은 제작비 절감 및 효율성 개선에 긍정적이나, 저작권 문제 발생이나 초기 도입 시 콘텐츠 품질 저하 리스크가 존재함.",
-"cos": "후지 미디어 홀딩스(4676 JP)",
-"url": "https://www.nikkei.com/article/DGXZQOUC267PA0W6A021C2000000/",
-"src": "니케이",
-"score": 4
-},
-{
-"ts": 1793823977.54023,
-"ko": "일본제철, US스틸 이익 비중 4할 초과 전망…미 중간선거 결과가 리스크 요인",
-"gist": "일본제철의 4~9월기 연결 실적에서 US스틸이 전체 이익의 4할을 차지할 전망이나, 미국 중간선거 결과가 향후 변수로 작용할 수 있다.",
-"b": [
-"1) 일본제철의 2026년 7~9월기 연결 이익 중 자회사 US스틸의 이익이 전체의 40% 이상을 차지할 것으로 전망됨.",
-"2) 2026년 4~9월기 실력 베이스 사업이익은 전년 동기 대비 28% 감소한 2,500억 엔으로 예상되며, 일본 국내 사업 이익은 60% 감소할 것으로 추정됨."
-],
-"ins": "(추정) 해외 철강 자회사의 실적 호조가 국내 실적 부진을 상쇄하고 있으나, 주요국 정치적 환경 변화 및 통상 정책 변경 시 수익성이 악화될 리스크가 있음.",
-"cos": "일본제철(5401 JP)",
-"url": "https://www.nikkei.com/article/DGXZQOUB295WC0Z21C26A0000000/",
-"src": "니케이",
-"score": 5
-},
-{
-"ts": 1793823979.22312,
-"ko": "미쓰비시UFJ, 2027년 카드 없는 디지털뱅크 개업…매일 이자 지급 서비스 도입",
-"gist": "미쓰비시UFJ 피닉셜그룹이 2027년 출범하는 디지털 은행에서 실물 카드 발급 없이 매일 이자를 지급하는 등 파격적인 혁신 금융 서비스를 선보인다.",
-"b": [
-"1) 미쓰비시UFJ파이낸셜그룹이 2027년 개업하는 디지털 은행에서 매일 이자를 지급하고 현금카드를 발행하지 않는 혁신 서비스를 도입함.",
-"2) 기존 은행 서비스 고객의 전환과 젊은 층 및 다양한 고객층 흡수를 통해 리테일 금융 사업을 성장 동력으로 재구축하려는 목표임."
-],
-"ins": "(추정) 혁신적 디지털 금융 서비스 도입은 개인 예금 확보 및 신규 고객 유입에 긍정적이나, 금융권 내 디지털 전환 경쟁 심화에 따른 마케팅 비용 증가 리스크가 존재함.",
-"cos": "미쓰비시UFJ파이낸셜 그룹(8306 JP)",
-"url": "https://www.nikkei.com/article/DGXZQOUB044V20U6A101C2000000/",
-"src": "니케이",
-"score": 4
-},
-{
-"ts": 1793823980.9551632,
-"ko": "고이토제작소, 중국 경쟁사에 대응해 2030년까지 램프 제조원가 30% 절감 추진",
-"gist": "자동차 램프 대기업 고이토제작소가 저렴한 중국산 제품에 대응하기 위해 현지 제품 분석과 AI 활용을 통해 2030년까지 제조 원가를 30% 낮추기로 했다.",
-"b": [
-"1) 고이토제작소는 가격이 30%가량 저렴한 중국산 자동차용 램프에 대응하기 위해 2030년도까지 제조 원가를 약 30% 절감할 계획임.",
-"2) 중국산 재료 채택 확대와 인공지능(AI) 활용, 경쟁사 제품 연구를 통해 가격 경쟁력을 확보하려 함."
-],
-"ins": "(추정) 적극적인 원가 절감 노력이 부품 업황 내 가격 경쟁력 유지에 기여할 수 있으나, 부품 재질 변경에 따른 품질 리스크나 완성차 업계의 수주 감소 위험이 부각될 수 있음.",
-"cos": "고이토제작소(7276 JP)",
-"url": "https://www.nikkei.com/article/DGXZQOUC263YS0W6A021C2000000/",
-"src": "니케이",
-"score": 4
-},
 {
 "ts": 1793825187.5493603,
 "ko": "뉴욕 외환시장: 달러 하락, 미 중간선거 민주당 압승으로 불확실성 해소",
