@@ -1,18 +1,5 @@
 {
 "seen": {
-"冷蔵庫サイバー攻撃はイランの犯行仏当局端末のipアドレス特定": 1794255913.1773021,
-"トランプ氏中間選挙の正当性に疑問結果受け入れから転換": 1794255913.1841094,
-"nvidiaファン氏スパイ関与疑惑で株価9%安議会は超党派で追及": 1794255913.191558,
-"nyダウは反発一時1200ドル高トランプ氏発言で原油価格が下落": 1794255913.1989224,
-"弱いトランプ新たな火種米経済終わる関税の宴": 1794255913.205235,
-"aiロボットで海底鉱物採取米国企業が成功日本近海で技術協力探る": 1794255913.2127478,
-"マナビーの本間ceoaiで個別最適の教育東南アジアに広げる": 1794255913.2198012,
-"維新見える核抑止提起持ち込み容認の欧州参考自民党は慎重": 1794255913.226666,
-"自民党執行部本会議退席で石破氏ら処分参院審議向け結束図る": 1794255913.2346716,
-"美元指数9日下跌": 1794255913.2394512,
-"fornetanyahusrivaleisenkotahardroadaheadtoformagovernment": 1794255913.2490845,
-"gla1vhetrestockprice&latestnews": 1794255913.2503104,
-"ｆｒｂは慎重な政策運営を12月会合は予断持たずリッチモンド連銀総裁": 1794255913.2578056,
 "脱炭素の投資技術移転日aseanが協力cop31で共同報告": 1794256512.4826326,
 "自民維新安全保障3文書改定向けきょうから作業チームが協議": 1794256512.4895496,
 "高市首相高性能ai進展で国際社会連携を仏政府主催の会合で": 1794256512.4964235,
@@ -2860,7 +2847,18 @@
 "weixinzha": 1794514511.078719,
 "loukiagyftopoulou": 1794514511.0840216,
 "simoneiglesias": 1794514511.089083,
-"jonathanroeder": 1794514511.0940926
+"jonathanroeder": 1794514511.0940926,
+"ロシアによる北海道新聞記者拘束1か月即時解放求め続ける": 1794515112.1801925,
+"rajeshmascarenhasindiaequitycapitalmarketsreporterbloomberg": 1794515112.1889696,
+"johnstepek": 1794515112.1937754,
+"jilliandeutsch": 1794515112.1988783,
+"allisonmcneely": 1794515112.2039726,
+"albertinatorsoli": 1794515112.209258,
+"theimagesthattracethedepartingnvidiaceosrelationshipwithalicehuang": 1794515112.2179232,
+"antonysguazzin": 1794515112.2230818,
+"欧州市場サマリー12日": 1794515112.2258723,
+"crypto&blockchaincompaniesreporter": 1794515112.2332478,
+"米中古住宅販売10月は55％減16年ぶり低水準": 1794515112.2396145
 },
 "recent": [
 {
@@ -6233,7 +6231,104 @@
 }
 ],
 "digest": [],
-"pending": [],
+"pending": [
+{
+"source": "nhk",
+"label": "NHK",
+"gn": false,
+"title": "ロシアによる北海道新聞記者拘束1か月 即時解放求め続ける",
+"lead": "ロシアの治安機関が北海道新聞の記者を拘束して13日で1か月となりました。日本側は即時解放などを求めてきましたが、ロシア側は応じる姿勢を示しておらず、日本側は今後も即時解放を強く求めるとともに、「領事面…",
+"link": "https://news.web.nhk/newsweb/na/nd-20261113de75109",
+"ts": 1794514975,
+"key": "ロシアによる北海道新聞記者拘束1か月即時解放求め続ける",
+"id": "n515112_0",
+"first_try": 1794515126.863727
+},
+{
+"source": "bloomberg",
+"label": "블룸버그",
+"gn": true,
+"title": "John Stepek",
+"lead": "",
+"link": "https://news.google.com/rss/articles/CBMiZ0FVX3lxTFBNWWJnWHg0eXVxYTRIdjVOeVh6blF2cXlXY20zUVlqdEV1V3pxZXotbFFrVDJ2cmo3UEtxcVFyVDdiQWhwaUxxenlVS1NRck9jM2lLS19IeVRyTEpicEJLTHRyUUpYZ1E?oc=5",
+"ts": 1794509570,
+"key": "johnstepek",
+"id": "n515112_1",
+"first_try": 1794515126.8637314
+},
+{
+"source": "bloomberg",
+"label": "블룸버그",
+"gn": true,
+"title": "Jillian Deutsch",
+"lead": "",
+"link": "https://news.google.com/rss/articles/CBMibEFVX3lxTFBvbGZsLTROUEFjY296QWZVc1NSdV9ucUgzN044X1BqSGx3d19BVTJxTVZjei1Qc215UlVaVno4VGNJR29EaWdKTUk0OGFZak9zOU4wMEY3VEppcnhQQWJLdXVRTFdBeWw1RnMxQQ?oc=5",
+"ts": 1794509741,
+"key": "jilliandeutsch",
+"id": "n515112_2",
+"first_try": 1794515126.863733
+},
+{
+"source": "bloomberg",
+"label": "블룸버그",
+"gn": true,
+"title": "Allison McNeely",
+"lead": "",
+"link": "https://news.google.com/rss/articles/CBMibEFVX3lxTE5CeE8ydThSM1hpUXlzcG1oWUp4bEFDTVF2Ni1YeUxwejdidGhnWFFibGpuU2ZpeWRGU2RaWU9pcWNZWDNUOXlXME8tcHRxNFJKQ0FpbnVwaHlSd09CZ2t0UGRpXzllaFlPYUF5aQ?oc=5",
+"ts": 1794509956,
+"key": "allisonmcneely",
+"id": "n515112_3",
+"first_try": 1794515126.863734
+},
+{
+"source": "bloomberg",
+"label": "블룸버그",
+"gn": true,
+"title": "Albertina Torsoli",
+"lead": "",
+"link": "https://news.google.com/rss/articles/CBMib0FVX3lxTE9wUkwtUVRzeE5KVlE5dC1pZ0lEUmNJaVQtaXhFZ1JKNVotb25sdGMzUHN3emk2c01qRHdIZFJNMm5RWjFzUEsyeDVWTHdZaE50cHc3am9WZVh4X1FwWkhOc3hMVC04bWxVVWs1dEcxTQ?oc=5",
+"ts": 1794509982,
+"key": "albertinatorsoli",
+"id": "n515112_4",
+"first_try": 1794515126.8638084
+},
+{
+"source": "bloomberg",
+"label": "블룸버그",
+"gn": true,
+"title": "Antony Sguazzin",
+"lead": "",
+"link": "https://news.google.com/rss/articles/CBMibEFVX3lxTE9NZWVNa3U3d0JyZTJGT3JBV2taTER1dkhJUUk4Nk9FdXlGb2NQeGpUN0MzeXBfUzVGN081XzFwVWM4Z3lxb1NHZjJmV2xXSFNodmlKcDc0ZXJ6c080Tkk2aENEMVhIbG1xUmVHQw?oc=5",
+"ts": 1794511523,
+"key": "antonysguazzin",
+"id": "n515112_5",
+"first_try": 1794515126.86381
+},
+{
+"source": "bloomberg",
+"label": "블룸버그",
+"gn": true,
+"title": "Crypto & Blockchain Companies Reporter",
+"lead": "",
+"link": "https://news.google.com/rss/articles/CBMiZEFVX3lxTFBCa1BfbnlqODZueGozYWR5bzJxcHhxZE16ZmJPekhIRG0zNFBsRFh2UFlHYjJYb0ZzbWxJR0dFem43OUVuYW5NWl9JU3g5ZG5xN2w5QXBPb3N5ZC01NFM3LVM0Tk8?oc=5",
+"ts": 1794514585,
+"key": "crypto&blockchaincompaniesreporter",
+"id": "n515112_6",
+"first_try": 1794515126.8638108
+},
+{
+"source": "reuters",
+"label": "로이터",
+"gn": true,
+"title": "米中古住宅販売、10月は5.5％減 16年ぶり低水準",
+"lead": "",
+"link": "https://news.google.com/rss/articles/CBMihgFBVV95cUxNUDBkMExQU2JTZVR1TTU5TmlZajRoWmZTM2NzZV9Xc3dxbUFKU05vbjFCNjhielhIOHUwSlY4REJWM1NzQWpZWUZmVXBGcG1wUDFKb3VfUzFIcVY4Vm9id3NxMGFub01DOVpMTnl2MGcxaHlaWWRyelRCdXBBdHVOZUdVc3NLdw?oc=5",
+"ts": 1794514664,
+"key": "米中古住宅販売10月は55％減16年ぶり低水準",
+"id": "n515112_7",
+"first_try": 1794515126.8638115
+}
+],
 "daily": {
 "date": "2026-11-13",
 "count": 17
@@ -6298,7 +6393,7 @@
 },
 "version": 3,
 "health": {
-"llm": 0,
+"llm": 1,
 "src": {
 "니케이|://assets.wor.jp/rss/rdf/nikkei/news.rdf": 0,
 "니케이|assets.wor.jp/rss/rdf/nikkei/markets.rdf": 0,
@@ -20081,7 +20176,7 @@
 },
 "20261113": {
 "sent": 17,
-"tri_fail": 1
+"tri_fail": 2
 }
 }
 }
