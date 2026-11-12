@@ -1,8 +1,5 @@
 {
 "seen": {
-"日本软银集团与grab签署联合开发协议将在马来西亚开发人工智能基础设施软银集团将在人工智能领域投资10亿美元gr": 1794239720.7629414,
-"4631tstockprice&latestnews": 1794239720.7634342,
-"米9月卸売在庫07％増と速報値から上方改定電気製品など大幅増加": 1794239720.7707205,
 "dena筒香嘉智fa権行使せず残留横浜で頂点に": 1794240314.5829325,
 "大坂なおみ17位に後退女子テニス世界ランキング": 1794240314.5895853,
 "バスケbプレミア名古屋dが今季初黒星連勝11でストップ": 1794240314.5965874,
@@ -2756,7 +2753,11 @@
 "トランプ氏メキシコに関税倍増を警告移民の流入阻止しなければ": 1794497718.5510736,
 "エヌビディアのフアンｃｅｏ辞任暫定トップにクレスｃｆｏ": 1794498313.4251254,
 "米国株式市場序盤ａｉ関連株急落エヌビディアｃｅｏ辞任で資金供給懸念": 1794498313.432722,
-"トランプ氏イラン合意不要国内問題に注力するよう副大統領に指示": 1794498313.4400337
+"トランプ氏イラン合意不要国内問題に注力するよう副大統領に指示": 1794498313.4400337,
+"任天堂宣布自2027年1月26日起用户将无法再使用苹果或谷歌账户登录任天堂账户": 1794498916.9671097,
+"エヌビディアのフアン氏と関係の女性シンガポール入国禁止に": 1794498916.9742749,
+"エヌビディア先端半導体をdeepseekに､前ceo不倫相手が供給画策報道": 1794498916.9823008,
+"ｎｙ建物倒壊の死者8人に消防士含む17人負傷市長": 1794498916.9891353
 },
 "recent": [
 {
@@ -6125,7 +6126,56 @@
 }
 ],
 "digest": [],
-"pending": [],
+"pending": [
+{
+"source": "sina",
+"label": "신랑재경",
+"gn": false,
+"title": "任天堂宣布，自2027年1月26日起，用户将无法再使用苹果或谷歌账户登录任天堂账户。",
+"lead": "任天堂宣布，自2027年1月26日起，用户将无法再使用苹果或谷歌账户登录任天堂账户。",
+"link": "https://finance.sina.com.cn/7x24/?id=5211484",
+"ts": 1794498492.0,
+"key": "任天堂宣布自2027年1月26日起用户将无法再使用苹果或谷歌账户登录任天堂账户",
+"id": "n498917_0",
+"first_try": 1794498939.211679
+},
+{
+"source": "bloomberg",
+"label": "블룸버그",
+"gn": true,
+"title": "エヌビディアのフアン氏と関係の女性、シンガポール入国禁止に",
+"lead": "",
+"link": "https://news.google.com/rss/articles/CBMijgFBVV95cUxOcUVDOVhfc1NXREIyMUdfVk5ZNU9UWmJONzF2RC1raGU2SVVGS25zaEVQd2V4dUc0VVA3ZGdlcUNvMG1uS21LdEFlQ3F0UXA0SFBqYThubDRXTXBiMTc3WXBFMFkxazA1YUJ6LTNtQTFUQk9WaHAxbmpXZEZaNkFWNWxZWWhiaE1FVF9ONE1R?oc=5",
+"ts": 1794498079,
+"key": "エヌビディアのフアン氏と関係の女性シンガポール入国禁止に",
+"id": "n498917_1",
+"first_try": 1794498939.211684
+},
+{
+"source": "bloomberg",
+"label": "블룸버그",
+"gn": true,
+"title": "エヌビディア先端半導体をDEEPSEEKに､前CEO不倫相手が供給画策－報道",
+"lead": "",
+"link": "https://news.google.com/rss/articles/CBMid0FVX3lxTE42ejJoUHFBbjNNVGhUUHV6THgxZG9PdzdWUF9aaE5YdlNROVRlUVVaa2NuYXhjWGhXa2ZweXJYNGVnUDdtTGxuUFI4OEhmQTFVeVJnUHo1djh0Mk1LWHo5RkxRbjIxYTBMWk5WLTktZFlCSUlwcTlF?oc=5",
+"ts": 1794498106,
+"key": "エヌビディア先端半導体をdeepseekに､前ceo不倫相手が供給画策報道",
+"id": "n498917_2",
+"first_try": 1794498939.2116857
+},
+{
+"source": "reuters",
+"label": "로이터",
+"gn": true,
+"title": "ＮＹ建物倒壊の死者8人に、消防士含む17人負傷＝市長",
+"lead": "",
+"link": "https://news.google.com/rss/articles/CBMif0FVX3lxTE90dGVnaXVVdEpMdFJQQ1NyYnFTekYtLVpHMjI0bkh6blBtUzFhSl95QzVxekpEeS1GbUZ2QlVjUzNZNFltaE5WeWtYNUhJRzRRRWhaeHgwRXFxMWR3VUdaMUR3dTNEbFhyWm9rdGRPT0ViSmZ4MDRKR243dC1kQ1k?oc=5",
+"ts": 1794498223,
+"key": "ｎｙ建物倒壊の死者8人に消防士含む17人負傷市長",
+"id": "n498917_3",
+"first_try": 1794498939.2116864
+}
+],
 "daily": {
 "date": "2026-11-13",
 "count": 2
@@ -6190,7 +6240,7 @@
 },
 "version": 3,
 "health": {
-"llm": 0,
+"llm": 1,
 "src": {
 "니케이|://assets.wor.jp/rss/rdf/nikkei/news.rdf": 0,
 "니케이|assets.wor.jp/rss/rdf/nikkei/markets.rdf": 0,
@@ -19836,7 +19886,8 @@
 "tri_fail": 1
 },
 "20261113": {
-"sent": 2
+"sent": 2,
+"tri_fail": 1
 }
 }
 }
