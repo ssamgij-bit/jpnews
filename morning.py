@@ -408,7 +408,7 @@ def jgb10():
         return None
 
 
-def jgb10_hist(years=3):
+def jgb10_hist(years=5):
     """일본 국채 10년 금리 일별 이력(재무성: 과거분 jgbcm_all + 이번 달 jgbcm) → [(datetime, %)] 최근 years년"""
     out = {}
     for u in ("https://www.mof.go.jp/jgbs/reference/interest_rate/data/jgbcm_all.csv",
@@ -433,7 +433,7 @@ def jgb10_hist(years=3):
     return sorted((d, v) for d, v in out.items() if d >= cut)
 
 
-def usdjpy_hist(years=3):
+def usdjpy_hist(years=5):
     """달러/엔 일봉 종가(Yahoo) → [(datetime, 값)] 최근 years년"""
     try:
         import yfinance as yf
@@ -447,7 +447,7 @@ def usdjpy_hist(years=3):
 
 
 def rates_chart_png(fx, jgb):
-    """달러/엔·일본 국채 10년 최근 3년 선 차트(좌우 2칸) → data URI. 최근값과 1년 전 대비 변화를 제목에"""
+    """달러/엔·일본 국채 10년 최근 5년 선 차트(좌우 2칸) → data URI. 최근값과 1년 전 대비 변화를 제목에"""
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
@@ -473,9 +473,9 @@ def rates_chart_png(fx, jgb):
         ax.scatter([last_d], [last], color=col, s=10, zorder=3)
         hi, lo = max(ys), min(ys)
         ax.set_title(f"{name}  {fmt(last)}  (1년 전 대비 {dfmt(y1, last)})\n", loc="left", fontsize=8.5, color="#222")
-        ax.text(0, 1.02, f"3년 최고 {fmt(hi)} · 최저 {fmt(lo)} · {last_d:%Y-%m-%d} 기준", transform=ax.transAxes, fontsize=6.8, color="#888")
-        ax.xaxis.set_major_locator(mdates.MonthLocator(bymonth=(1, 7)))
-        ax.xaxis.set_major_formatter(mdates.DateFormatter("%y.%m"))
+        ax.text(0, 1.02, f"5년 최고 {fmt(hi)} · 최저 {fmt(lo)} · {last_d:%Y-%m-%d} 기준", transform=ax.transAxes, fontsize=6.8, color="#888")
+        ax.xaxis.set_major_locator(mdates.MonthLocator(bymonth=(1,)))
+        ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y"))
         ax.tick_params(labelsize=6.8, length=0)
         ax.grid(axis="y", color="#eee", lw=0.6)
         for s_ in ("top", "right", "left"):
