@@ -573,7 +573,7 @@ def fmt_item(c, w, idx=None):
     return "\n".join(lines)
 
 
-TO_PDF = os.getenv("COMMUNITY_TO_PDF", "1") == "1"  # 화제글·X·note·주간 정리는 텔레그램 대신 평일 08:30 아침 PDF(morning.py)에 묶음
+TO_PDF = os.getenv("COMMUNITY_TO_PDF", "0") == "1"  # 기본: 텔레그램 채널로 발송(다이제스트 매일 07:00). "1"이면 예전처럼 아침 PDF용으로만 저장
 PDF_STATE = None  # main()에서 상태를 넣어 둠
 _KIND = "community"
 def stash(kind, header, blocks):
@@ -1187,7 +1187,7 @@ def main():
     if state.get("slot_v") != 3:  # 회차 변경(07:30·19:30→07:00·19:00): 지난 회차를 소급 발송하지 않도록 기준만 맞춤
         state["last_slot"] = state["last_xslot"] = state["last_nslot"] = due_slot(now_dt)[0]
         state["slot_v"] = 3
-    r1 = urgent_pass(state, now, first_run)
+    r1 = urgent_pass(state, now, first_run) if TO_PDF else None  # ★ 즉시 알림은 끔 — 채널에는 하루 한 번(07:00) 다이제스트만
     save_state(state)
     r2 = digest_pass(state, now_dt, os.getenv("DIGEST_NOW") == "1")
     save_state(state)

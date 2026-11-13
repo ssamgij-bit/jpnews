@@ -5,7 +5,7 @@
     참고 텔레그램 채널(사제콩이 @ehdwl, 미국 주식 인사이더 @insidertracking)의 아침 글 → AI 정리
  2) 일본 증시 시황: 지수(Yahoo), 신고가 봇의 마감 정리(highs_state.json), 뉴스봇이 보낸 기사(state.json),
     공시봇 하이라이트(jpall 저장소 state 브랜치) → AI 정리
- 3) 커뮤니티 화제글·X 트렌드·note 급상승 주제·주간 순위(community_state.json의 pdfq — 텔레그램 대신 여기로 모임)
+ 3) (커뮤니티 화제글·X·note 트렌드는 2026-11-13부터 텔레그램 채널 07:00 발송으로 옮겨 PDF에서 뺌)
  4) 일본 52주 신고가·상승률 상위(highs_state.json의 pdfq)
 지난 PDF 이후 쌓인 것을 모두 묶는다(월요일 PDF = 금요일 아침 이후 주말분 포함).
 
@@ -719,9 +719,6 @@ JP_PROMPT = """너는 한국 자산운용사 주식운용본부의 일본 주식
 
 [오늘 실적 발표 예정(시총 상위)]
 {earn}
-
-[커뮤니티 화제(24시간 동향)]
-{com}
 """
 
 
@@ -1119,8 +1116,6 @@ def build_pdf(state, since_ts):
         pw -= timedelta(days=1)
     jp_closed = bool(jp_day) and jp_day < pw.strftime("%Y-%m-%d")  # 직전 평일이 일본 휴장일
     # ── 3)·4) 쌓아 둔 메시지
-    com = stashes("community_state.json", since_ts)
-    com_txt = "\n".join(strip_html(b)[:1500] for x in com if x["kind"] == "community" for b in x["blocks"][:1])[:3000] or "(없음)"
     us_sum = " ".join(us.get("summary") or [])[:800] or qtxt[:600]
     try:
         movers = sector_movers(secs, jp_day=jp_day)
@@ -1129,7 +1124,7 @@ def build_pdf(state, since_ts):
     mv_txt = "\n".join(f"## {m['sector']} {m['pct']:+.2f}%\n" + "\n".join(
         f"- {x['name']}({x['code']}) {x['pct']:+.2f}%\n  " + ("\n  ".join(x["news"]) or "근거 자료 없음") for x in m["stocks"]) for m in movers) or "(없음)"
     jp = gemini_obj(state, JP_PROMPT.format(day=jp_day, us=us_sum, idx=jp_idx or "-", wrap=wrap_txt[:6000], movers=mv_txt[:16000], news=news_txt[:8000],
-                                            disc=disc_txt[:9000], earn=earn_txt, com=com_txt), JP_SCHEMA, "일본 시황") or {}
+                                            disc=disc_txt[:9000], earn=earn_txt), JP_SCHEMA, "일본 시황") or {}
     hi = [x for x in wraps if x["kind"] in ("highs", "gainers")]
 
     # ── HTML: 분량(목표 PAGE_MAX쪽)에 맞춰 단계(lv)별로 덜 중요한 부분부터 줄임
@@ -1282,23 +1277,7 @@ def build_pdf(state, since_ts):
         if jp.get("watch"):
             parts.append("<h3>체크 포인트</h3>" + li(jp["watch"]))
         # 3
-        order = ["insight", "community", "x", "note", "weekly", "urgent"]
-        # 같은 종류 다이제스트가 여러 번 쌓였으면(주말 합산) 최신 것만, 실시간 알림(★)은 ★5만 소수 — 다이제스트와 겹침
-        latest = {}
-        for x in com:
-            if x["kind"] in ("community", "x", "note", "weekly", "insight") and x["ts"] >= latest.get(x["kind"], {}).get("ts", 0): latest[x["kind"]] = x
-        urg = [x for x in com if x["kind"] == "urgent" and "★5" in x.get("head", "")][-(4, 3, 0, 0, 0, 0)[lv]:] if lv < 2 else []
-        cs = sorted(list(latest.values()) + urg, key=lambda x: (order.index(x["kind"]) if x["kind"] in order else 9, x["ts"]))
-        caps = [{"community": 12, "x": 10, "note": 10, "weekly": 12},
-                {"community": 8, "x": 7, "note": 7, "weekly": 10},
-                {"community": 6, "x": 5, "note": 5, "weekly": 8},
-                {"community": 4, "x": 4, "note": 4, "weekly": 6},
-                {"community": 3, "x": 3, "note": 3, "weekly": 5},
-                {"community": 3, "x": 3, "note": 3, "weekly": 3}][lv]
-        parts.append("<h2>3. 커뮤니티·X·note 화제</h2>")
-        parts.append(stash_html(cs, "화제", caps) if cs else "<p class='note'>이 기간에 쌓인 화제글 정리가 없습니다.</p>")
-        # 4
-        parts.append("<h2>4. 일본 52주 신고가 · 상승률 상위</h2>")
+        parts.append("<h2>3. 일본 52주 신고가 · 상승률 상위</h2>")
         hd = max((x.get("day", "") for x in hi), default="")
         hs = [x for x in hi if lv == 0 or x.get("day", "") == hd]   # 줄일 때는 마지막 거래일 것만
         hcaps = [{"highs": 40, "gainers": 18}, {"highs": 25, "gainers": 12}, {"highs": 18, "gainers": 10},
@@ -1326,7 +1305,7 @@ def build_pdf(state, since_ts):
     cap = [f"<b>아침 브리핑 {t:%m/%d}({wd})</b>"]
     if top3:
         cap += [f"{i}. {esc(str(x).lstrip('•·- 0123456789.'))}" for i, x in enumerate(top3, 1)]
-    cap.append(f"화제글·트렌드 {len(com)}건 · 신고가·상승률 {len(hi)}건")
+    cap.append(f"신고가·상승률 {len(hi)}건")
     return pdf, "\n".join(cap)
 
 
