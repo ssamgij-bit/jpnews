@@ -444,7 +444,7 @@ OVERVIEW_PROMPT = """너는 한국 자산운용사의 일본 주식 담당 애�
 - 개별 글 나열이 아니라 비슷한 글을 묶어 흐름을 써라.
 - 같은 [주제]의 줄은 반드시 연달아 붙여 써라(주제별로 묶음). 주제 묶음은 반응 수가 많은 주제부터, 묶음 안에서도 반응이 큰 흐름부터 쓴다.
 - 여러 사이트에서 함께 화제인 주제는 그렇게 밝혀라.
-- 제목에 있는 사실만 쓰고 추측하지 마라. 일본어를 쓰지 말고 고유명사도 한글로 옮겨라. 일본 고유명사는 일본어 발음대로 한글 표기하라(예: 第一興商=다이이치코쇼, 한자의 한국식 독음 금지).
+- 제목에 있는 사실만 쓰고 추측하지 마라. 제목의 주어·대상·숫자를 바꾸거나 제목에 없는 평가·해석(논란, 화제, 우려 등)을 덧붙이지 마라. 일본어를 쓰지 말고 고유명사도 한글로 옮겨라. 일본 고유명사는 일본어 발음대로 한글 표기하라(예: 第一興商=다이이치코쇼, 한자의 한국식 독음 금지).
 JSON 외 텍스트 금지.
 
 글 목록:
@@ -937,6 +937,8 @@ X_PROMPT = """너는 한국 자산운용사의 주식 담당 애널리스트를 
  category: 연예·방송, 애니·게임, 스포츠, 사회·사건, 정치·경제, 기업·상품, 기타 중 하나.
  reason: 왜 화제인지 1~2문장(60자 이내), '~함' 보고서체. 뉴스 제목에 근거가 있으면 그것을 쓰고,
          근거가 없으면 키워드로 짐작한 내용을 쓰되 문장 앞에 '(추정)'을 붙여라. 모르면 '(추정) 이유 불명확함'.
+         뉴스 제목에 없는 인물·숫자·평가(인기, 논란 등)를 지어내지 마라.
+ evidence: reason의 근거가 된 뉴스 제목 1개를 한국어로 옮긴 것(40자 이내, 고유명사는 위 표기 규칙). 근거 뉴스가 없으면 빈 문자열.
  company: 이유가 일본 상장 기업과 직접 관련되면(한국 기업 제외) {{"ko": 한국어 기업명, "official": 정식 사명(일본 기업은 일본어, 한국 기업은 한국어),
           "code": 종목코드(모르면 빈 문자열), "market": "JP" 또는 "KR"}}, 아니면 빈 객체. 확실하지 않으면 빈 객체.
 JSON 외 텍스트 금지.
@@ -948,7 +950,7 @@ X_NAMING = {
             "일본 고유명사는 일본어 발음대로 한글 표기하라(예: 第一興商=다이이치코쇼, 한자의 한국식 독음 금지).",
 }
 X_SCHEMA = {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {
-    "id": {"type": "STRING"}, "ko": {"type": "STRING"}, "category": {"type": "STRING"}, "reason": {"type": "STRING"},
+    "id": {"type": "STRING"}, "ko": {"type": "STRING"}, "category": {"type": "STRING"}, "reason": {"type": "STRING"}, "evidence": {"type": "STRING"},
     "company": {"type": "OBJECT", "properties": {
         "ko": {"type": "STRING"}, "official": {"type": "STRING"}, "code": {"type": "STRING"},
         "market": {"type": "STRING"}}}},
@@ -1029,6 +1031,8 @@ def x_trend_one(state, now_dt, force, cfg):
         lines.append(f"\n<b>{i}. {cat}{esc(r.get('ko') or kw)}</b> ({rank})")
         if r.get("reason"):
             lines.append(f"• {esc(r['reason'])}")
+        if str(r.get("evidence") or "").strip():
+            lines.append(f"  └ 근거: “{esc(str(r['evidence']).strip())}”")
         co = r.get("company") or {}
         tick = company_line([co]) if co.get("ko") else ""
         lines.append(f"&gt;<a href=\"{esc(url)}\">X에서 보기</a>" + (f" · 관련 기업: {esc(tick)}" if tick else ""))
@@ -1076,6 +1080,8 @@ NOTE_PROMPT = """너는 한국 자산운용사의 주식 담당 애널리스트�
      일본 고유명사는 일본어 발음대로 한글 표기하라(예: 第一興商=다이이치코쇼, 한자의 한국식 독음 금지).
  category: 연예·방송, 애니·게임, 스포츠, 사회·사건, 정치·경제, 기업·상품, IT·AI, 생활·문화, 기타 중 하나.
  reason: 왜 화제인지 1~2문장(60자 이내), '~함' 보고서체. 글 제목에 근거해 쓰고, 제목만으로 불분명하면 문장 앞에 '(추정)'을 붙여라.
+         글 제목에 없는 사실·평가를 지어내지 마라.
+ evidence: reason의 근거가 된 대표 글 제목 1개를 한국어로 옮긴 것(40자 이내). 근거 글이 없으면 빈 문자열.
  company: 이유가 일본 상장 기업과 직접 관련되면(한국 기업 제외) {{"ko": 한국어 기업명, "official": 정식 사명(일본 기업은 일본어, 한국 기업은 한국어),
           "code": 종목코드(모르면 빈 문자열), "market": "JP" 또는 "KR"}}, 아니면 빈 객체. 확실하지 않으면 빈 객체.
 JSON 외 텍스트 금지.
@@ -1127,6 +1133,8 @@ def note_trend_pass(state, now_dt, force):
         lines.append(f"\n<b>{i}. {cat}{esc(r.get('ko') or name)}</b> (관련 글 {len(posts)}건 · 좋아요 {likes:,}{streak_txt(streak(state['nweek'], name, now))})")
         if r.get("reason"):
             lines.append(f"• {esc(r['reason'])}")
+        if str(r.get("evidence") or "").strip():
+            lines.append(f"  └ 근거: “{esc(str(r['evidence']).strip())}”")
         co = r.get("company") or {}
         tick = company_line([co]) if co.get("ko") else ""
         lines.append(f"&gt;<a href=\"{esc(url)}\">note에서 보기</a>" + (f" · 관련 기업: {esc(tick)}" if tick else ""))

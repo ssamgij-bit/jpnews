@@ -328,6 +328,20 @@ def jp_earnings_today(day):
     return [r for r in rows if r["watch"] or r["cap"] >= 1e11][:25], len(codes)
 
 
+def watch_calendar(t, days=7):
+    """관심 종목 중 오늘부터 days일 안에 결산 발표가 잡힌 종목 → [(날짜, [(코드, 이름)])] 날짜순 (JPX 결산 발표 예정일, 공시봇 수집분)"""
+    st = jpall_state()
+    sched = st.get("sched") or {}
+    names = jp_names()
+    lo, hi = t.strftime("%Y-%m-%d"), (t + timedelta(days=days - 1)).strftime("%Y-%m-%d")
+    by = {}
+    for c in watch_codes():
+        v = sched.get(c)
+        if v and lo <= v[0] <= hi:
+            by.setdefault(v[0], []).append((c, (names.get(c) or {}).get("ko") or c))
+    return sorted(by.items())
+
+
 def watch_rows(since_ts):
     """관심 종목: 전일 등락·52주 고가 근접·기간 중 공시"""
     st = jpall_state()
@@ -659,9 +673,9 @@ US_PROMPT = """너는 한국 자산운용사 주식운용본부의 글로벌 시
 JP_SCHEMA = {"type": "OBJECT", "properties": {
     "headline": {"type": "STRING"}, "summary": STR_ARR, "watch": STR_ARR, "top3": STR_ARR,
     "sectors": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {
-        "sector": {"type": "STRING"}, "pct": {"type": "NUMBER"}, "why": {"type": "STRING"},
+        "sector": {"type": "STRING"}, "pct": {"type": "NUMBER"}, "why": {"type": "STRING"}, "src": {"type": "STRING"},
         "stocks": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {
-            "name": {"type": "STRING"}, "code": {"type": "STRING"}, "pct": {"type": "NUMBER"}, "why": {"type": "STRING"}},
+            "name": {"type": "STRING"}, "code": {"type": "STRING"}, "pct": {"type": "NUMBER"}, "why": {"type": "STRING"}, "src": {"type": "STRING"}},
             "required": ["name", "code", "pct", "why"]}}},
         "required": ["sector", "pct", "why", "stocks"]}},
     "news": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {
@@ -680,6 +694,7 @@ JP_PROMPT = """너는 한국 자산운용사 주식운용본부의 일본 주식
   stocks: 그 업종에 주어진 종목마다 name(한국어 이름), code, pct(주어진 등락률 그대로), why(그 종목이 오르거나 내린 이유 1~2문장, 90자 이내).
   why는 [기사]·[시황 다이제스트 발췌]·[최근 기사 제목]·[마감 정리]·[공시]에서 구체적 재료를 찾아 써라: 실적(분기 영업이익 증감률·컨센서스 대비), 가이던스 상향·하향 폭, M&A·자사주, 증권사 목표가·등급 변경, 수주·신제품, 업황 지표 등 — 수치와 날짜가 있으면 넣어라.
   '업종 흐름 동반'은 정말 개별 재료가 전혀 없을 때만 쓰고, 근거 없이 짐작한 이유는 '(추정)'을 붙여라.
+  src(업종·종목 모두): why의 근거가 된 자료를 짧게. 예: '카부탄 기사 11/2', '시황 다이제스트 10/31', '마감 정리', '공시 10/30', '뉴스봇'. 근거 없이 짐작했으면 '추정'.
 - news: [뉴스] 중 투자에 중요한 기사 최대 6개. [공시]와 같은 사건을 다룬 기사는 news에서 빼고 disc에만 넣어라(중복 금지). title(한국어 제목 그대로 또는 짧게), why(왜 중요한지 1문장, 60자 이내).
 - disc: [공시] 중 주목할 공시 최대 10개. i(공시 번호), why(투자 관점 한 줄, 60자 이내 — 수정 폭·지속성·시총 고려).
 - watch: 오늘 일본 증시 체크 포인트 2~4줄(아래 [오늘 실적 발표 예정]·지표·이벤트, 자료에 있는 것만).
@@ -959,6 +974,12 @@ td.n{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
 .grid{display:flex;gap:4mm} .grid>div{flex:1}
 table.disc td:first-child{width:24%} table.disc td:nth-child(2){width:42%}
 img.chart{width:82%;margin:1mm 0;display:block} img.chart.sm{width:62%} img.chart.wide{width:100%}
+.srct{color:#999;font-size:7pt;font-style:normal}
+table.cal td{font-size:8.4pt;padding:1.2mm 2mm} td.cd0{white-space:nowrap;width:16mm;color:#9a6a12;font-weight:700}
+.chg{border:1px solid #e3dccb;border-radius:2mm;padding:2.5mm 3.5mm;margin:0 0 4mm;background:#fcfbf7}
+.chips{display:flex;flex-wrap:wrap;gap:1.5mm} .chip{flex:1 0 17%;border-right:1px solid #eee;padding:0.5mm 1.5mm}
+.cl{font-size:7.2pt;color:#777} .cv{font-size:10pt;font-weight:700} .cc{font-size:8pt;font-weight:700}
+.chev{font-size:8pt;color:#444;margin-top:1.5mm}
 .stash{margin:2mm 0 5mm} .sh{font-weight:700;font-size:10.8pt;margin:3mm 0 0.5mm;color:#15181d;border-left:3px solid #9a6a12;padding-left:2mm;page-break-after:avoid}
 .shs{color:#777;font-size:8pt;margin:0 0 2mm 3mm}
 .blk{margin:0 0 2.5mm;page-break-inside:auto;orphans:2;widows:2}
@@ -1085,6 +1106,10 @@ def build_pdf(state, since_ts):
     earn, earn_n = jp_earnings_today(t.strftime("%Y-%m-%d"))
     earn_txt = ", ".join(f"{r['ko']}({r['code']}, {oku(r['cap'])}{', 관심 종목' if r['watch'] else ''})" for r in earn) or "(없음)"
     watch = watch_rows(since_ts)
+    try:
+        wcal = watch_calendar(t)
+    except Exception as ex:
+        print(f"[warn] 관심 종목 실적 캘린더 실패: {ex}", file=sys.stderr); wcal = []
     react, react_d = earnings_reaction(jp_day)
     if react_d and react_d == state.get("react_last"):  # 일본 휴장일 다음 날: 같은 실적 반응을 다시 싣지 않음
         react = []
@@ -1115,6 +1140,25 @@ def build_pdf(state, since_ts):
         top3 = [x for x in (jp.get("top3") or []) if str(x).strip()][:3] or [x for x in (us.get("headline"), jp.get("headline")) if x]
         if top3:
             parts.append("<div class='top3'><div class='t3h'>오늘의 3줄 요약</div>" + "".join(f"<div>{i}. {esc(str(x).lstrip('•·- 0123456789.'))}</div>" for i, x in enumerate(top3, 1)) + "</div>")
+        chips = []
+        def chip(lab, x, kind="pct"):
+            if not x or x.get("px") is None or (kind == "pct" and x.get("chg") is None):
+                return
+            if kind == "bp":
+                val, ch, c_ = f"{x['px']:.2f}%", f"{x['d'] * 100:+.0f}bp", cls(x["d"])
+            elif kind == "fx":
+                val, ch, c_ = f"{x['px']:.2f}", f"{x['d']:+.2f}", cls(x["d"])
+            else:
+                val, ch, c_ = f"{x['px']:,.0f}" if x["px"] > 1000 else f"{x['px']:,.2f}", f"{x['chg']:+.2f}%", cls(x["chg"])
+            chips.append(f"<div class='chip'><div class='cl'>{lab}</div><div class='cv'>{val}</div><div class='cc {c_}'>{ch}</div></div>")
+        chip("닛케이225", q.get("^N225")); chip("TOPIX(ETF)", q.get("1306.T")); chip("달러/엔", q.get("JPY=X"), "fx")
+        if jgb:
+            chips.append(f"<div class='chip'><div class='cl'>일본 국채 10년</div><div class='cv'>{jgb[1]:.3f}%</div><div class='cc {cls(jgb[2])}'>{jgb[2]:+.1f}bp</div></div>")
+        chip("S&P500", q.get("^GSPC")); chip("나스닥", q.get("^IXIC")); chip("반도체(SOX)", q.get("^SOX")); chip("미 국채 10년", q.get("^TNX"), "bp"); chip("WTI", q.get("CL=F"))
+        ev = [x for x in ((jp.get("watch") or [])[:1] + (us.get("watch") or [])[:1]) if str(x).strip()]
+        if chips:
+            parts.append("<div class='chg'><div class='t3h'>전일 대비 무엇이 바뀌었나</div><div class='chips'>" + "".join(chips) + "</div>"
+                         + (f"<div class='chev'>오늘 체크: {' / '.join(esc(str(x).lstrip('•·- ')) for x in ev)}</div>" if ev else "") + "</div>")
         # 1
         parts.append("<h2>1. 글로벌 시황 (미국 중심)</h2>")
         if us.get("headline"):
@@ -1177,14 +1221,18 @@ def build_pdf(state, since_ts):
         sec_b = [b for b in wb if re.match(r"<b>\[(오른|내린) 업종\]</b>", b.strip())]
         jsec = [x for x in (jp.get("sectors") or []) if isinstance(x, dict) and x.get("sector")]
         if jsec:   # 업종 이유 + 그 업종을 움직인 종목과 종목별 이유
+            def srct(x):
+                s_ = str(x.get("src") or "").strip()
+                return f" <span class='srct'>[{esc(s_)}]</span>" if s_ else ""
+
             def sbox(x):
                 p = x.get("pct") or 0
                 h = (f"<div class='card'><div class='ct'>{esc(x['sector'])} <span class='{cls(p)}'>{p:+.2f}%</span></div>"
-                     f"<p>{esc(x.get('why', ''))}</p><ul class='b'>")
+                     f"<p>{esc(x.get('why', ''))}{srct(x)}</p><ul class='b'>")
                 for st in (x.get("stocks") or [])[:3]:
                     sp = st.get("pct") or 0
                     h += (f"<li><b>{esc(st.get('name', ''))}</b> {vdl(str(st.get('code', '')))} <span class='{cls(sp)}'>{sp:+.2f}%</span>"
-                          f" — <span class='{'est' if str(st.get('why', '')).startswith('(추정)') else ''}'>{esc(st.get('why', ''))}</span></li>")
+                          f" — <span class='{'est' if str(st.get('why', '')).startswith('(추정)') else ''}'>{esc(st.get('why', ''))}</span>{srct(st)}</li>")
                 return h + "</ul></div>"
             ups = [x for x in jsec if (x.get("pct") or 0) >= 0]; dns = [x for x in jsec if (x.get("pct") or 0) < 0]
             parts.append("<h3>업종 등락과 이유</h3><div class='wrapg'><div><div class='lbl'>오른 업종</div>" + "".join(sbox(x) for x in ups)
@@ -1217,6 +1265,10 @@ def build_pdf(state, since_ts):
                         f"<td class='n {cls(r['chg'])}'>{r['chg']:+.2f}%</td><td>{esc(info[:150])}</td></tr>")
             parts.append(f"<h3>실적 발표 다음 날 주가 반응 <span class='note'>{react_d[4:6]}/{react_d[6:]} 발표 → {jp_day[5:].replace('-', '/')} 등락 · 시총 300억엔↑·관심 종목, 상승·하락 각 8</span></h3>"
                          "<table><tr><th>종목</th><th>시총</th><th>등락</th><th>실적 내용</th></tr>" + "".join(rrow(r) for r in react[:(16, 16, 12, 10, 8, 6)[lv]]) + "</table>")
+        if wcal:
+            parts.append("<h3>관심 종목 실적 발표 (앞으로 7일)</h3><table class='cal'>" + "".join(
+                f"<tr><td class='cd0'>{d[5:].replace('-', '/')}({'월화수목금토일'[datetime.strptime(d, '%Y-%m-%d').weekday()]})</td><td>"
+                + " · ".join(f"<b>{esc(n)}</b> {vdl(c)}" for c, n in rows) + "</td></tr>" for d, rows in wcal) + "</table>")
         if watch:
             def wrow(r):
                 px = f"{r['px']:,.0f}" if r["px"] else "-"
