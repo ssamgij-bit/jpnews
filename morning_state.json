@@ -35,6 +35,7 @@
 "gemini-3.8-flash",
 "gemini-4-argon",
 "gemini-4-carbon",
+"gemini-4-hydrogen",
 "lyria-3-clip-preview",
 "lyria-3-pro-preview",
 "lyria-3.5",
@@ -50,10 +51,7 @@
 "deep-research-preview-04-2026",
 "deep-research-pro-preview-12-2025"
 ],
-"checked": 1794438851.3557098,
+"checked": 1794535663.2598886,
 "dead": {}
-},
-"last_ts": 1794525001.2365878,
-"sent": "2026-11-13",
-"react_last": "20261110"
+}
 }
