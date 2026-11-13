@@ -408,6 +408,86 @@ def jgb10():
         return None
 
 
+def jgb10_hist(years=3):
+    """일본 국채 10년 금리 일별 이력(재무성: 과거분 jgbcm_all + 이번 달 jgbcm) → [(datetime, %)] 최근 years년"""
+    out = {}
+    for u in ("https://www.mof.go.jp/jgbs/reference/interest_rate/data/jgbcm_all.csv",
+              "https://www.mof.go.jp/jgbs/reference/interest_rate/jgbcm.csv"):
+        try:
+            t = requests.get(u, timeout=60).content.decode("cp932", "ignore")
+        except Exception as ex:
+            print(f"[warn] 국채 이력 실패 {u}: {ex}", file=sys.stderr)
+            continue
+        for l in t.splitlines():
+            m = re.match(r"^([RH])(\d+)\.(\d+)\.(\d+),", l)
+            if not m:
+                continue
+            c = l.split(",")
+            try:
+                v = float(c[10])
+            except (ValueError, IndexError):
+                continue
+            y = int(m.group(2)) + (2018 if m.group(1) == "R" else 1988)
+            out[datetime(y, int(m.group(3)), int(m.group(4)))] = v
+    cut = datetime.now() - timedelta(days=365 * years + 5)
+    return sorted((d, v) for d, v in out.items() if d >= cut)
+
+
+def usdjpy_hist(years=3):
+    """달러/엔 일봉 종가(Yahoo) → [(datetime, 값)] 최근 years년"""
+    try:
+        import yfinance as yf
+        c = yf.download("JPY=X", period=f"{years}y", interval="1d", auto_adjust=False, progress=False)["Close"].dropna()
+        if hasattr(c, "columns"):
+            c = c.iloc[:, 0]
+        return [(i.to_pydatetime().replace(tzinfo=None), float(v)) for i, v in c.items()]
+    except Exception as ex:
+        print(f"[warn] 달러/엔 이력 실패: {ex}", file=sys.stderr)
+        return []
+
+
+def rates_chart_png(fx, jgb):
+    """달러/엔·일본 국채 10년 최근 3년 선 차트(좌우 2칸) → data URI. 최근값과 1년 전 대비 변화를 제목에"""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    import matplotlib.dates as mdates
+    from matplotlib import font_manager as fm
+    sp = importlib.util.find_spec("koreanize_matplotlib")
+    for f in glob.glob(os.path.join((sp.submodule_search_locations or [""])[0], "fonts", "*.ttf")) if sp else []:
+        fm.fontManager.addfont(f)
+    plt.rcParams["font.family"] = "NanumGothic"
+    plt.rcParams["axes.unicode_minus"] = False
+    panels = [(fx, "달러/엔", lambda v: f"{v:,.2f}엔", lambda a, b: f"{b - a:+.1f}엔", "#9a6a12"),
+              (jgb, "일본 국채 10년(%)", lambda v: f"{v:.3f}%", lambda a, b: f"{(b - a) * 100:+.0f}bp", "#23272e")]
+    panels = [p for p in panels if len(p[0]) > 20]
+    if not panels:
+        return None
+    fig, axes = plt.subplots(1, len(panels), figsize=(7.4 if len(panels) == 2 else 4.2, 2.3), dpi=160)
+    axes = axes if len(panels) > 1 else [axes]
+    for ax, (ser, name, fmt, dfmt, col) in zip(axes, panels):
+        xs, ys = [d for d, _ in ser], [v for _, v in ser]
+        ax.plot(xs, ys, color=col, lw=1.1)
+        last_d, last = xs[-1], ys[-1]
+        y1 = next((v for d, v in reversed(ser) if (last_d - d).days >= 365), ys[0])
+        ax.scatter([last_d], [last], color=col, s=10, zorder=3)
+        hi, lo = max(ys), min(ys)
+        ax.set_title(f"{name}  {fmt(last)}  (1년 전 대비 {dfmt(y1, last)})\n", loc="left", fontsize=8.5, color="#222")
+        ax.text(0, 1.02, f"3년 최고 {fmt(hi)} · 최저 {fmt(lo)} · {last_d:%Y-%m-%d} 기준", transform=ax.transAxes, fontsize=6.8, color="#888")
+        ax.xaxis.set_major_locator(mdates.MonthLocator(bymonth=(1, 7)))
+        ax.xaxis.set_major_formatter(mdates.DateFormatter("%y.%m"))
+        ax.tick_params(labelsize=6.8, length=0)
+        ax.grid(axis="y", color="#eee", lw=0.6)
+        for s_ in ("top", "right", "left"):
+            ax.spines[s_].set_visible(False)
+        ax.spines["bottom"].set_color("#ccc")
+    fig.tight_layout()
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png", facecolor="white")
+    plt.close(fig)
+    return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
+
+
 SIZE_W = {"Core30": 8, "Large70": 3, "Mid400": 1}   # 업종 지수 영향 가중(시총 규모 대용)
 
 
@@ -878,7 +958,7 @@ td.n{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
 .up{color:#cf2f3f} .dn{color:#2360c4}
 .grid{display:flex;gap:4mm} .grid>div{flex:1}
 table.disc td:first-child{width:24%} table.disc td:nth-child(2){width:42%}
-img.chart{width:82%;margin:1mm 0;display:block} img.chart.sm{width:62%}
+img.chart{width:82%;margin:1mm 0;display:block} img.chart.sm{width:62%} img.chart.wide{width:100%}
 .stash{margin:2mm 0 5mm} .sh{font-weight:700;font-size:10.8pt;margin:3mm 0 0.5mm;color:#15181d;border-left:3px solid #9a6a12;padding-left:2mm;page-break-after:avoid}
 .shs{color:#777;font-size:8pt;margin:0 0 2mm 3mm}
 .blk{margin:0 0 2.5mm;page-break-inside:auto;orphans:2;widows:2}
@@ -993,6 +1073,10 @@ def build_pdf(state, since_ts):
                          + (f" / 사유: {x.get('why') or x.get('why0')}" if (x.get('why') or x.get('why0')) else "")
                          for i, x in enumerate(disc)) or "(없음)"
     jgb = jgb10()
+    try:
+        rates_img = rates_chart_png(usdjpy_hist(), jgb10_hist())
+    except Exception as ex:
+        print(f"[warn] 환율·금리 차트 실패: {ex}", file=sys.stderr); rates_img = None
     if jgb:
         jp_idx += f", 일본 국채 10년 {jgb[1]:.3f}% ({jgb[2]:+.1f}bp, {jgb[0]})"
     secs = jp_sector_rows(jp_day, wrap)
@@ -1078,6 +1162,8 @@ def build_pdf(state, since_ts):
         if jp_closed:
             parts.append(f"<p class='note'>※ {pw:%m/%d}({'월화수목금토일'[pw.weekday()]})은 일본 휴장일 — 일본 지수·업종·실적 반응은 마지막 거래일 {jp_day[5:].replace('-', '/')} 기준(이미 실은 내용은 생략).</p>")
         parts.append(jt)
+        if rates_img:
+            parts.append(f"<img class='chart wide' src='{rates_img}'>")
         if jp.get("summary"):
             parts.append("<h3>시장 흐름</h3>" + li(jp["summary"]))
         if secs:
