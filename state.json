@@ -1,15 +1,5 @@
 {
 "seen": {
-"joesobczyk": 1794522311.9725773,
-"alisaodenheimer": 1794522311.9776018,
-"danstrumpf": 1794522311.9822006,
-"melissacheok": 1794522311.9870262,
-"arabilegumede": 1794522311.991836,
-"stephenstapczynski": 1794522311.9970877,
-"rajeshkumarsingh": 1794522312.00215,
-"氷見野日銀副総裁午後1時26分から参院特別委に出席関係筋": 1794522312.0087411,
-"germanfinanceandeconomyministryreporter": 1794522312.0160503,
-"sangmicha": 1794522312.0205417,
 "howfarwilltheecbgotorescuefrancemacromatters": 1794522911.7511055,
 "クリーブランド連銀総裁より積極的な利上げに慎重姿勢": 1794522911.757565,
 "juliafioretti": 1794522911.7624974,
@@ -2298,12 +2288,6 @@
 },
 "recent": [
 {
-"id": "n608712_2",
-"ko": "뉴욕 외환시장 댈러, 주간 기준 약 2개월 만에 상승세… 엔화는 160엔 부근서 개입 경계감",
-"gist": "뉴욕 외환시장에서 달러화가 주간 기준으로 약 2개월 만에 상승세를 보이고 있으며, 엔화는 160엔 근처에서 환율 개입 경계감이 지속되고 있다.",
-"ts": 1794608714.3975925
-},
-{
 "id": "n610512_2",
 "ko": "카리스마 실추로 미국 AI 정책 역학 급변, 반도체 규제 강화 및 미중 관계 변화 불가피 전망",
 "gist": "미국의 AI 정책 변화와 반도체 규제 강화 움직임이 일본 반도체 관련주 및 글로벌 공급망에 중대한 영향을 미치는 사안이다.",
@@ -3850,8 +3834,8 @@
 "니케이|assets.wor.jp/rss/rdf/nikkei/economy.rdf": 0,
 "니케이|ssets.wor.jp/rss/rdf/nikkei/business.rdf": 0,
 "니케이|.wor.jp/rss/rdf/nikkei/international.rdf": 0,
-"로이터|https://news.google.com/rss/search": 8,
-"블룸버그|https://news.google.com/rss/search": 8,
+"로이터|https://news.google.com/rss/search": 9,
+"블룸버그|https://news.google.com/rss/search": 9,
 "NHK|news.web.nhk/n-data/conf/na/rss/cat5.xml": 0,
 "NHK|news.web.nhk/n-data/conf/na/rss/cat4.xml": 0,
 "NHK|news.web.nhk/n-data/conf/na/rss/cat6.xml": 0,
