@@ -1,6 +1,5 @@
 {
 "seen": {
-"首都圏で食品スーパーを展開の会社約64万件の個人情報流出か": 1794484514.3877285,
 "ialsoreturntomyhomelandpopeleoonperuvisit": 1794485116.557076,
 "28年米大統領選民主はオソフブティジェッジ両氏に注目調査": 1794485116.5609252,
 "603800ssstockprice&latestnews": 1794485713.2325368,
@@ -2520,7 +2519,8 @@
 "速報福岡市長選挙出口調査の結果は": 1794741912.9178257,
 "経済政策関連ニュース最新情報と分析ブルームバーグ": 1794741912.9198954,
 "gdaxhi": 1794741912.9224064,
-"亚太繁荣之路": 1794742522.6239262
+"亚太繁荣之路": 1794742522.6239262,
+"速報松山市長選挙出口調査の結果は": 1794743722.9555426
 },
 "recent": [
 {
@@ -4432,8 +4432,8 @@
 "니케이|assets.wor.jp/rss/rdf/nikkei/economy.rdf": 0,
 "니케이|ssets.wor.jp/rss/rdf/nikkei/business.rdf": 0,
 "니케이|.wor.jp/rss/rdf/nikkei/international.rdf": 0,
-"로이터|https://news.google.com/rss/search": 2,
-"블룸버그|https://news.google.com/rss/search": 2,
+"로이터|https://news.google.com/rss/search": 3,
+"블룸버그|https://news.google.com/rss/search": 3,
 "NHK|news.web.nhk/n-data/conf/na/rss/cat5.xml": 0,
 "NHK|news.web.nhk/n-data/conf/na/rss/cat4.xml": 0,
 "NHK|news.web.nhk/n-data/conf/na/rss/cat6.xml": 0,
@@ -4443,7 +4443,10 @@
 "신랑재경|https://zhibo.sina.com.cn/api/zhibo/feed": 0,
 "제일재경|https://www.yicai.com/api/ajax/getlatest": 0
 },
-"alerted": []
+"alerted": [
+"로이터|https://news.google.com/rss/search",
+"블룸버그|https://news.google.com/rss/search"
+]
 },
 "week": [
 {
