@@ -1,13 +1,5 @@
 {
 "seen": {
-"日元对部分投资者而言已变得难以交易": 1794519311.6601555,
-"gonzalosoto": 1794519311.6649365,
-"sybillagross": 1794519311.669766,
-"anirbannag": 1794519311.6744277,
-"davidwethe": 1794519311.679104,
-"米国株式市場反落エヌビディア株の下落がエネルギー株高を相殺": 1794519311.686004,
-"ｎｙ外為市場ドル19カ月ぶり高値利上げ観測で円は9月来の安値": 1794519311.6929455,
-"ryangould": 1794519311.6975026,
 "山形寒河江住宅火災で1人の遺体住人3人と連絡つかず": 1794519911.742891,
 "georgiahall": 1794519911.7477252,
 "deirdrehipwell": 1794519911.752675,
@@ -2338,18 +2330,6 @@
 },
 "recent": [
 {
-"id": "n605712_2",
-"ko": "마이크로소프트 365 장애, 20시간 지나 광범위 복구… 사과 및 보고서 공표 예정",
-"gist": "마이크로소프트의 대규모 서비스 장애가 20여 시간 만에 세계적으로 광범위하게 복구되었으며 회사가 사과 및 원인 보고서를 발표할 예정이다.",
-"ts": 1794605716.4949348
-},
-{
-"id": "n605712_11",
-"ko": "파란의 엔비디아, 앤스로픽 '사상 최대' IPO 추진 등 1주간의 뉴스 5선",
-"gist": "엔비디아의 혼란과 앤스로픽의 대규모 IPO 등 한 주간 주요 글로벌 경제 뉴스를 요약했다.",
-"ts": 1794605716.494948
-},
-{
 "id": "n608712_2",
 "ko": "뉴욕 외환시장 댈러, 주간 기준 약 2개월 만에 상승세… 엔화는 160엔 부근서 개입 경계감",
 "gist": "뉴욕 외환시장에서 달러화가 주간 기준으로 약 2개월 만에 상승세를 보이고 있으며, 엔화는 160엔 근처에서 환율 개입 경계감이 지속되고 있다.",
@@ -3894,8 +3874,8 @@
 "니케이|assets.wor.jp/rss/rdf/nikkei/economy.rdf": 0,
 "니케이|ssets.wor.jp/rss/rdf/nikkei/business.rdf": 0,
 "니케이|.wor.jp/rss/rdf/nikkei/international.rdf": 0,
-"로이터|https://news.google.com/rss/search": 3,
-"블룸버그|https://news.google.com/rss/search": 3,
+"로이터|https://news.google.com/rss/search": 4,
+"블룸버그|https://news.google.com/rss/search": 4,
 "NHK|news.web.nhk/n-data/conf/na/rss/cat5.xml": 0,
 "NHK|news.web.nhk/n-data/conf/na/rss/cat4.xml": 0,
 "NHK|news.web.nhk/n-data/conf/na/rss/cat6.xml": 0,
