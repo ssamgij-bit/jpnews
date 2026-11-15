@@ -1,7 +1,5 @@
 {
 "seen": {
-"自民石破前首相定数31削減法案考え方としてどうか": 1794491113.35254,
-"アルファベットの香港ｓドル建て債38億ドル発行需要旺盛で増額": 1794491113.3598018,
 "食料品の消費税減税見据えうどんチェーンが値下げ発表": 1794491713.9021618,
 "kristianbrunse": 1794491713.9076068,
 "地銀信金ゆうちょや国債への預金流出警戒自民党の地域金融議連": 1794492319.2044034,
@@ -2507,7 +2505,18 @@
 "田嶋幸三氏fifa会長とあいさつ会長選に出馬意向": 1794748526.4736164,
 "内閣支持率504%前回から13ポイント増共同通信世論調査": 1794748526.478161,
 "松山市長選挙中野泰誠氏と田中エリナ氏が競り合う": 1794748526.48228,
-"福岡市長選挙稲富氏やや優勢も4分の1獲得が焦点": 1794749129.237026
+"福岡市長選挙稲富氏やや優勢も4分の1獲得が焦点": 1794749129.237026,
+"validapau": 1794750315.9531255,
+"jamesamott": 1794750315.9559393,
+"堀江広美": 1794750315.9583375,
+"zulfugaragayev": 1794750315.9613914,
+"saragharaibeh": 1794750315.964365,
+"johanneskoch": 1794750315.9668949,
+"stephanieflanders": 1794750315.9702358,
+"samnagarajan": 1794750315.973192,
+"belindacao": 1794750315.975979,
+"neilweinberg": 1794750315.9781682,
+"kevinmiller": 1794750315.9810045
 },
 "recent": [
 {
@@ -4135,6 +4144,12 @@
 "ko": "마쓰야마 시장 선거, 나카노 야스마사와 다나카 엘리나가 경합",
 "gist": "신인 3명이 출마한 마쓰야마 시장 선거에서 전직 에히메현 의원과 전직 시의원이 치열한 경합을 벌이고 있다.",
 "ts": 1794748532.9578903
+},
+{
+"id": "n750315_2",
+"ko": "블룸버그 기자 호리에 히로미 관련 정보",
+"gist": "블룸버그 기자 호리에 히로미에 관한 단순 정보입니다.",
+"ts": 1794750319.6482375
 }
 ],
 "digest": [],
@@ -4211,8 +4226,8 @@
 "니케이|assets.wor.jp/rss/rdf/nikkei/economy.rdf": 0,
 "니케이|ssets.wor.jp/rss/rdf/nikkei/business.rdf": 0,
 "니케이|.wor.jp/rss/rdf/nikkei/international.rdf": 0,
-"로이터|https://news.google.com/rss/search": 13,
-"블룸버그|https://news.google.com/rss/search": 13,
+"로이터|https://news.google.com/rss/search": 0,
+"블룸버그|https://news.google.com/rss/search": 0,
 "NHK|news.web.nhk/n-data/conf/na/rss/cat5.xml": 0,
 "NHK|news.web.nhk/n-data/conf/na/rss/cat4.xml": 0,
 "NHK|news.web.nhk/n-data/conf/na/rss/cat6.xml": 0,
@@ -4222,10 +4237,7 @@
 "신랑재경|https://zhibo.sina.com.cn/api/zhibo/feed": 0,
 "제일재경|https://www.yicai.com/api/ajax/getlatest": 0
 },
-"alerted": [
-"로이터|https://news.google.com/rss/search",
-"블룸버그|https://news.google.com/rss/search"
-]
+"alerted": []
 },
 "week": [
 {
