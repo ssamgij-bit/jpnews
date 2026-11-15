@@ -1,15 +1,5 @@
 {
 "seen": {
-"kylestock": 1794518111.1919167,
-"karisoolindberg": 1794518111.196945,
-"davidwelch": 1794518111.2015464,
-"chrispalmeriteamleadermedia&entertainmentbloomberg": 1794518111.2100718,
-"davidherbling": 1794518111.2148733,
-"aoyonashraf": 1794518111.2194576,
-"joeweisenthal": 1794518111.2242882,
-"中国で日本車大苦戦あきらめず挽回に全力撤退も視野の危機と識者": 1794518111.2312105,
-"フアン氏エヌビディアの別の従業員とも不倫関係": 1794518111.2371926,
-"エヌビディアceo解任イランとの合意不要対ドル160円台今朝の5本": 1794518111.24451,
 "snsチャット勧誘にもクーリングオフ返金の実効性課題": 1794518711.833534,
 "下剤内視鏡不要の大腸がんai検査27年実用化へ新興が55億円調達": 1794518711.840752,
 "タムラ製作所ctoai特需獲得へ次世代変圧器の開発を加速": 1794518711.8475413,
@@ -2367,15 +2357,10 @@
 "消費税減税法案参院で審議続く国民公明の協力が焦点に": 1794775511.6949086,
 "ウクライナ重機遠隔操作してがれき処理日本の支援で実証実験": 1794775511.6991885,
 "joshfriedman": 1794775511.7020934,
-"イエメン暫定政権側バーブルマンデブ海峡から撤退報道も": 1794776111.0719512
+"イエメン暫定政権側バーブルマンデブ海峡から撤退報道も": 1794776111.0719512,
+"asean南シナ海行動規範年内妥結は見送りに": 1794777319.762717
 },
 "recent": [
-{
-"id": "n604511_1",
-"ko": "가나가와현 에비나시에서 여성 2명 치고 달아난 트럭 운전기사 체포",
-"gist": "가나가와현 에비나시 도로에서 여성 2명을 치고 도주한 혐의로 트럭 운전기사가 경찰에 체포되었다.",
-"ts": 1794604514.3762903
-},
 {
 "id": "n605112_3",
 "ko": "MS의 세계적 통신 장애 수습 국면, 아웃룩 등 약 24시간 혼란",
@@ -3939,8 +3924,8 @@
 "니케이|assets.wor.jp/rss/rdf/nikkei/economy.rdf": 0,
 "니케이|ssets.wor.jp/rss/rdf/nikkei/business.rdf": 0,
 "니케이|.wor.jp/rss/rdf/nikkei/international.rdf": 0,
-"로이터|https://news.google.com/rss/search": 1,
-"블룸버그|https://news.google.com/rss/search": 1,
+"로이터|https://news.google.com/rss/search": 2,
+"블룸버그|https://news.google.com/rss/search": 2,
 "NHK|news.web.nhk/n-data/conf/na/rss/cat5.xml": 0,
 "NHK|news.web.nhk/n-data/conf/na/rss/cat4.xml": 0,
 "NHK|news.web.nhk/n-data/conf/na/rss/cat6.xml": 0,
