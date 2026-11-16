@@ -482,8 +482,28 @@ def bond10_hist(code):
     return sorted(out.items())
 
 
-def rates_chart_png(fx, jgb, peers=None):
-    """달러/엔 + 국채 10년(일본·미국·한국) 최근 10년 선 차트(좌우 2칸) → data URI. 최근값과 1년 전 대비 변화를 제목에"""
+def topix_hist(years=10):
+    """TOPIX 지수 일별 종가(네이버 증권 해외지수 .TOPX) → [(datetime, 값)] 최근 years년. 장중 당일 값은 뺌"""
+    try:
+        t0 = (datetime.now() - timedelta(days=365 * years + 5)).strftime("%Y%m%d0000")
+        t1 = (datetime.now() + timedelta(days=1)).strftime("%Y%m%d0000")
+        r = requests.get(f"https://api.stock.naver.com/chart/foreign/index/.TOPX/day?startDateTime={t0}&endDateTime={t1}",
+                         headers={"User-Agent": "Mozilla/5.0"}, timeout=30)
+        jst = datetime.utcnow() + timedelta(hours=9)
+        out = []
+        for p in r.json():
+            d = datetime.strptime(p["localDate"], "%Y%m%d")
+            if d.date() == jst.date() and (jst.hour, jst.minute) < (15, 30):
+                continue  # 장중 값 제외
+            out.append((d, float(p["closePrice"])))
+        return out
+    except Exception as ex:
+        print(f"[warn] TOPIX 이력 실패: {ex}", file=sys.stderr)
+        return []
+
+
+def macro_charts_png(topix, fx, jgb, us, kr):
+    """아침 브리핑 일본 시황 첫머리 차트 2x2(최근 10년): ① TOPIX ② 달러/엔 ③ 국채 10년 한·미·일 ④ 미·일 10년 금리차 → data URI"""
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
@@ -494,63 +514,89 @@ def rates_chart_png(fx, jgb, peers=None):
         fm.fontManager.addfont(f)
     plt.rcParams["font.family"] = "NanumGothic"
     plt.rcParams["axes.unicode_minus"] = False
-    panels = [(fx, "달러/엔", lambda v: f"{v:,.2f}엔", lambda a, b: f"{b - a:+.1f}엔", "#9a6a12"),
-              (jgb, "일본 국채 10년(%)", lambda v: f"{v:.3f}%", lambda a, b: f"{(b - a) * 100:+.0f}bp", "#23272e")]
-    panels = [p for p in panels if len(p[0]) > 20]
-    if not panels:
-        return None
-    fig, axes = plt.subplots(1, len(panels), figsize=(7.4 if len(panels) == 2 else 4.2, 2.3), dpi=160)
-    axes = axes if len(panels) > 1 else [axes]
-    for ax, (ser, name, fmt, dfmt, col) in zip(axes, panels):
-        xs, ys = [d for d, _ in ser], [v for _, v in ser]
-        ax.plot(xs, ys, color=col, lw=1.1)
-        last_d, last = xs[-1], ys[-1]
-        y1 = next((v for d, v in reversed(ser) if (last_d - d).days >= 365), ys[0])
-        ax.scatter([last_d], [last], color=col, s=10, zorder=3)
-        hi, lo = max(ys), min(ys)
-        ax.set_title(f"{name}  {fmt(last)}  (1년 전 대비 {dfmt(y1, last)})\n", loc="left", fontsize=8.5, color="#222")
-        ax.text(0, 1.02, f"10년 최고 {fmt(hi)} · 최저 {fmt(lo)} · {last_d:%Y-%m-%d} 기준", transform=ax.transAxes, fontsize=6.8, color="#888")
+
+    def y1_of(ser):
+        last_d = ser[-1][0]
+        return next((v for d, v in reversed(ser) if (last_d - d).days >= 365), ser[0][1])
+
+    def style(ax, extra_right=0):
         ax.xaxis.set_major_locator(mdates.YearLocator(2))
         ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y"))
-        ax.tick_params(labelsize=6.8, length=0)
+        ax.tick_params(labelsize=7, length=0, colors="#555")
         ax.grid(axis="y", color="#eee", lw=0.6)
         for s_ in ("top", "right", "left"):
             ax.spines[s_].set_visible(False)
         ax.spines["bottom"].set_color("#ccc")
-    # 국채 칸: 미국·한국 10년을 같은 축에 겹쳐 그림(선 끝에 국가명 직접 표기)
-    if peers and len(jgb) > 20 and len(panels) == 2:
-        ax = axes[-1]
-        lines = [("일본", jgb, "#23272e")] + [(n, ser, c) for n, ser, c in peers if len(ser) > 20]
-        if len(lines) > 1:
-            ax.clear()
-            ends, info, last_d = [], [], max(ser[-1][0] for _, ser, _ in lines)
-            for n, ser, c in lines:
-                xs, ys = [d for d, _ in ser], [v for _, v in ser]
-                ax.plot(xs, ys, color=c, lw=1.2 if n == "일본" else 0.9)
-                ax.scatter([xs[-1]], [ys[-1]], color=c, s=9, zorder=3)
-                y1 = next((v for d, v in reversed(ser) if (xs[-1] - d).days >= 365), ys[0])
-                ends.append([ys[-1], n, c])
-                info.append((n, f"{n} {ys[-1]:.2f}%", f"{n} {(ys[-1] - y1) * 100:+.0f}bp", xs[-1]))
-            lo_, hi_ = ax.get_ylim()
-            gap = (hi_ - lo_) * 0.08
-            ends.sort()
-            for i in range(1, len(ends)):  # 라벨 겹침 방지
-                ends[i][0] = max(ends[i][0], ends[i - 1][0] + gap)
-            for y, n, c in ends:
-                ax.annotate(n, (last_d, y), xytext=(5, 0), textcoords="offset points", va="center", fontsize=7, color=c, fontweight="bold")
-            ax.set_title("국채 10년  " + " · ".join(x[1] for x in info) + "\n", loc="left", fontsize=8.5, color="#222")
-            lag = " ".join(f"({n} {d:%m/%d})" for n, _, _, d in info if d != last_d)
-            ax.text(0, 1.02, "1년 전 대비 " + " · ".join(x[2] for x in info) + f" · {last_d:%Y-%m-%d} 기준{(' ' + lag) if lag else ''} · 네이버 증권",
-                    transform=ax.transAxes, fontsize=6.8, color="#888")
-            ax.set_xlim(right=last_d + timedelta(days=330))
-            ax.xaxis.set_major_locator(mdates.YearLocator(2))
-            ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y"))
-            ax.tick_params(labelsize=6.8, length=0)
-            ax.grid(axis="y", color="#eee", lw=0.6)
-            for s_ in ("top", "right", "left"):
-                ax.spines[s_].set_visible(False)
-            ax.spines["bottom"].set_color("#ccc")
-    fig.tight_layout()
+        if extra_right:  # 선 끝 라벨 자리 — 늘린 구간엔 연도 눈금을 붙이지 않음
+            x0, x1 = ax.get_xlim()
+            ax.set_xlim(x0, x1 + extra_right)
+            ax.set_xticks([t for t in ax.get_xticks() if x0 <= t <= x1])
+
+    def heads(ax, title, sub):
+        ax.set_title(title + "\n", loc="left", fontsize=9, color="#1a1a1a", fontweight="bold")
+        ax.text(0, 1.03, sub, transform=ax.transAxes, fontsize=7, color="#888")
+
+    def single(ax, ser, name, fmt, dfmt, col, fill=True):
+        xs, ys = [d for d, _ in ser], [v for _, v in ser]
+        ax.plot(xs, ys, color=col, lw=1.1)
+        if fill:
+            ax.fill_between(xs, ys, min(ys), color=col, alpha=0.07, lw=0)
+        ax.scatter([xs[-1]], [ys[-1]], color=col, s=12, zorder=3)
+        heads(ax, f"{name}  {fmt(ys[-1])}  (1년 전 대비 {dfmt(y1_of(ser), ys[-1])})",
+              f"10년 최고 {fmt(max(ys))} · 최저 {fmt(min(ys))} · {xs[-1]:%Y-%m-%d} 기준")
+        style(ax)
+
+    cells = []
+    if len(topix) > 20:
+        cells.append(lambda ax: single(ax, topix, "TOPIX", lambda v: f"{v:,.0f}", lambda a, b: f"{(b / a - 1) * 100:+.1f}%", "#7a3e9d"))
+    if len(fx) > 20:
+        cells.append(lambda ax: single(ax, fx, "달러/엔", lambda v: f"{v:,.2f}엔", lambda a, b: f"{b - a:+.1f}엔", "#9a6a12"))
+    lines = [(n, s, c) for n, s, c in (("일본", jgb, "#23272e"), ("미국", us, "#2f6db3"), ("한국", kr, "#c0392b")) if len(s) > 20]
+
+    def bonds(ax):
+        ends, last_d = [], max(s[-1][0] for _, s, _ in lines)
+        for n, s, c in lines:
+            xs, ys = [d for d, _ in s], [v for _, v in s]
+            ax.plot(xs, ys, color=c, lw=1.2 if n == "일본" else 0.9)
+            ax.scatter([xs[-1]], [ys[-1]], color=c, s=10, zorder=3)
+            ends.append([ys[-1], n, c])
+        lo_, hi_ = ax.get_ylim()
+        ends.sort()
+        for i in range(1, len(ends)):  # 라벨 겹침 방지
+            ends[i][0] = max(ends[i][0], ends[i - 1][0] + (hi_ - lo_) * 0.08)
+        for y, n, c in ends:
+            ax.annotate(n, (last_d, y), xytext=(5, 0), textcoords="offset points", va="center", fontsize=7.5, color=c, fontweight="bold")
+        heads(ax, "국채 10년  " + " · ".join(f"{n} {s[-1][1]:.2f}%" for n, s, _ in lines),
+              "1년 전 대비 " + " · ".join(f"{n} {(s[-1][1] - y1_of(s)) * 100:+.0f}bp" for n, s, _ in lines) + f" · {last_d:%Y-%m-%d} 기준")
+        style(ax, extra_right=330)
+    if len(lines) >= 2:
+        cells.append(bonds)
+    # 미·일 금리차: 같은 날짜끼리만(최근 1년 일별, 그 이전 주간)
+    if len(jgb) > 20 and len(us) > 20:
+        jd = dict(jgb)
+        spread = [(d, (v - jd[d]) * 100) for d, v in us if d in jd]
+        if len(spread) > 20:
+            def spr(ax):
+                xs, ys = [d for d, _ in spread], [v for _, v in spread]
+                ax.plot(xs, ys, color="#2f6db3", lw=1.1)
+                ax.fill_between(xs, ys, 0, color="#2f6db3", alpha=0.08, lw=0)
+                ax.scatter([xs[-1]], [ys[-1]], color="#2f6db3", s=12, zorder=3)
+                ax.axhline(0, color="#bbb", lw=0.6)
+                heads(ax, f"미·일 10년 금리차  {ys[-1]:.0f}bp  (1년 전 대비 {ys[-1] - y1_of(spread):+.0f}bp)",
+                      f"미국 10년 − 일본 10년 · 10년 최고 {max(ys):.0f}bp · 최저 {min(ys):.0f}bp · {xs[-1]:%Y-%m-%d} 기준")
+                style(ax)
+            cells.append(spr)
+    if not cells:
+        return None
+    rows = (len(cells) + 1) // 2
+    fig, axes = plt.subplots(rows, 2, figsize=(7.6, 2.45 * rows), dpi=170)
+    axes = list(axes.flat) if hasattr(axes, "flat") else [axes]
+    for ax, draw in zip(axes, cells):
+        draw(ax)
+    for ax in axes[len(cells):]:
+        ax.axis("off")
+    fig.text(0.995, 0.003, "자료: 네이버 증권(TOPIX·국채), Yahoo Finance(달러/엔)", ha="right", va="bottom", fontsize=6.3, color="#aaa")
+    fig.tight_layout(h_pad=1.6, w_pad=2.2, rect=(0, 0.02, 1, 1))
     buf = io.BytesIO()
     fig.savefig(buf, format="png", facecolor="white")
     plt.close(fig)
@@ -736,7 +782,7 @@ JP_SCHEMA = {"type": "OBJECT", "properties": {
     "news": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {
         "title": {"type": "STRING"}, "why": {"type": "STRING"}}, "required": ["title", "why"]}},
     "disc": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {
-        "i": {"type": "INTEGER"}, "why": {"type": "STRING"}}, "required": ["i", "why"]}}},
+        "i": {"type": "INTEGER"}, "why": {"type": "STRING"}, "ko": {"type": "STRING"}}, "required": ["i", "why"]}}},
     "required": ["headline", "summary", "news", "disc"]}
 JP_PROMPT = """너는 한국 자산운용사 주식운용본부의 일본 주식 담당이다. 아래 자료로 일본 증시({day} 거래일) 아침 시황을 한국어로 정리하라.
 보고서체('~함')로 짧고 밀도 있게. 일본어 문자는 쓰지 말고 고유명사는 한글로.
@@ -751,7 +797,7 @@ JP_PROMPT = """너는 한국 자산운용사 주식운용본부의 일본 주식
   '업종 흐름 동반'은 정말 개별 재료가 전혀 없을 때만 쓰고, 근거 없이 짐작한 이유는 '(추정)'을 붙여라.
   src(업종·종목 모두): why의 근거가 된 자료를 짧게. 예: '카부탄 기사 11/2', '시황 다이제스트 10/31', '마감 정리', '공시 10/30', '뉴스봇'. 근거 없이 짐작했으면 '추정'.
 - news: [뉴스] 중 투자에 중요한 기사 최대 6개. [공시]와 같은 사건을 다룬 기사는 news에서 빼고 disc에만 넣어라(중복 금지). title(한국어 제목 그대로 또는 짧게), why(왜 중요한지 1문장, 60자 이내).
-- disc: [공시] 중 주목할 공시 최대 10개. i(공시 번호), why(투자 관점 한 줄, 60자 이내 — 수정 폭·지속성·시총 고려).
+- disc: [공시] 중 주목할 공시 최대 10개. i(공시 번호), why(투자 관점 한 줄, 60자 이내 — 수정 폭·지속성·시총 고려), ko(공시 내용이 일본어면 한국어로 옮긴 것 50자 이내, 이미 한국어면 빈 문자열).
 - watch: 오늘 일본 증시 체크 포인트 2~4줄(아래 [오늘 실적 발표 예정]·지표·이벤트, 자료에 있는 것만).
 - top3: 오늘 아침 꼭 알아야 할 3줄(각 50자 이내). 1줄 미국, 1줄 일본, 1줄 오늘 주목할 것(공시·실적 발표·화제 중). 한국 관련 내용 금지.
 
@@ -968,6 +1014,9 @@ def stock_table(blocks, gainers=False):
             + "".join(rows) + "</table>") if rows else ""
 
 
+KANA_RE = re.compile(r"[\u3040-\u30ff]")   # 히라가나·가타카나(일본어 원문 판별)
+
+
 def stash_html(items, title_fallback, caps=None):
     """쌓인 텔레그램 정리(커뮤니티·X·note·신고가 등) → PDF 문서 형식. caps: 종류별 최대 항목 수(잘리면 '외 n건')"""
     out = []
@@ -1139,7 +1188,13 @@ def build_pdf(state, since_ts):
     wrap = [x for x in wraps if x["kind"] == "wrap"]
     news = news_items(since_ts)
     disc = disclosure_items(since_ts)
-    jp_idx = ", ".join(filter(None, [fmt_q(q, s, n) for s, n in JP_IDX]))
+    tpx = topix_hist()
+    jp_list = JP_IDX
+    if len(tpx) >= 2:  # TOPIX 지수 자체(네이버 증권)가 있으면 ETF(1306) 대신 씀
+        (d0, a), (d1, b) = tpx[-2], tpx[-1]
+        q["TOPIX"] = {"px": b, "d": b - a, "chg": (b / a - 1) * 100, "date": d1.strftime("%Y-%m-%d")}
+        jp_list = [("TOPIX", "TOPIX") if s_ == "1306.T" else (s_, n_) for s_, n_ in JP_IDX]
+    jp_idx = ", ".join(filter(None, [fmt_q(q, s, n) for s, n in jp_list]))
     jp_day = (q.get("^N225") or {}).get("date", "")
     wrap_txt = "\n".join(strip_html(x["head"]) + "\n" + "\n".join(strip_html(b) for b in x["blocks"]) for x in wrap[-2:]) or "(없음)"
     news_txt = "\n".join(f"#{i + 1} {r.get('ko', '')} — {r.get('gist', '')}" for i, r in enumerate(news)) or "(없음)"
@@ -1148,9 +1203,9 @@ def build_pdf(state, since_ts):
                          for i, x in enumerate(disc)) or "(없음)"
     jgb = jgb10()
     try:
-        rates_img = rates_chart_png(usdjpy_hist(), bond10_hist("JP10YT=RR") or jgb10_hist(), [("미국", bond10_hist("US10YT=RR"), "#2f6db3"), ("한국", bond10_hist("KR10YT=RR"), "#c0392b")])
+        rates_img = macro_charts_png(tpx, usdjpy_hist(), bond10_hist("JP10YT=RR") or jgb10_hist(), bond10_hist("US10YT=RR"), bond10_hist("KR10YT=RR"))
     except Exception as ex:
-        print(f"[warn] 환율·금리 차트 실패: {ex}", file=sys.stderr); rates_img = None
+        print(f"[warn] TOPIX·환율·금리 차트 실패: {ex}", file=sys.stderr); rates_img = None
     if jgb:
         jp_idx += f", 일본 국채 10년 {jgb[1]:.3f}% ({jgb[2]:+.1f}bp, {jgb[0]})"
     secs = jp_sector_rows(jp_day, wrap)
@@ -1202,7 +1257,7 @@ def build_pdf(state, since_ts):
             else:
                 val, ch, c_ = f"{x['px']:,.0f}" if x["px"] > 1000 else f"{x['px']:,.2f}", f"{x['chg']:+.2f}%", cls(x["chg"])
             chips.append(f"<div class='chip'><div class='cl'>{lab}</div><div class='cv'>{val}</div><div class='cc {c_}'>{ch}</div></div>")
-        chip("닛케이225", q.get("^N225")); chip("TOPIX(ETF)", q.get("1306.T")); chip("달러/엔", q.get("JPY=X"), "fx")
+        chip("닛케이225", q.get("^N225")); chip("TOPIX" if "TOPIX" in q else "TOPIX(ETF)", q.get("TOPIX") or q.get("1306.T")); chip("달러/엔", q.get("JPY=X"), "fx")
         if jgb:
             chips.append(f"<div class='chip'><div class='cl'>일본 국채 10년</div><div class='cv'>{jgb[1]:.3f}%</div><div class='cc {cls(jgb[2])}'>{jgb[2]:+.1f}bp</div></div>")
         chip("S&P500", q.get("^GSPC")); chip("나스닥", q.get("^IXIC")); chip("반도체(SOX)", q.get("^SOX")); chip("미 국채 10년", q.get("^TNX"), "bp"); chip("WTI", q.get("CL=F"))
@@ -1251,7 +1306,7 @@ def build_pdf(state, since_ts):
         parts.append("<!--JP--><h2 class='pb'>2. 일본 증시 시황</h2>")
         if jp.get("headline"):
             parts.append(f"<div class='hl'>{esc(jp['headline'])}</div>")
-        jt = q_table(q, JP_IDX)
+        jt = q_table(q, jp_list)
         if jgb and jt:
             jt = jt.replace("</table>", f"<tr><td>일본 국채 10년 <span class='note'>{esc(jgb[0])}</span></td><td class='n'>{jgb[1]:.3f}%</td><td class='n {cls(jgb[2])}'>{jgb[2]:+.1f}bp</td></tr></table>")
         if jp_closed:
@@ -1299,15 +1354,22 @@ def build_pdf(state, since_ts):
             parts.append("<h3>주목 뉴스</h3><table><tr><th>기사</th><th>왜 중요한가</th></tr>" + "".join(
                 f"<tr><td><b>{esc(n.get('title', ''))}</b></td><td>{hl_stocks(esc(n.get('why', '')))}</td></tr>" for n in jp["news"][:(8, 6, 5, 5, 4, 3)[lv]]) + "</table>")
         if disc:
+            dko = {d["i"] - 1: str(d.get("ko") or "").strip() for d in (jp.get("disc") or []) if isinstance(d.get("i"), int)}
             picks = [(d["i"] - 1, d.get("why", "")) for d in (jp.get("disc") or []) if isinstance(d.get("i"), int) and 0 < d["i"] <= len(disc)]
             if not picks:
                 picks = [(i, disc[i].get("why") or disc[i].get("why0") or "") for i in range(min(10, len(disc)))]
             wset = {r["code"] for r in watch}  # 관심 종목 표에 이미 나오는 공시는 빼서 중복 줄임
             picks = [(i, w) for i, w in picks if disc[i]["code"] not in wset] or picks
             picks = picks[:(10, 10, 8, 7, 6, 5)[lv]]
+
+            def dtxt(i):  # 일본어 공시 제목은 AI 번역으로(없으면 일본어 대신 안내 문구)
+                t = disc[i]["txt"]
+                if KANA_RE.search(t):
+                    return dko.get(i) or "(일본어 공시 — 원문 링크는 공시 채널 참고)"
+                return t
             parts.append("<h3>주목 공시</h3><table class='disc'><tr><th>기업</th><th>내용</th><th>포인트</th></tr>" + "".join(
                 f"<tr><td><b>{esc(disc[i]['name'])}</b> <span class='note'>{vdl(disc[i]['code'])} · {esc(disc[i].get('mct') or '')}</span></td>"
-                f"<td>{esc(disc[i]['txt'])}</td><td>{esc(short(why, 110))}</td></tr>" for i, why in picks) + "</table>")
+                f"<td>{esc(dtxt(i))}</td><td>{esc(short(why, 110))}</td></tr>" for i, why in picks) + "</table>")
         if react:
             def rrow(r):
                 tag = ("⭐ " if r["watch"] else "") + esc(r["ko"])
