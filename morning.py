@@ -961,6 +961,8 @@ def health_issues():
     if not d.get("jp_ai"): out.append("일본 시황 AI 정리 실패")
     if not d.get("chart"): out.append("TOPIX·환율·금리 차트 실패")
     if not d.get("gain"): out.append("S&P500 상승·하락 상위 없음")
+    if d.get("n_mf", 0) >= 10 and (d["n_mf"] - d.get("n_co", 0)) / d["n_mf"] < 0.3:
+        out.append(f"12MF PER 컨센서스 적용 낮음({d['n_mf'] - d.get('n_co', 0)}/{d['n_mf']})")
     if d.get("smv") and not d.get("us_why"): out.append("미국 섹터 이유 없음")
     if not d.get("movers"): out.append("일본 업종 주요 종목 없음")
     if d.get("jp_traded") and not d.get("hi"): out.append("신고가·상승률 상위 없음")
@@ -1040,8 +1042,9 @@ US_SCHEMA = {"type": "OBJECT", "properties": {
     "stocks": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {
         "ticker": {"type": "STRING"}, "name": {"type": "STRING"}, "move": {"type": "STRING"}, "why": {"type": "STRING"}, "jp": {"type": "STRING"}},
         "required": ["ticker", "name", "why"]}}},
-    "required": ["headline", "summary", "stocks", "sec_detail"]}
+    "required": ["headline", "summary", "stocks"]}
 SEC_SCHEMA = {"type": "OBJECT", "properties": {"sec_detail": US_SCHEMA["properties"]["sec_detail"]}, "required": ["sec_detail"]}
+del US_SCHEMA["properties"]["sec_detail"]   # 섹터 이유는 따로 요청(한 번에 길게 쓰다 끊기거나 빠지는 것 방지)
 US_SEC_PROMPT = """너는 한국 자산운용사 주식운용본부의 글로벌 시황 담당이다. {day} 미국 증시에서 아래 섹터들이 오르거나 내린 이유와,
 각 섹터를 움직인 종목이 오르거나 내린 이유를 한국어로 정리하라. 보고서체('~함'). JSON만.
 - sec_detail: 섹터마다 하나씩(순서 그대로). etf(예 "XLK"), why(섹터 이유 1~2문장), src(근거 자료 짧게, 예 '야후 뉴스 11/14', '참고 글', '추정'),
@@ -1069,9 +1072,7 @@ US_PROMPT = """너는 한국 자산운용사 주식운용본부의 글로벌 시
   실적 발표·가이던스·M&A·규제 등 이벤트가 있는 종목 우선. 일본 기업(공급망·경쟁사·고객)과 연결되면 jp에 "→ 도쿄일렉트론·어드밴테스트(장비 수요)"처럼 짧게 적어라.
 - macro: 금리·환율·원자재·정책·지정학 2~4줄.
 - watch: 오늘 밤·이번 주 체크 포인트(실적 발표·지표·이벤트) 2~4줄.
-- sec_detail: [섹터별 주요 종목]의 섹터마다 하나씩(순서 그대로). etf, why(섹터가 오르거나 내린 이유 1~2문장 — 참고 글·종목 뉴스 근거, 없으면 '(추정)'),
-  stocks: 그 섹터의 종목마다 ticker, name(한국어 통용명), why(그 종목이 오르거나 내린 이유 1문장 60자 이내 — 아래 뉴스 제목·참고 글에서 찾아라. 근거가 없으면 '(추정)'을 붙여라).
-  src(섹터·종목 모두): 근거 자료를 짧게. 예: '야후 뉴스 11/14', '참고 글', '추정'. 종목 등락률은 쓰지 마라(표의 값을 그대로 씀).
+- (섹터별 이유는 따로 정리하므로 쓰지 마라. [섹터별 주요 종목]은 summary·stocks 작성 참고용)
 
 [섹터별 주요 종목] (섹터 ETF 등락률, 종목은 지수 영향(등락률×시총)이 큰 순, 아래는 최근 뉴스 제목(영문))
 {smovers}
@@ -1098,6 +1099,9 @@ JP_SCHEMA = {"type": "OBJECT", "properties": {
     "disc": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {
         "i": {"type": "INTEGER"}, "why": {"type": "STRING"}, "ko": {"type": "STRING"}}, "required": ["i", "why"]}}},
     "required": ["headline", "summary", "news", "disc"]}
+JP_A = {"type": "OBJECT", "properties": {k: JP_SCHEMA["properties"][k] for k in ("headline", "summary", "watch", "top3", "sectors")},
+        "required": ["headline", "summary", "sectors"]}
+JP_B = {"type": "OBJECT", "properties": {k: JP_SCHEMA["properties"][k] for k in ("news", "disc")}, "required": ["news", "disc"]}
 JP_PROMPT = """너는 한국 자산운용사 주식운용본부의 일본 주식 담당이다. 아래 자료로 일본 증시({day} 거래일) 아침 시황을 한국어로 정리하라.
 보고서체('~함')로 짧고 밀도 있게. 일본어 문자는 쓰지 말고 고유명사는 한글로.
 
@@ -1492,13 +1496,13 @@ def build_pdf(state, since_ts):
     ftxt = lambda rows: ", ".join(f"{r['tk']}({r['name']}, {r['ind']}) {r['pct']:+.2f}%" for r in rows if r.get("pct") is not None) or "(없음)"
     us = ai_cached(state, "미국 시황", us_day + "|" + ",".join(x["etf"] for x in smv), lambda: gemini_obj(state, US_PROMPT.format(day=us_day, quotes=qtxt, gain=ftxt(gain), lose=ftxt(lose), smovers=smv_txt[:9000],
                                             posts="\n\n".join(posts)[:42000] or "(없음)"), US_SCHEMA, "미국 시황", check=us_ok)) or {}
-    # 섹터 이유가 빠졌으면(모델이 sec_detail을 생략) 섹터 이유만 따로 한 번 더 요청
-    if smv and not [x for x in (us.get("sec_detail") or []) if isinstance(x, dict) and x.get("why")]:
-        print("[warn] 미국 섹터 이유 누락 → 따로 요청", file=sys.stderr)
-        sd2 = gemini_obj(state, US_SEC_PROMPT.format(day=us_day, smovers=smv_txt[:9000], posts="\n\n".join(posts)[:20000] or "(없음)"),
-                         SEC_SCHEMA, "미국 섹터 이유") or {}
-        if sd2.get("sec_detail"):
-            us["sec_detail"] = sd2["sec_detail"]
+    # 섹터 이유는 따로 요청(응답을 나눠 끊김·누락을 줄임)
+    if smv:
+        sec_ok = lambda o: len([x for x in (o.get("sec_detail") or []) if isinstance(x, dict) and x.get("why")]) >= max(1, len(smv) - 1)
+        sd2 = ai_cached(state, "미국 섹터 이유", us_day + "|" + ",".join(x["etf"] for x in smv), lambda: gemini_obj(
+            state, US_SEC_PROMPT.format(day=us_day, smovers=smv_txt[:9000], posts="\n\n".join(posts)[:20000] or "(없음)"),
+            SEC_SCHEMA, "미국 섹터 이유", check=sec_ok)) or {}
+        us["sec_detail"] = sd2.get("sec_detail") or []
     # 주목 종목 정리: 등락률이 깨진 줄은 시세 값으로 고치거나 버림
     fixed = []
     for x in us.get("stocks") or []:
@@ -1512,7 +1516,8 @@ def build_pdf(state, since_ts):
                 mv = m_.group(0) if m_ else ""
         if mv and len(str(x.get("why", ""))) <= 160:
             fixed.append(dict(x, move=mv))
-    us["stocks"] = fixed
+    in_card = {st["tk"].upper() for x in smv for st in x["stocks"][:3]}
+    us["stocks"] = [x for x in fixed if str(x.get("ticker", "")).strip().upper() not in in_card] or fixed   # 섹터 카드와 겹치는 종목은 뺌
     if not gain and not lose and mega:   # finviz 실패: 대형주 등락 상·하위로 대신
         gain = [{"tk": s_, "name": "", "pct": c_} for s_, c_ in mega[:8]]
         lose = [{"tk": s_, "name": "", "pct": c_} for s_, c_ in mega[::-1][:8]]
@@ -1572,8 +1577,14 @@ def build_pdf(state, since_ts):
     mv_txt = "\n".join(f"## {m['sector']} {m['pct']:+.2f}%\n" + "\n".join(
         f"- {x['name']}({x['code']}) {x['pct']:+.2f}%\n  " + ("\n  ".join(x["news"]) or "근거 자료 없음") for x in m["stocks"]) for m in movers) or "(없음)"
     jp_sig = jp_day + "|" + ",".join(f"{x.get('id')}/{x.get('sec')}" for x in disc) + "|" + ",".join(m["sector"] for m in movers)
-    jp = ai_cached(state, "일본 시황", jp_sig, lambda: gemini_obj(state, JP_PROMPT.format(day=jp_day, us=us_sum, idx=jp_idx or "-", wrap=wrap_txt[:6000], movers=mv_txt[:16000], news=news_txt[:8000],
-                                            disc=disc_txt[:9000], earn=earn_txt), JP_SCHEMA, "일본 시황")) or {}
+    jp_p = JP_PROMPT.format(day=jp_day, us=us_sum, idx=jp_idx or "-", wrap=wrap_txt[:6000], movers=mv_txt[:16000], news=news_txt[:8000],
+                            disc=disc_txt[:9000], earn=earn_txt)
+    # 한 번에 길게 쓰다 끊기는 것을 막으려고 두 번에 나눠 요청: ① 요약·업종 ② 뉴스·공시
+    jp_a = ai_cached(state, "일본 시황", jp_sig, lambda: gemini_obj(
+        state, jp_p + "\n[이번 응답] 위 항목 중 headline·summary·watch·top3·sectors만 출력하라(news·disc는 쓰지 마라).", JP_A, "일본 시황")) or {}
+    jp_b = ai_cached(state, "일본 뉴스·공시", jp_sig, lambda: gemini_obj(
+        state, jp_p + "\n[이번 응답] 위 항목 중 news·disc만 출력하라.", JP_B, "일본 뉴스·공시")) or {}
+    jp = {**jp_b, **jp_a}
     hi = [x for x in wraps if x["kind"] in ("highs", "gainers")]
     if not [x for x in com if x["kind"] == "community"]:   # 커뮤니티 봇이 PDF용 요약을 남기지 않았으면 오전 7시 발송분으로 다시 만듦
         try:
@@ -1582,10 +1593,12 @@ def build_pdf(state, since_ts):
                 com.append(fb)
         except Exception as ex:
             print(f"[warn] 커뮤니티 요약 대체 생성 실패: {ex}", file=sys.stderr)
+    hb = " ".join(b for x in hi for b in x.get("blocks", []))
+    n_mf, n_co = hb.count("12MF PER"), hb.count("(회사 예상)")
     flows = jpx_flows()
     val = prime_valuation(state)
     cal = macro_calendar()
-    DIAG.update({"smv": len(smv), "us_why": len([x for x in (us.get("sec_detail") or []) if isinstance(x, dict) and x.get("why")]),
+    DIAG.update({"n_mf": n_mf, "n_co": n_co, "smv": len(smv), "us_why": len([x for x in (us.get("sec_detail") or []) if isinstance(x, dict) and x.get("why")]),
                  "us_ai": bool(us.get("summary")), "jp_ai": bool(jp.get("summary")), "chart": bool(rates_img), "gain": len(gain),
                  "movers": len(movers), "hi": len(hi), "wrap": len(wrap), "com": len(com), "flows": len(flows), "val": len(val),
                  "cal": len(cal), "jp_traded": bool(jp_day) and jp_day >= since.strftime("%Y-%m-%d")})   # 지난 브리핑 뒤 일본 거래일이 있었나
@@ -1808,6 +1821,8 @@ def build_pdf(state, since_ts):
         parts.append(stash_html(hsort, "신고가", {"highs": hn, "gainers": hn}, more_note="은 맨 뒤 부록에" if lv < 2 else " 생략(분량 조절)")
                      if hi else "<p class='note'>이 기간에 쌓인 신고가·상승률 정리가 없습니다(휴장일이거나 아직 발송 전).</p>")
         if hi:
+            if n_mf:
+                parts.append(f"<p class='note'>12MF PER 컨센서스 적용 {n_mf - n_co}/{n_mf}종목(나머지는 회사 예상 *)</p>")
             parts.append("<p class='note'>12MF PER = 애널리스트 컨센서스 EPS(이번 기·다음 기를 남은 개월 수로 가중, Yahoo) 기준, * = 컨센서스가 없어 회사 예상 EPS 기준. "
                          "영업익 = 최근 4개 분기 영업이익 합계의 전년 같은 4개 분기 대비(카부탄). '예상'은 이전 방식(카부탄 표시 예상 PER).</p>")
         if hi and lv < 2:

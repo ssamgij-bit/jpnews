@@ -701,7 +701,20 @@ def build(state, mk, day, asof, stocks, final):
             lines.append(f"• 이유: {esc(w['reason'])}")
         lines.append(f"\n&gt;<a href=\"{cfg['link'](r)}\">{cfg['link_name']}</a>")
         blocks.append("\n".join(lines))
-    if rest:
+    if rest and mk == "JP":   # 31위 이하도 순위 조각으로(아침 PDF 부록 표) — 밸류는 상위 40종목까지만(시간 예산)
+        for i, r in enumerate(shown, len(top) + 1):
+            o = ko_rest.get(r["code"], {})
+            if i <= len(top) + 40:
+                r["val"] = jp_val(r) or r.get("val", "")
+            pct = f"{r['pct']:+.2f}%" if r["pct"] is not None else "-"
+            lines = [f"<b>{i}. {esc(o.get('ko') or r['name'])}({cfg['tick'](r)})</b> {cap_str(mk, r.get('cap'))}",
+                     f"종가 {esc(r['price'])}({pct})" + (f" · {esc(r['val'])}" if r.get("val") else "")]
+            if o.get("biz"):
+                lines.append(f"\n• 사업: {esc(o['biz'])}")
+            blocks.append("\n".join(lines))
+        if len(rest) > len(shown):
+            blocks.append(f"외 {len(rest) - len(shown)}종목")
+    elif rest:
         lines = [f"<b>[그 밖의 신고가 {len(rest)}종목]</b> (시총 순, 이름·사업만)"]
         for r in shown:
             o = ko_rest.get(r["code"], {})
