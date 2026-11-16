@@ -973,6 +973,61 @@ def health_issues():
         if "lite" in v: out.append(f"{k}: 경량 모델로 작성({v})")
     return out
 
+
+COM_SITE = {"hb": "하테나 북마크", "gc": "걸즈채널", "tg": "토게터", "nt": "note"}
+COM_PROMPT = """너는 한국 자산운용사의 일본 주식 담당 애널리스트를 돕는 데스크다.
+아래는 {slot} 텔레그램 채널로 보낸 일본 커뮤니티 화제글(상위 글)과, 그 전 24시간 동안 반응이 늘어난 다른 글 제목·반응 수, X·note 트렌드다.
+JSON 객체 하나만 출력하라.
+- trend: '이번 24시간 커뮤니티 동향' 정확히 10줄. 각 줄 '[주제] 내용' 50자 이내 1문장, '~함/~이어짐' 보고서체. 주제 예: 사회, 정치·정책, 기업·소비, IT, 연예, 생활.
+  비슷한 글을 묶어 흐름을 쓰고, 같은 주제 줄은 연달아. 제목에 있는 사실만 쓰고 주어·대상·숫자를 바꾸거나 없는 평가(논란·우려 등)를 덧붙이지 마라.
+- invest: 소비·기업·상품과 관련된 글 최대 6개. 각 '[소비] 또는 [기업] 한국어 제목 → 관련 일본 상장사(종목코드)'. 관련 기업이 확실하지 않으면 '→' 뒤를 비워라.
+- insight: 투자 관점 시사점 2~3줄(근거 글을 짧게 언급, 해석이므로 문장 앞에 '(추정)').
+일본어를 쓰지 말고 고유명사도 한글로(일본어 발음대로 한글 표기, 예: 第一興商=다이이치코쇼). JSON 외 텍스트 금지.
+
+[상위 글(오전 7시 발송분)]
+{picks}
+
+[그 밖에 반응이 늘어난 글]
+{others}
+
+[X·note 트렌드(이유 요약)]
+{trends}
+"""
+_SA = {"type": "ARRAY", "items": {"type": "STRING"}}
+COM_SCHEMA = {"type": "OBJECT", "properties": {"trend": _SA, "invest": _SA, "insight": _SA}, "required": ["trend"]}
+
+
+def community_fallback(state, since_ts):
+    """커뮤니티 봇이 저장한 PDF용 요약이 없을 때: 그날 오전 7시 텔레그램 다이제스트에 실린 글(상태 파일의 발송 기록)로 동향·인사이트를 다시 만듦"""
+    cs = load_json("community_state.json")
+    sent, cands = cs.get("sent") or {}, cs.get("cands") or {}
+    if not sent:
+        return None
+    last = max(sent.values())
+    if last < since_ts - 6 * 3600:
+        return None
+    keys = [k for k, v in sent.items() if abs(v - last) < 1800 and k in cands]   # 마지막 다이제스트 한 회차에 같이 보낸 글
+    met = lambda c: (c.get("hist") or [[0, 0]])[-1][1]
+    picks = "\n".join(f"- [{COM_SITE.get(cands[k]['src'], cands[k]['src'])}] {cands[k].get('title', '')} (반응 {met(cands[k]):,})" for k in keys)
+    week = cs.get("week") or {}
+    oth = sorted([w for w in (week.values() if isinstance(week, dict) else week) if last - 26 * 3600 <= w.get("ts", 0) <= last + 600],
+                 key=lambda w: -(w.get("m") or 0))[:60]
+    others = "\n".join(f"- [{COM_SITE.get(w.get('s'), w.get('s'))}] {w.get('t', '')} ({w.get('m', 0):,})" for w in oth)
+    tr = [x for x in (cs.get("xweek") or []) + (cs.get("nweek") or []) if last - 26 * 3600 <= x.get("ts", 0) <= last + 3600]
+    trends = "\n".join(f"- {x.get('ko', '')}({x.get('cat', '')}): {x.get('reason', '')}" for x in tr[:24])
+    slot = datetime.fromtimestamp(last, JST)
+    o = ai_cached(state, "커뮤니티 요약", str(int(last)), lambda: gemini_obj(state, COM_PROMPT.format(
+        slot=f"{slot:%m/%d} 오전 7시", picks=picks or "(없음)", others=others or "(없음)", trends=trends or "(없음)"), COM_SCHEMA, "커뮤니티 요약"))
+    if not o or not o.get("trend"):
+        return None
+    blocks = ["<b>[24시간 동향]</b>\n" + "\n\n".join(f"• {esc(str(t).lstrip('•· '))}" for t in o["trend"])]
+    if o.get("invest"):
+        blocks.append("<b>[투자 관련 한눈에]</b>\n" + "\n".join(f"• {esc(str(t).lstrip('•· '))}" for t in o["invest"]))
+    if o.get("insight"):
+        blocks.append("<b>[투자 시사점]</b>\n" + "\n".join(f"• {esc(str(t).lstrip('•· '))}" for t in o["insight"]))
+    print(f"[info] 커뮤니티 요약을 {slot:%m/%d %H:%M} 다이제스트({len(keys)}건) 기준으로 다시 만듦", file=sys.stderr)
+    return {"ts": last, "kind": "community", "head": f"<b>&gt;&gt;[커뮤니티] 일본 커뮤니티 동향</b> {slot:%m/%d} 오전 7시 텔레그램 발송분 기준", "blocks": blocks}
+
 # ───────────────────────── AI 정리 ─────────────────────────
 STR_ARR = {"type": "ARRAY", "items": {"type": "STRING"}}
 US_SCHEMA = {"type": "OBJECT", "properties": {
@@ -1515,6 +1570,13 @@ def build_pdf(state, since_ts):
     jp = ai_cached(state, "일본 시황", jp_sig, lambda: gemini_obj(state, JP_PROMPT.format(day=jp_day, us=us_sum, idx=jp_idx or "-", wrap=wrap_txt[:6000], movers=mv_txt[:16000], news=news_txt[:8000],
                                             disc=disc_txt[:9000], earn=earn_txt), JP_SCHEMA, "일본 시황")) or {}
     hi = [x for x in wraps if x["kind"] in ("highs", "gainers")]
+    if not [x for x in com if x["kind"] == "community"]:   # 커뮤니티 봇이 PDF용 요약을 남기지 않았으면 오전 7시 발송분으로 다시 만듦
+        try:
+            fb = community_fallback(state, since_ts)
+            if fb:
+                com.append(fb)
+        except Exception as ex:
+            print(f"[warn] 커뮤니티 요약 대체 생성 실패: {ex}", file=sys.stderr)
     flows = jpx_flows()
     val = prime_valuation(state)
     cal = macro_calendar()
@@ -1730,7 +1792,7 @@ def build_pdf(state, since_ts):
             if x["ts"] >= latest.get(x["kind"], {}).get("ts", 0): latest[x["kind"]] = x
         cs = [latest[k] for k in ("community", "insight") if k in latest]
         parts.append("<h2>3. 일본 커뮤니티 동향 · 인사이트</h2>")
-        parts.append(stash_html(cs, "커뮤니티", {"community": 2, "insight": 6}) if cs
+        parts.append(stash_html(cs, "커뮤니티", {"community": 3, "insight": 6}) if cs
                      else "<p class='note'>이 기간에 쌓인 커뮤니티 요약이 없습니다(개별 화제글은 텔레그램 채널 07:00).</p>")
         # 4
         parts.append("<h2>4. 일본 52주 신고가 · 상승률 상위</h2>")
