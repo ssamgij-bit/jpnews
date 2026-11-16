@@ -961,6 +961,7 @@ def health_issues():
     if not d.get("jp_ai"): out.append("일본 시황 AI 정리 실패")
     if not d.get("chart"): out.append("TOPIX·환율·금리 차트 실패")
     if not d.get("gain"): out.append("S&P500 상승·하락 상위 없음")
+    if d.get("smv") and not d.get("us_why"): out.append("미국 섹터 이유 없음")
     if not d.get("movers"): out.append("일본 업종 주요 종목 없음")
     if d.get("jp_traded") and not d.get("hi"): out.append("신고가·상승률 상위 없음")
     if d.get("jp_traded") and not d.get("wrap"): out.append("전 거래일 마감 정리 없음")
@@ -984,7 +985,20 @@ US_SCHEMA = {"type": "OBJECT", "properties": {
     "stocks": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {
         "ticker": {"type": "STRING"}, "name": {"type": "STRING"}, "move": {"type": "STRING"}, "why": {"type": "STRING"}, "jp": {"type": "STRING"}},
         "required": ["ticker", "name", "why"]}}},
-    "required": ["headline", "summary", "stocks"]}
+    "required": ["headline", "summary", "stocks", "sec_detail"]}
+SEC_SCHEMA = {"type": "OBJECT", "properties": {"sec_detail": US_SCHEMA["properties"]["sec_detail"]}, "required": ["sec_detail"]}
+US_SEC_PROMPT = """너는 한국 자산운용사 주식운용본부의 글로벌 시황 담당이다. {day} 미국 증시에서 아래 섹터들이 오르거나 내린 이유와,
+각 섹터를 움직인 종목이 오르거나 내린 이유를 한국어로 정리하라. 보고서체('~함'). JSON만.
+- sec_detail: 섹터마다 하나씩(순서 그대로). etf(예 "XLK"), why(섹터 이유 1~2문장), src(근거 자료 짧게, 예 '야후 뉴스 11/14', '참고 글', '추정'),
+  stocks: 종목마다 ticker, name(한국어 통용명), why(이유 1문장 60자 이내), src.
+- 뉴스 제목·참고 글에 근거가 있으면 그것을 쓰고, 없으면 문장 앞에 '(추정)'. 숫자를 지어내지 마라. 등락률은 쓰지 마라.
+
+[섹터별 주요 종목] (섹터 ETF 등락률, 종목은 지수 영향 큰 순, 아래는 최근 뉴스 제목(영문))
+{smovers}
+
+[참고 글]
+{posts}
+"""
 US_PROMPT = """너는 한국 자산운용사 주식운용본부의 글로벌 시황 담당이다. 아래 자료로 {day} 미국 증시(현지 기준) 아침 시황을 한국어로 정리하라.
 독자는 일본 주식에만 투자하는 펀드매니저다(소비재·산업재 중심). 보고서체('~함', '~했음')로 짧고 밀도 있게.
 
@@ -1418,6 +1432,13 @@ def build_pdf(state, since_ts):
     ftxt = lambda rows: ", ".join(f"{r['tk']}({r['name']}, {r['ind']}) {r['pct']:+.2f}%" for r in rows if r.get("pct") is not None) or "(없음)"
     us = ai_cached(state, "미국 시황", us_day + "|" + ",".join(x["etf"] for x in smv), lambda: gemini_obj(state, US_PROMPT.format(day=us_day, quotes=qtxt, gain=ftxt(gain), lose=ftxt(lose), smovers=smv_txt[:9000],
                                             posts="\n\n".join(posts)[:42000] or "(없음)"), US_SCHEMA, "미국 시황", check=us_ok)) or {}
+    # 섹터 이유가 빠졌으면(모델이 sec_detail을 생략) 섹터 이유만 따로 한 번 더 요청
+    if smv and not [x for x in (us.get("sec_detail") or []) if isinstance(x, dict) and x.get("why")]:
+        print("[warn] 미국 섹터 이유 누락 → 따로 요청", file=sys.stderr)
+        sd2 = gemini_obj(state, US_SEC_PROMPT.format(day=us_day, smovers=smv_txt[:9000], posts="\n\n".join(posts)[:20000] or "(없음)"),
+                         SEC_SCHEMA, "미국 섹터 이유") or {}
+        if sd2.get("sec_detail"):
+            us["sec_detail"] = sd2["sec_detail"]
     # 주목 종목 정리: 등락률이 깨진 줄은 시세 값으로 고치거나 버림
     fixed = []
     for x in us.get("stocks") or []:
@@ -1497,7 +1518,8 @@ def build_pdf(state, since_ts):
     flows = jpx_flows()
     val = prime_valuation(state)
     cal = macro_calendar()
-    DIAG.update({"us_ai": bool(us.get("summary")), "jp_ai": bool(jp.get("summary")), "chart": bool(rates_img), "gain": len(gain),
+    DIAG.update({"smv": len(smv), "us_why": len([x for x in (us.get("sec_detail") or []) if isinstance(x, dict) and x.get("why")]),
+                 "us_ai": bool(us.get("summary")), "jp_ai": bool(jp.get("summary")), "chart": bool(rates_img), "gain": len(gain),
                  "movers": len(movers), "hi": len(hi), "wrap": len(wrap), "com": len(com), "flows": len(flows), "val": len(val),
                  "cal": len(cal), "jp_traded": bool(jp_day) and jp_day >= since.strftime("%Y-%m-%d")})   # 지난 브리핑 뒤 일본 거래일이 있었나
 
@@ -1542,7 +1564,11 @@ def build_pdf(state, since_ts):
                 parts.append(f"<img class='chart wide' src='{chart_png(sec_rows, 'S&P500 섹터 ETF 등락률(%)')}'>")
             except Exception as ex:
                 print(f"[warn] 섹터 차트 실패: {ex}", file=sys.stderr)
-        sd = {str(x.get("etf", "")).upper(): x for x in (us.get("sec_detail") or []) if isinstance(x, dict)}
+        sd = {}
+        for i_, x in enumerate(us.get("sec_detail") or []):   # 'XLK 기술' 같은 표기도 받음, 없으면 순서로
+            if isinstance(x, dict):
+                m_ = re.search(r"XL[A-Z]{1,2}", str(x.get("etf", "")).upper())
+                sd[m_.group(0) if m_ else (smv[i_]["etf"] if i_ < len(smv) else "")] = x
         if smv:   # 섹터 등락과 이유 + 그 섹터를 움직인 종목(등락률은 실제 값, 이유는 AI)
             def usrc(x):
                 s_ = str(x.get("src") or "").strip()
@@ -1550,7 +1576,7 @@ def build_pdf(state, since_ts):
 
             def ubox(x):
                 a = sd.get(x["etf"], {})
-                aw = {str(t.get("ticker", "")).upper(): t for t in (a.get("stocks") or []) if isinstance(t, dict)}
+                aw = {re.sub(r"[^A-Z.]", "", str(t.get("ticker", "")).upper()).replace("-", "."): t for t in (a.get("stocks") or []) if isinstance(t, dict)}
                 h = (f"<div class='card'><div class='ct'>{esc(x['sector'])} <span class='note'>{x['etf']}</span> <span class='{cls(x['pct'])}'>{x['pct']:+.2f}%</span></div>"
                      + (f"<p>{esc(a.get('why', ''))}{usrc(a)}</p>" if a.get("why") else "") + "<ul class='b'>")
                 for st in x["stocks"][:(3, 3, 2, 2, 2, 2)[ul]]:
