@@ -1,10 +1,5 @@
 {
 "seen": {
-"matthewbristoweconomy&governmenteditorlabloomberg": 1794592511.9109156,
-"loreleismillie": 1794592511.9137118,
-"eddiespence": 1794592511.9164498,
-"ecb追加利上げ､高インフレ続けば可能性は非常に高いナーゲル氏": 1794592511.9203506,
-"ダラス連銀総裁市場支援手段の強化提言金融政策との整合性重視": 1794592511.9241185,
 "マンu新監督にポチェッティーノ氏米国率いw杯16強入り": 1794593114.4172528,
 "米財務長官半導体禁輸商務省に決定権nvidia疑惑で責任回避": 1794593114.4211059,
 "横浜市大データサイエンスの定員倍増学長企業連携し課題解決": 1794593114.4249635,
@@ -2109,7 +2104,10 @@
 "ウォーシュfrb議長aiの米経済への影響で複数シナリオ雇用減少も": 1794851110.275415,
 "アンソロピックipoに個人投資家が殺到スペースxの経験が生かせるか": 1794851110.2805398,
 "際立つエヌビディア効果イスラエル経済成長の半分を占める": 1794851110.2853262,
-"ａｉの影響成長加速から混乱まで多岐幅広い可能性に備えｆｒｂ議長": 1794851110.2903688
+"ａｉの影響成長加速から混乱まで多岐幅広い可能性に備えｆｒｂ議長": 1794851110.2903688,
+"trumpsayshemaymeetkimjonguninchina": 1794851709.7601912,
+"trumpsaysheneedsfundingforairtrafficcontrolaftergroundstop": 1794851709.766702,
+"カナダ中銀のマックレム総裁2027年6月に退任激動の経済下で指揮": 1794851709.7716494
 },
 "recent": [
 {
@@ -5384,56 +5382,7 @@
 }
 ],
 "digest": [],
-"pending": [
-{
-"source": "bloomberg",
-"label": "블룸버그",
-"gn": true,
-"title": "ウォーシュFRB議長、AIの米経済への影響で複数シナリオ－雇用減少も",
-"lead": "",
-"link": "https://news.google.com/rss/articles/CBMijAFBVV95cUxOLTExc0ZsbGpDdDEtNDlNaEZUQTFyWXMwZTFOTnVCdUkwTU9iblNGa3U0elhDeU1neDhGZm13cWlFREFfSUxhNXB4WjBxWFdfUnh2NkFJZlc4X19tOEZ3cXhSMExzaE45bWE2OVVXc2JPcGhIeldhZ08ydjgzeEtWT04ycEszNzI4b1F0OQ?oc=5",
-"ts": 1794850270,
-"key": "ウォーシュfrb議長aiの米経済への影響で複数シナリオ雇用減少も",
-"id": "n851110_0",
-"first_try": 1794851140.64697
-},
-{
-"source": "bloomberg",
-"label": "블룸버그",
-"gn": true,
-"title": "アンソロピックIPOに個人投資家が殺到、スペースXの経験が生かせるか",
-"lead": "",
-"link": "https://news.google.com/rss/articles/CBMijgFBVV95cUxOOWpoQzZBcEVxQUtmekRNajNOR2NkU3FhcHkxU2RYX3JFLURvNTdpWWl0dWdwal9MNzc0akZ0aXVrUEVoV1VvZ0pDVGJ4eEhxZHNpeXAzSlVqUzZRbXVtVVhWVU5OLUFSMXZLeUNvMVRNb0tSdk12bWlwU1U2S1RQNUQ1dk1wWEp6VDZXRGt3?oc=5",
-"ts": 1794850606,
-"key": "アンソロピックipoに個人投資家が殺到スペースxの経験が生かせるか",
-"id": "n851110_1",
-"first_try": 1794851140.6469748
-},
-{
-"source": "bloomberg",
-"label": "블룸버그",
-"gn": true,
-"title": "際立つ「エヌビディア効果」、イスラエル経済成長の半分を占める",
-"lead": "",
-"link": "https://news.google.com/rss/articles/CBMijgFBVV95cUxOVVZDczVxZTJNVXhNa3JFZUprbGN0X1k4TGVtN3diWDJzeUwzcXh0djRSQ3F5ZVNQY3ZqQXBtcjlnbENyNXU0dXFEUlEyZTJMMF9DVGhqS0FfQ2U4d1Fsc1ZfcS1BUGU5Ny1UcHczVWRza0xOOXlxeFRtMFlYaF9PdExfdWstN25QZ3VXZ2hB?oc=5",
-"ts": 1794850798,
-"key": "際立つエヌビディア効果イスラエル経済成長の半分を占める",
-"id": "n851110_2",
-"first_try": 1794851140.6469765
-},
-{
-"source": "reuters",
-"label": "로이터",
-"gn": true,
-"title": "ＡＩの影響、成長加速から混乱まで多岐 幅広い可能性に備え＝ＦＲＢ議長",
-"lead": "",
-"link": "https://news.google.com/rss/articles/CBMimwFBVV95cUxOOFNsUXpFTS1BTDh2Rk5EUnExV3NUaGdmNnhEaF9OdkdQMTRNeVV5cUllWVc2dW42YTNfOE9LUDdUSG5KQWVDTkFnSE44SVZpb3FzY2pyUzNNY050RDJTdEpDOFNKclpfdFphbjRxUGpvNUprdnlmTVN5YmphdlpvNlRFc25XN1NiWDBla2RrTVVYak5fNkIwNkJuSQ?oc=5",
-"ts": 1794850903,
-"key": "ａｉの影響成長加速から混乱まで多岐幅広い可能性に備えｆｒｂ議長",
-"id": "n851110_3",
-"first_try": 1794851140.6469772
-}
-],
+"pending": [],
 "daily": {
 "date": "2026-11-17",
 "count": 3
@@ -5499,7 +5448,7 @@
 },
 "version": 3,
 "health": {
-"llm": 1,
+"llm": 0,
 "src": {
 "니케이|://assets.wor.jp/rss/rdf/nikkei/news.rdf": 0,
 "니케이|assets.wor.jp/rss/rdf/nikkei/markets.rdf": 0,
