@@ -206,6 +206,68 @@ def finviz_movers():
 
 
 SP500_CSV = "https://raw.githubusercontent.com/datasets/s-and-p-500-companies/main/data/constituents.csv"
+ETF_GICS = {"XLK": "Information Technology", "XLC": "Communication Services", "XLY": "Consumer Discretionary", "XLP": "Consumer Staples",
+            "XLE": "Energy", "XLF": "Financials", "XLV": "Health Care", "XLI": "Industrials", "XLB": "Materials", "XLU": "Utilities", "XLRE": "Real Estate"}
+
+
+def us_sector_movers(q, n_sec=3, n_stk=3):
+    """S&P500 섹터 ETF 상·하위 n_sec개마다 지수 영향(등락률×시총)이 큰 구성종목 n_stk개 + 최근 뉴스 제목(Yahoo)
+    → [{etf, sector(한국어), pct, stocks:[{tk, name, pct, cap, news}]}]. 시총·등락은 나스닥 종목 목록(직전 거래일)"""
+    import pandas as pd
+    out = []
+    try:
+        c = pd.read_csv(io.StringIO(requests.get(SP500_CSV, timeout=30).text))
+        gics = {str(sy).replace(".", "/"): (nm, sec) for sy, nm, sec in zip(c["Symbol"], c["Security"], c["GICS Sector"])}
+        r = requests.get("https://api.nasdaq.com/api/screener/stocks", params={"tableonly": "true", "limit": "8000", "download": "true"},
+                         headers={"User-Agent": "Mozilla/5.0", "Accept": "application/json"}, timeout=40)
+        rows = {}
+        for x in r.json()["data"]["rows"]:
+            sy = x.get("symbol", "").strip()
+            if sy in gics:
+                try:
+                    rows[sy] = (float(x["pctchange"].rstrip("%")), float(x.get("marketCap") or 0))
+                except (ValueError, KeyError):
+                    pass
+        secs = sorted([(etf, n) for etf, n in SECTORS if etf in q and q[etf].get("chg") is not None], key=lambda e: -q[e[0]]["chg"])
+        pick = secs[:n_sec] + [x for x in secs[-n_sec:] if x not in secs[:n_sec]]
+        for etf, ko in pick:
+            pct = q[etf]["chg"]
+            mem = [(sy, rows[sy][0], rows[sy][1]) for sy, (nm, sec) in gics.items() if sec == ETF_GICS.get(etf) and sy in rows]
+            mem.sort(key=lambda m: -(m[1] * m[2]) if pct >= 0 else (m[1] * m[2]))   # 섹터 방향으로 지수 영향 큰 순
+            stks, seen = [], set()
+            for sy, p_, cap in mem:   # 같은 회사의 다른 주식(예: GOOGL·GOOG)은 하나만
+                base = re.sub(r"\s*\(Class [A-Z]\)", "", gics[sy][0])
+                if base in seen:
+                    continue
+                seen.add(base)
+                stks.append({"tk": sy.replace("/", "."), "name": base, "pct": p_, "cap": cap})
+                if len(stks) >= n_stk:
+                    break
+            out.append({"etf": etf, "sector": ko, "pct": pct, "stocks": stks})
+        tks = {st["tk"] for x in out for st in x["stocks"]}
+        news = {}
+        def fetch(tk):
+            try:
+                import yfinance as yf
+                res = []
+                for it in (yf.Ticker(tk.replace(".", "-")).news or [])[:8]:
+                    ct = it.get("content") or it
+                    ttl, pd_ = ct.get("title"), str(ct.get("pubDate") or "")
+                    if ttl and (not pd_ or pd_[:10] >= (now() - timedelta(days=3)).strftime("%Y-%m-%d")):
+                        res.append(f"{pd_[5:10]} {ttl}")
+                return tk, res[:4]
+            except Exception:
+                return tk, []
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(6) as ex:
+            news = dict(ex.map(fetch, tks))
+        for x in out:
+            for st in x["stocks"]:
+                st["news"] = news.get(st["tk"], [])
+        print(f"[info] 미국 섹터 주요 종목 {sum(len(x['stocks']) for x in out)}개", file=sys.stderr)
+    except Exception as ex:
+        print(f"[warn] 미국 섹터 주요 종목 실패: {ex}", file=sys.stderr)
+    return out
 
 
 def sp500_movers(n=10):
@@ -914,6 +976,11 @@ def health_issues():
 STR_ARR = {"type": "ARRAY", "items": {"type": "STRING"}}
 US_SCHEMA = {"type": "OBJECT", "properties": {
     "headline": {"type": "STRING"}, "summary": STR_ARR, "sectors": STR_ARR, "macro": STR_ARR, "watch": STR_ARR,
+    "sec_detail": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {
+        "etf": {"type": "STRING"}, "why": {"type": "STRING"}, "src": {"type": "STRING"},
+        "stocks": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {
+            "ticker": {"type": "STRING"}, "name": {"type": "STRING"}, "why": {"type": "STRING"}, "src": {"type": "STRING"}},
+            "required": ["ticker", "why"]}}}, "required": ["etf", "why", "stocks"]}},
     "stocks": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {
         "ticker": {"type": "STRING"}, "name": {"type": "STRING"}, "move": {"type": "STRING"}, "why": {"type": "STRING"}, "jp": {"type": "STRING"}},
         "required": ["ticker", "name", "why"]}}},
@@ -933,6 +1000,12 @@ US_PROMPT = """너는 한국 자산운용사 주식운용본부의 글로벌 시
   실적 발표·가이던스·M&A·규제 등 이벤트가 있는 종목 우선. 일본 기업(공급망·경쟁사·고객)과 연결되면 jp에 "→ 도쿄일렉트론·어드밴테스트(장비 수요)"처럼 짧게 적어라.
 - macro: 금리·환율·원자재·정책·지정학 2~4줄.
 - watch: 오늘 밤·이번 주 체크 포인트(실적 발표·지표·이벤트) 2~4줄.
+- sec_detail: [섹터별 주요 종목]의 섹터마다 하나씩(순서 그대로). etf, why(섹터가 오르거나 내린 이유 1~2문장 — 참고 글·종목 뉴스 근거, 없으면 '(추정)'),
+  stocks: 그 섹터의 종목마다 ticker, name(한국어 통용명), why(그 종목이 오르거나 내린 이유 1문장 60자 이내 — 아래 뉴스 제목·참고 글에서 찾아라. 근거가 없으면 '(추정)'을 붙여라).
+  src(섹터·종목 모두): 근거 자료를 짧게. 예: '야후 뉴스 11/14', '참고 글', '추정'. 종목 등락률은 쓰지 마라(표의 값을 그대로 씀).
+
+[섹터별 주요 종목] (섹터 ETF 등락률, 종목은 지수 영향(등락률×시총)이 큰 순, 아래는 최근 뉴스 제목(영문))
+{smovers}
 
 [시세] (직전 거래일 종가 기준)
 {quotes}
@@ -1321,6 +1394,10 @@ def build_pdf(state, since_ts):
     q = quotes([s for s, _ in US_IDX + MACRO + SECTORS + JP_IDX] + MEGA)
     us_day = (q.get("^GSPC") or {}).get("date", "")
     gain, lose = sp500_movers()
+    smv = us_sector_movers(q)
+    smv_txt = "\n".join(f"## {x['etf']} {x['sector']} {x['pct']:+.2f}%\n" + "\n".join(
+        f"- {st['tk']}({st['name']}) {st['pct']:+.2f}%, 시총 ${st['cap'] / 1e9:,.0f}B\n  " + ("\n  ".join(st["news"]) or "뉴스 없음")
+        for st in x["stocks"]) for x in smv) or "(없음)"
     ern_pre, ern_post = us_earnings()
     posts = []
     try:   # 네이버 프리미엄 버터대디 요약(맥의 요약봇이 japan stock 봇 저장소에 올려 둠) — 미국 시황 참고 글 맨 앞
@@ -1339,7 +1416,7 @@ def build_pdf(state, since_ts):
     mega = sorted([(s, q[s]["chg"]) for s in MEGA if s in q and q[s]["chg"] is not None], key=lambda x: -x[1])
     qtxt += "\n[대형주] " + ", ".join(f"{s} {c:+.2f}%" for s, c in mega)
     ftxt = lambda rows: ", ".join(f"{r['tk']}({r['name']}, {r['ind']}) {r['pct']:+.2f}%" for r in rows if r.get("pct") is not None) or "(없음)"
-    us = ai_cached(state, "미국 시황", us_day, lambda: gemini_obj(state, US_PROMPT.format(day=us_day, quotes=qtxt, gain=ftxt(gain), lose=ftxt(lose),
+    us = ai_cached(state, "미국 시황", us_day + "|" + ",".join(x["etf"] for x in smv), lambda: gemini_obj(state, US_PROMPT.format(day=us_day, quotes=qtxt, gain=ftxt(gain), lose=ftxt(lose), smovers=smv_txt[:9000],
                                             posts="\n\n".join(posts)[:42000] or "(없음)"), US_SCHEMA, "미국 시황", check=us_ok)) or {}
     # 주목 종목 정리: 등락률이 깨진 줄은 시세 값으로 고치거나 버림
     fixed = []
@@ -1465,7 +1542,27 @@ def build_pdf(state, since_ts):
                 parts.append(f"<img class='chart wide' src='{chart_png(sec_rows, 'S&P500 섹터 ETF 등락률(%)')}'>")
             except Exception as ex:
                 print(f"[warn] 섹터 차트 실패: {ex}", file=sys.stderr)
-        if us.get("sectors"):
+        sd = {str(x.get("etf", "")).upper(): x for x in (us.get("sec_detail") or []) if isinstance(x, dict)}
+        if smv:   # 섹터 등락과 이유 + 그 섹터를 움직인 종목(등락률은 실제 값, 이유는 AI)
+            def usrc(x):
+                s_ = str(x.get("src") or "").strip()
+                return f" <span class='srct'>[{esc(s_)}]</span>" if s_ else ""
+
+            def ubox(x):
+                a = sd.get(x["etf"], {})
+                aw = {str(t.get("ticker", "")).upper(): t for t in (a.get("stocks") or []) if isinstance(t, dict)}
+                h = (f"<div class='card'><div class='ct'>{esc(x['sector'])} <span class='note'>{x['etf']}</span> <span class='{cls(x['pct'])}'>{x['pct']:+.2f}%</span></div>"
+                     + (f"<p>{esc(a.get('why', ''))}{usrc(a)}</p>" if a.get("why") else "") + "<ul class='b'>")
+                for st in x["stocks"][:(3, 3, 2, 2, 2, 2)[ul]]:
+                    w = aw.get(st["tk"].upper(), {})
+                    why = str(w.get("why", "") or "")
+                    h += (f"<li><b>{esc(w.get('name') or st['name'])}</b> <span class='note'>{esc(st['tk'])}</span> <span class='{cls(st['pct'])}'>{st['pct']:+.2f}%</span>"
+                          + (f" — <span class='{'est' if why.startswith('(추정)') else ''}'>{esc(why)}</span>{usrc(w)}" if why else "") + "</li>")
+                return h + "</ul></div>"
+            ups = [x for x in smv if x["pct"] >= 0]; dns = [x for x in smv if x["pct"] < 0]
+            parts.append("<h3>섹터 등락과 이유</h3><div class='wrapg'><div><div class='lbl'>오른 섹터</div>" + "".join(ubox(x) for x in ups)
+                         + "</div><div><div class='lbl'>내린 섹터</div>" + "".join(ubox(x) for x in dns) + "</div></div>")
+        elif us.get("sectors"):
             parts.append("<h3>섹터</h3>" + li(us["sectors"]))
         if us.get("stocks"):
             parts.append("<h3>주목 종목</h3><table><tr><th>종목</th><th>등락</th><th>내용</th></tr>" + "".join(
