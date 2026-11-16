@@ -12,9 +12,11 @@ pull() {
     || git fetch -q --depth=100 origin +refs/heads/main:refs/remotes/origin/main || true
   for f in $FILES; do
     [ -f ".own_$f" ] && continue   # 이 실행이 직접 쓰는 파일은 덮어쓰지 않음(저장이 한 번 실패해도 내용 유지)
-    ts=$(git log -1 --format=%ct "origin/$BR" -- "$f" 2>/dev/null || echo 0)
-    tm=$(git log -1 --format=%ct origin/main -- "$f" 2>/dev/null || echo 0)
-    if [ "${ts:-0}" -ge "${tm:-0}" ] && [ "${ts:-0}" != "0" ]; then src="origin/$BR"; else src=origin/main; fi
+    ts=$(git log -1 --format=%ct "origin/$BR" -- "$f" 2>/dev/null || true)
+    tm=$(git log -1 --format=%ct origin/main -- "$f" 2>/dev/null || true)
+    # 얕은 fetch(depth=100) 범위 밖이라 state 쪽 커밋 시각을 못 찾아도, 파일이 state 브랜치에 있으면 state를 씀
+    # (주말처럼 오래 안 바뀐 파일이 옛 main 사본으로 되돌아가던 문제 — 2026-11-16 월요일 신고가 누락 원인)
+    if git cat-file -e "origin/$BR:$f" 2>/dev/null && { [ -z "$ts" ] || [ "$ts" -ge "${tm:-0}" ]; }; then src="origin/$BR"; else src=origin/main; fi
     git show "$src:$f" > "$f.tmp" 2>/dev/null && mv "$f.tmp" "$f" || rm -f "$f.tmp"
   done
   echo "[state] 상태 파일 가져옴(state 브랜치 우선, 더 최근이면 main)"

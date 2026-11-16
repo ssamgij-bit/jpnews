@@ -5,7 +5,7 @@
     참고 텔레그램 채널(사제콩이 @ehdwl, 미국 주식 인사이더 @insidertracking)의 아침 글 → AI 정리
  2) 일본 증시 시황: 지수(Yahoo), 신고가 봇의 마감 정리(highs_state.json), 뉴스봇이 보낸 기사(state.json),
     공시봇 하이라이트(jpall 저장소 state 브랜치) → AI 정리
- 3) (커뮤니티 화제글·X·note 트렌드는 2026-11-13부터 텔레그램 채널 07:00 발송으로 옮겨 PDF에서 뺌)
+ 3) 커뮤니티 동향 요약·투자 관련 한눈에·주간 인사이트(community_state.json의 pdfq) — 개별 화제글·X·note 트렌드는 텔레그램 07:00 발송
  4) 일본 52주 신고가·상승률 상위(highs_state.json의 pdfq)
 지난 PDF 이후 쌓인 것을 모두 묶는다(월요일 PDF = 금요일 아침 이후 주말분 포함).
 
@@ -411,7 +411,13 @@ def earnings_reaction(jp_day):
 
 
 def jgb10():
-    """일본 국채 10년 금리(재무성, 전일 기준) → (기준일, 금리, 전일 대비 bp)"""
+    """일본 국채 10년 금리 → (기준일, 금리, 전일 대비 bp). 네이버 증권 시장 종가(당일 반영) 우선, 실패 시 재무성"""
+    try:
+        h = bond10_hist("JP10YT=RR")[-2:]
+        if len(h) == 2:
+            return h[1][0].strftime("%Y-%m-%d"), h[1][1], (h[1][1] - h[0][1]) * 100
+    except Exception as ex:
+        print(f"[warn] 일본 국채(네이버) 실패 → 재무성: {ex}", file=sys.stderr)
     try:
         t = requests.get("https://www.mof.go.jp/jgbs/reference/interest_rate/jgbcm.csv", timeout=30).content.decode("cp932", "ignore")
         rows = [l.split(",") for l in t.splitlines() if re.match(r"^[RH]\d+\.\d+\.\d+,", l)]
@@ -460,8 +466,24 @@ def usdjpy_hist(years=5):
         return []
 
 
-def rates_chart_png(fx, jgb):
-    """달러/엔·일본 국채 10년 최근 5년 선 차트(좌우 2칸) → data URI. 최근값과 1년 전 대비 변화를 제목에"""
+def bond10_hist(code):
+    """네이버 증권 국채 10년 금리(KR10YT=RR·US10YT=RR) → [(datetime, %)] 최근 5년. 1년 이전은 주간, 최근 1년은 일별"""
+    out = {}
+    for typ in ("areaYearFive", "areaYear"):  # 뒤의 일별 값이 앞의 주간 값을 덮어씀
+        try:
+            r = requests.get("https://m.stock.naver.com/front-api/chart/pricesByPeriod",
+                             params={"reutersCode": code, "category": "bond", "chartInfoType": "governmentBond", "scriptChartType": typ},
+                             headers={"User-Agent": "Mozilla/5.0"}, timeout=30)
+            for p in (r.json().get("result") or {}).get("priceInfos") or []:
+                if p.get("closePrice") is not None:
+                    out[datetime.strptime(p["localDate"], "%Y%m%d")] = float(p["closePrice"])
+        except Exception as ex:
+            print(f"[warn] 국채 10년 이력 실패 {code} {typ}: {ex}", file=sys.stderr)
+    return sorted(out.items())
+
+
+def rates_chart_png(fx, jgb, peers=None):
+    """달러/엔 + 국채 10년(일본·미국·한국) 최근 5년 선 차트(좌우 2칸) → data URI. 최근값과 1년 전 대비 변화를 제목에"""
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
@@ -495,6 +517,39 @@ def rates_chart_png(fx, jgb):
         for s_ in ("top", "right", "left"):
             ax.spines[s_].set_visible(False)
         ax.spines["bottom"].set_color("#ccc")
+    # 국채 칸: 미국·한국 10년을 같은 축에 겹쳐 그림(선 끝에 국가명 직접 표기)
+    if peers and len(jgb) > 20 and len(panels) == 2:
+        ax = axes[-1]
+        lines = [("일본", jgb, "#23272e")] + [(n, ser, c) for n, ser, c in peers if len(ser) > 20]
+        if len(lines) > 1:
+            ax.clear()
+            ends, info, last_d = [], [], max(ser[-1][0] for _, ser, _ in lines)
+            for n, ser, c in lines:
+                xs, ys = [d for d, _ in ser], [v for _, v in ser]
+                ax.plot(xs, ys, color=c, lw=1.2 if n == "일본" else 0.9)
+                ax.scatter([xs[-1]], [ys[-1]], color=c, s=9, zorder=3)
+                y1 = next((v for d, v in reversed(ser) if (xs[-1] - d).days >= 365), ys[0])
+                ends.append([ys[-1], n, c])
+                info.append((n, f"{n} {ys[-1]:.2f}%", f"{n} {(ys[-1] - y1) * 100:+.0f}bp", xs[-1]))
+            lo_, hi_ = ax.get_ylim()
+            gap = (hi_ - lo_) * 0.08
+            ends.sort()
+            for i in range(1, len(ends)):  # 라벨 겹침 방지
+                ends[i][0] = max(ends[i][0], ends[i - 1][0] + gap)
+            for y, n, c in ends:
+                ax.annotate(n, (last_d, y), xytext=(5, 0), textcoords="offset points", va="center", fontsize=7, color=c, fontweight="bold")
+            ax.set_title("국채 10년  " + " · ".join(x[1] for x in info) + "\n", loc="left", fontsize=8.5, color="#222")
+            lag = " ".join(f"({n} {d:%m/%d})" for n, _, _, d in info if d != last_d)
+            ax.text(0, 1.02, "1년 전 대비 " + " · ".join(x[2] for x in info) + f" · {last_d:%Y-%m-%d} 기준{(' ' + lag) if lag else ''} · 네이버 증권",
+                    transform=ax.transAxes, fontsize=6.8, color="#888")
+            ax.set_xlim(right=last_d + timedelta(days=170))
+            ax.xaxis.set_major_locator(mdates.MonthLocator(bymonth=(1,)))
+            ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y"))
+            ax.tick_params(labelsize=6.8, length=0)
+            ax.grid(axis="y", color="#eee", lw=0.6)
+            for s_ in ("top", "right", "left"):
+                ax.spines[s_].set_visible(False)
+            ax.spines["bottom"].set_color("#ccc")
     fig.tight_layout()
     buf = io.BytesIO()
     fig.savefig(buf, format="png", facecolor="white")
@@ -1080,6 +1135,7 @@ def build_pdf(state, since_ts):
         mv_lab = "S&P500"
     # ── 2) 일본
     wraps = stashes("highs_state.json", since_ts)
+    com = [x for x in stashes("community_state.json", since_ts) if x["kind"] in ("community", "insight")]
     wrap = [x for x in wraps if x["kind"] == "wrap"]
     news = news_items(since_ts)
     disc = disclosure_items(since_ts)
@@ -1092,7 +1148,7 @@ def build_pdf(state, since_ts):
                          for i, x in enumerate(disc)) or "(없음)"
     jgb = jgb10()
     try:
-        rates_img = rates_chart_png(usdjpy_hist(), jgb10_hist())
+        rates_img = rates_chart_png(usdjpy_hist(), bond10_hist("JP10YT=RR") or jgb10_hist(), [("미국", bond10_hist("US10YT=RR"), "#2f6db3"), ("한국", bond10_hist("KR10YT=RR"), "#c0392b")])
     except Exception as ex:
         print(f"[warn] 환율·금리 차트 실패: {ex}", file=sys.stderr); rates_img = None
     if jgb:
@@ -1277,7 +1333,15 @@ def build_pdf(state, since_ts):
         if jp.get("watch"):
             parts.append("<h3>체크 포인트</h3>" + li(jp["watch"]))
         # 3
-        parts.append("<h2>3. 일본 52주 신고가 · 상승률 상위</h2>")
+        latest = {}
+        for x in com:  # 같은 종류가 여러 번(주말 합산) 쌓였으면 최신 것만
+            if x["ts"] >= latest.get(x["kind"], {}).get("ts", 0): latest[x["kind"]] = x
+        cs = [latest[k] for k in ("community", "insight") if k in latest]
+        parts.append("<h2>3. 일본 커뮤니티 동향 · 인사이트</h2>")
+        parts.append(stash_html(cs, "커뮤니티", {"community": 2, "insight": 6}) if cs
+                     else "<p class='note'>이 기간에 쌓인 커뮤니티 요약이 없습니다(개별 화제글은 텔레그램 채널 07:00).</p>")
+        # 4
+        parts.append("<h2>4. 일본 52주 신고가 · 상승률 상위</h2>")
         hd = max((x.get("day", "") for x in hi), default="")
         hs = [x for x in hi if lv == 0 or x.get("day", "") == hd]   # 줄일 때는 마지막 거래일 것만
         hcaps = [{"highs": 40, "gainers": 18}, {"highs": 25, "gainers": 12}, {"highs": 18, "gainers": 10},
@@ -1305,7 +1369,7 @@ def build_pdf(state, since_ts):
     cap = [f"<b>아침 브리핑 {t:%m/%d}({wd})</b>"]
     if top3:
         cap += [f"{i}. {esc(str(x).lstrip('•·- 0123456789.'))}" for i, x in enumerate(top3, 1)]
-    cap.append(f"신고가·상승률 {len(hi)}건")
+    cap.append(f"커뮤니티 요약 {len(com)}건 · 신고가·상승률 {len(hi)}건")
     return pdf, "\n".join(cap)
 
 
@@ -1347,7 +1411,7 @@ def main():
             print(f"[info] 너무 늦음({t:%H:%M}) → 오늘은 건너뜀"); return
         if not wait and (t.hour, t.minute) < SEND_AT:
             print(f"[info] 아직 {SEND_AT[0]:02d}:{SEND_AT[1]:02d} 전"); return
-    since_ts = st.get("last_ts") or (time.time() - 26 * 3600)
+    since_ts = st.get("last_ts") or (time.time() - (74 if now().weekday() == 0 else 26) * 3600)  # 기록이 없으면 월요일은 주말 포함
     since_ts = max(since_ts, time.time() - 4 * 86400)  # 오래 끊겼어도 최대 4일치
     if FORCE:   # 테스트 발송: 마지막 발송 이후가 아니라 최근 26시간(MORNING_HOURS로 바꿀 수 있음) — 평소 브리핑과 같은 분량으로 확인
         since_ts = time.time() - float(os.getenv("MORNING_HOURS") or (74 if now().weekday() == 0 else 26)) * 3600   # 월요일은 주말 포함

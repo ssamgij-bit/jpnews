@@ -592,7 +592,15 @@ def send_chunks(header, blocks, silent, sep="\n\n━━━━━━━━━━\
             cur = ""
         cur += (sep if cur else "") + b
     chunks.append(cur)
-    return all(tg_send(x, silent) for x in chunks)
+    ok = all(tg_send(x, silent) for x in chunks)
+    if ok and PDF_STATE is not None and kind in PDF_KINDS:  # 아침 브리핑엔 요약·인사이트만(개별 글 요약은 텔레그램에서)
+        keep = [b for b in blocks if b.startswith(PDF_KINDS[kind])] if PDF_KINDS[kind] else blocks
+        if keep:
+            stash(kind, header, keep)
+    return ok
+
+
+PDF_KINDS = {"community": ("<b>[24시간 동향]", "<b>[투자 관련 한눈에]"), "insight": None}
 
 
 # ───────────────────────── 즉시 알림(★4 이상) ─────────────────────────
