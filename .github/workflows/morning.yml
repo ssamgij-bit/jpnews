@@ -64,7 +64,7 @@ jobs:
           rc=0; timeout 60m python morning.py --catchup || rc=$?; save_state || true
           # 다음 평일 08:10 JST까지(최대 5시간 20분) 기다렸다가, 만들고 08:30에 발송
           python relay_wait.py "08:10" "0-4" 19200 || exit 0
-          bash state.sh pull; git checkout -q origin/main -- '*.py' 2>/dev/null || true   # 다른 봇이 쌓아 둔 최신 자료(커뮤니티·신고가·뉴스) + 최신 코드
+          bash state.sh pull; git checkout -q origin/main -- '*.py' state.sh 2>/dev/null || true; bash state.sh pull   # 최신 코드(상태 스크립트 포함)로 다른 봇이 쌓아 둔 최신 자료(커뮤니티·신고가·뉴스)를 다시 가져옴
           rc=0; timeout 60m python morning.py --wait || rc=$?
           save_state
           exit $rc
