@@ -977,16 +977,21 @@ def health_issues():
 
 
 COM_SITE = {"hb": "하테나 북마크", "gc": "걸즈채널", "tg": "토게터", "nt": "note"}
-COM_PROMPT = """너는 한국 자산운용사의 일본 주식 담당 애널리스트를 돕는 데스크다.
-아래는 {slot} 텔레그램 채널로 보낸 일본 커뮤니티 화제글(상위 글)과 그 요약, 그 전 24시간 동안 반응이 늘어난 다른 글 제목·반응 수, X·note 트렌드다.
-이것을 하나로 통합해 일본 주식 투자자에게 짧은 메모처럼 정리하라. JSON 객체 하나만 출력. 보고서체('~함', '~로 보임').
-- overview: 커뮤니티 전반 흐름 2~3문장. '전반적으로 ~ 이야기가 많았음' 식으로 여러 글을 묶어서. 사실만.
-- insights: 투자 관점에서 중요해 보이는 점 2~3개. 각 1~2문장, 근거가 된 화제를 짧게 언급하고 해석이므로 '(추정)'을 붙여라.
-  소비·기업·상품·정책·사회 변화처럼 수요나 실적에 이어질 수 있는 것을 우선, 연예·가십은 투자 의미가 있을 때만.
-- ideas: 관련 종목 아이디어 2~4개. theme(아이디어 한 줄), why(왜 이 종목들을 볼 만한지 1문장, '(추정)'),
-  stocks(일본 상장사 '기업명(종목코드)' 1~3개 — 사업과 화제의 연결이 분명한 것만. 확실하지 않으면 빈 배열).
-제목·요약에 있는 사실만 쓰고 숫자·평가를 지어내지 마라.
-일본어를 쓰지 말고 고유명사도 한글로(일본어 발음대로 한글 표기, 예: 第一興商=다이이치코쇼). JSON 외 텍스트 금지.
+COM_PROMPT = """너는 한국 자산운용사의 일본 주식(소비재·산업재 중심) 담당 애널리스트를 돕는 데스크다.
+아래는 {slot} 텔레그램 채널로 보낸 일본 커뮤니티 화제글(P번호)과 그 요약, 그 전 24시간 동안 반응이 늘어난 다른 글(O번호),
+X·note 트렌드(T번호, 최근 7일 중 며칠 순위에 올랐는지 포함)다. 이것을 하나로 통합해 투자 메모로 정리하라. JSON 하나만 출력. 보고서체('~함', '~로 보임').
+
+- overview: 전반 흐름 2~3문장. 여러 글을 묶어 '전반적으로 ~ 이야기가 많았음' 식으로. 며칠째 이어지는 화제와 새로 떠오른 화제를 구분해 언급. 사실만.
+- insights: 투자 관점에서 중요해 보이는 점 2~3개. 각 {{text, refs}}.
+  text: 1~2문장. '무슨 화제 → 수요·가격·규제·소비 행태에 어떤 변화일 수 있는지'. 해석이므로 문장 앞에 '(추정)'.
+  refs: 근거가 된 글 번호(예 ["P3","O12"]) 1~3개. 근거 없는 인사이트는 쓰지 마라.
+  연예·가십·스포츠 결과처럼 투자와 무관한 것은 빼고, 소비·기업·상품·가격·정책·노동·인구 변화를 우선.
+- ideas: 관련 종목 아이디어 2~4개. 각 {{theme, why, stocks, refs}}.
+  theme: 아이디어 한 줄. why: 왜 이 종목들을 볼 만한지 1문장('(추정)').
+  stocks: 일본 상장사 {{name(한국어), code(4자리 종목코드)}} 1~3개 — 화제와 사업(매출 비중이 큰 제품·서비스)의 연결이 분명한 것만. 확실하지 않으면 빈 배열.
+  refs: 근거 글 번호.
+- titles: insights·ideas의 refs에 쓴 글마다 {{ref, ko}} — ko는 그 글 제목을 한국어로 짧게(30자 이내) 옮긴 것.
+제목·요약에 있는 사실만 쓰고 숫자·평가를 지어내지 마라. 일본어를 쓰지 말고 고유명사도 한글로(일본어 발음대로 한글 표기, 예: 第一興商=다이이치코쇼).
 
 [상위 글(오전 7시 발송분)]
 {picks}
@@ -1001,13 +1006,27 @@ COM_PROMPT = """너는 한국 자산운용사의 일본 주식 담당 애널리�
 {trends}
 """
 _SA = {"type": "ARRAY", "items": {"type": "STRING"}}
-COM_SCHEMA = {"type": "OBJECT", "properties": {"overview": {"type": "STRING"}, "insights": _SA,
-    "ideas": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {"theme": {"type": "STRING"}, "why": {"type": "STRING"}, "stocks": _SA},
-              "required": ["theme", "why"]}}}, "required": ["overview", "insights", "ideas"]}
+COM_SCHEMA = {"type": "OBJECT", "properties": {
+    "overview": {"type": "STRING"},
+    "insights": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {"text": {"type": "STRING"}, "refs": _SA}, "required": ["text", "refs"]}},
+    "ideas": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {
+        "theme": {"type": "STRING"}, "why": {"type": "STRING"}, "refs": _SA,
+        "stocks": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {"name": {"type": "STRING"}, "code": {"type": "STRING"}}, "required": ["name", "code"]}}},
+        "required": ["theme", "why", "stocks"]}},
+    "titles": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {"ref": {"type": "STRING"}, "ko": {"type": "STRING"}}, "required": ["ref", "ko"]}}},
+    "required": ["overview", "insights", "ideas"]}
+
+
+def _com_ok(o):
+    """커뮤니티 메모 품질 확인(빈약하면 다음 모델로)"""
+    ins = [x for x in (o.get("insights") or []) if isinstance(x, dict) and len(str(x.get("text", ""))) > 15]
+    ide = [x for x in (o.get("ideas") or []) if isinstance(x, dict) and x.get("theme")]
+    return len(str(o.get("overview", ""))) >= 40 and len(ins) >= 2 and len(ide) >= 2
 
 
 def community_fallback(state, since_ts, digest=""):
-    """그날 오전 7시 텔레그램 다이제스트에 실린 글(상태 파일의 발송 기록)과 그 요약(digest)을 통합해 '주목할 부분' 5~7개로 정리"""
+    """그날 오전 7시 텔레그램 다이제스트에 실린 글(상태 파일의 발송 기록)·그 요약·X/note 트렌드를 통합한 투자 메모
+    — 인사이트마다 근거 글(사이트·반응 수)을 붙이고, 종목코드는 JPX 상장 목록으로 확인(없는 코드는 뺌)"""
     cs = load_json("community_state.json")
     sent, cands = cs.get("sent") or {}, cs.get("cands") or {}
     if not sent:
@@ -1017,28 +1036,70 @@ def community_fallback(state, since_ts, digest=""):
         return None
     keys = [k for k, v in sent.items() if abs(v - last) < 1800 and k in cands]   # 마지막 다이제스트 한 회차에 같이 보낸 글
     met = lambda c: (c.get("hist") or [[0, 0]])[-1][1]
-    picks = "\n".join(f"- [{COM_SITE.get(cands[k]['src'], cands[k]['src'])}] {cands[k].get('title', '')} (반응 {met(cands[k]):,})" for k in keys)
+    unit = {"hb": "북마크", "gc": "댓글", "tg": "조회", "nt": "좋아요"}
+    ref = {}   # 번호 → (사이트, 반응 수 표기)
+    pl = []
+    for i, k in enumerate(keys, 1):
+        c = cands[k]
+        ref[f"P{i}"] = (COM_SITE.get(c["src"], c["src"]), f"{unit.get(c['src'], '반응')} {met(c):,}")
+        pl.append(f"P{i} [{ref[f'P{i}'][0]}] {c.get('title', '')} ({ref[f'P{i}'][1]})")
     week = cs.get("week") or {}
     oth = sorted([w for w in (week.values() if isinstance(week, dict) else week) if last - 26 * 3600 <= w.get("ts", 0) <= last + 600],
                  key=lambda w: -(w.get("m") or 0))[:60]
-    others = "\n".join(f"- [{COM_SITE.get(w.get('s'), w.get('s'))}] {w.get('t', '')} ({w.get('m', 0):,})" for w in oth)
-    tr = [x for x in (cs.get("xweek") or []) + (cs.get("nweek") or []) if last - 26 * 3600 <= x.get("ts", 0) <= last + 3600]
-    trends = "\n".join(f"- {x.get('ko', '')}({x.get('cat', '')}): {x.get('reason', '')}" for x in tr[:24])
+    ol = []
+    for i, w in enumerate(oth, 1):
+        ref[f"O{i}"] = (COM_SITE.get(w.get("s"), w.get("s")), f"{unit.get(w.get('s'), '반응')} {w.get('m', 0):,}")
+        ol.append(f"O{i} [{ref[f'O{i}'][0]}] {w.get('t', '')} ({ref[f'O{i}'][1]})")
+    allx = (cs.get("xweek") or []) + (cs.get("nweek") or [])
+    days = {}
+    for x in allx:   # 최근 7일 중 며칠 순위에 올랐나(화제 지속성)
+        if last - 7 * 86400 <= x.get("ts", 0) <= last + 3600:
+            days.setdefault(x.get("ko", ""), set()).add(datetime.fromtimestamp(x["ts"], JST).date())
+    tr = [x for x in allx if last - 26 * 3600 <= x.get("ts", 0) <= last + 3600][:24]
+    tl, tdef = [], {}
+    for i, x in enumerate(tr, 1):
+        ref[f"T{i}"] = ("X·note 트렌드", f"7일 중 {len(days.get(x.get('ko', ''), ()))}일")
+        tdef[f"T{i}"] = x.get("ko", "")
+        tl.append(f"T{i} {x.get('ko', '')}({x.get('cat', '')}, {ref[f'T{i}'][1]}): {x.get('reason', '')}")
     slot = datetime.fromtimestamp(last, JST)
     o = ai_cached(state, "커뮤니티 요약", str(int(last)), lambda: gemini_obj(state, COM_PROMPT.format(
-        slot=f"{slot:%m/%d} 오전 7시", picks=picks or "(없음)", digest=digest[:5000] or "(없음)", others=others or "(없음)",
-        trends=trends or "(없음)"), COM_SCHEMA, "커뮤니티 요약"))
+        slot=f"{slot:%m/%d} 오전 7시", picks="\n".join(pl) or "(없음)", digest=digest[:5000] or "(없음)", others="\n".join(ol) or "(없음)",
+        trends="\n".join(tl) or "(없음)"), COM_SCHEMA, "커뮤니티 요약", check=_com_ok))
     if not o or not o.get("overview"):
         return None
+    ko_t = {str(t.get("ref", "")).strip().upper(): str(t.get("ko", "")).strip() for t in (o.get("titles") or []) if isinstance(t, dict)}
+
+    def ev(refs):   # 근거 글 표기: 사이트 「한국어 제목」(반응 수)
+        out = []
+        for r_ in (refs or [])[:3]:
+            r_ = str(r_).strip().upper()
+            if r_ in ref:
+                site, m_ = ref[r_]
+                out.append(f"{site} 「{ko_t.get(r_) or tdef.get(r_) or r_}」({m_})")
+        return f"<span class='srct'>근거: {esc(' · '.join(out))}</span>" if out else ""
+
+    names, watch = jp_names(), set(watch_codes())
     blocks = [f"<b>[전반 흐름]</b>\n{esc(str(o['overview']))}"]
-    if o.get("insights"):
-        blocks.append("<b>[투자 인사이트]</b>\n" + "\n\n".join(f"• {esc(str(t).lstrip('•· '))}" for t in o["insights"][:3]))
-    ideas = [x for x in (o.get("ideas") or []) if isinstance(x, dict) and x.get("theme")]
-    if ideas:
-        blocks.append("<b>[관련 종목 아이디어]</b>\n" + "\n\n".join(
-            f"• <b>{esc(x['theme'])}</b> — {esc(x.get('why', ''))}" + (f"\n  → {esc(' · '.join(map(str, x['stocks'][:3])))}" if x.get("stocks") else "")
-            for x in ideas[:4]))
-    print(f"[info] 커뮤니티 요약을 {slot:%m/%d %H:%M} 다이제스트({len(keys)}건) 기준으로 다시 만듦", file=sys.stderr)
+    ins = [x for x in (o.get("insights") or []) if isinstance(x, dict) and x.get("text")]
+    if ins:
+        blocks.append("<b>[투자 인사이트]</b>\n" + "\n\n".join(
+            f"• {esc(str(x['text']).lstrip('•· '))} {ev(x.get('refs'))}".rstrip() for x in ins[:3]))
+    lines, dropped = [], 0
+    for x in [x for x in (o.get("ideas") or []) if isinstance(x, dict) and x.get("theme")][:4]:
+        stks = []
+        for st in (x.get("stocks") or [])[:3]:
+            code = re.sub(r"[^0-9A-Z]", "", str(st.get("code", "")).upper())
+            if code in names:   # 상장 목록에 있는 코드만(AI가 지어낸 코드는 뺌)
+                nm = (names[code] or {}).get("ko") or st.get("name", "")
+                stks.append(f"{'⭐' if code in watch else ''}{esc(nm)} {vdl(code)}")
+            else:
+                dropped += 1
+        lines.append(f"• <b>{esc(x['theme'])}</b> — {esc(x.get('why', ''))}" + (f" <b>→ {' · '.join(stks)}</b>" if stks else "")
+                     + f" {ev(x.get('refs'))}".rstrip())
+    if lines:
+        blocks.append("<b>[관련 종목 아이디어]</b>\n" + "\n\n".join(lines)
+                      + "\n\n<span class='srct'>⭐ = 관심 종목 · 종목코드는 JPX 상장 목록으로 확인한 것만 표시 · 근거의 반응 수는 발송 시점 기준</span>")
+    print(f"[info] 커뮤니티 메모: {slot:%m/%d %H:%M} 다이제스트({len(keys)}건)·다른 글 {len(oth)}·트렌드 {len(tr)} 기준, 확인 안 된 종목코드 {dropped}개 제외", file=sys.stderr)
     return {"ts": last, "kind": "community", "head": f"<b>&gt;&gt;[커뮤니티] 일본 커뮤니티 정리</b> {slot:%m/%d} 오전 7시 텔레그램 발송분 기준", "blocks": blocks}
 
 # ───────────────────────── AI 정리 ─────────────────────────
