@@ -551,7 +551,7 @@ def _ask(state, prompt, schema, tag):
 
 def _korean_ok(x):
     """일본어(가나)·영문 문장이 남아 있으면 False."""
-    t = " ".join(str(x.get(k) or "") for k in ("biz", "reason"))
+    t = " ".join(str(x.get(k) or "") for k in ("ko", "biz", "reason"))   # 사명(ko)에 가나가 남아도 다시 요청
     return bool(t.strip()) and not re.search(r"[぀-ヿ]", t) and not re.search(r"[A-Za-z]{4,}(?:\s+[A-Za-z]{3,}){3,}", t)
 
 
@@ -740,6 +740,7 @@ JSON 배열 하나를 출력하되, 항목은 아래 6개 섹션 순서대로 {{
    종목명은 한국어(일본어 발음 한글 표기 또는 국내 통용명)로 쓰고 괄호에 종목코드(예: 어드반테스트(6857)).
 6. "분위기·체크포인트": 2~3문장. 투자 심리(공포·안도·순환매 등)와 다음 거래일에 볼 변수(미국 지표, 실적 발표, 환율 등). 해석은 '(추정)'.
 규칙: 기사에 있는 사실과 수치만 쓰고 숫자를 만들지 마라. 각 문장 '~함' 보고서체. 일본 고유명사는 일본어 발음대로 한글 표기(예: 第一興商=다이이치코쇼).
+한국 증시·코스피·코스닥·원화 등 한국 관련 내용은 쓰지 마라(기사에 있어도 무시). 독자는 일본 주식에만 투자한다.
 {rules}
 
 [33업종 등락률(%)]
@@ -751,6 +752,7 @@ JSON 배열 하나를 출력하되, 항목은 아래 6개 섹션 순서대로 {{
 [시황 기사]
 {articles}
 """
+KR_RE = re.compile(r"한국 증시|한국 주식|코스피|코스닥|KOSPI|KOSDAQ|원/달러|원·달러|원화|서울 증시")
 WRAP_SCHEMA = {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {
     "title": {"type": "STRING"}, "lines": {"type": "ARRAY", "items": {"type": "STRING"}}},
     "required": ["title", "lines"]}}
@@ -781,8 +783,10 @@ def jp_wrap(state, day, final):
     head = f"<b>&gt;&gt;[일본 증시 마감] {day[5:]}</b>" + (f"\n닛케이225 {esc(nk)} · TOPIX {esc(tp)}" if nk or tp else "")
     blocks = []
     for x in secs:
-        blocks.append(f"<b>[{esc(str(x['title']).strip('[] '))}]</b>\n" +
-                      "\n\n".join(f"• {esc(str(l).lstrip('•· ').strip())}" for l in x["lines"] if str(l).strip()))
+        ls = [l for l in x["lines"] if str(l).strip() and not KR_RE.search(str(l))]   # 한국 관련 문장은 뺌
+        if ls:
+            blocks.append(f"<b>[{esc(str(x['title']).strip('[] '))}]</b>\n" +
+                          "\n\n".join(f"• {esc(str(l).lstrip('•· ').strip())}" for l in ls))
     if sec:
         up = " · ".join(f"{k} {v:+.1f}%" for k, v in sec[:5])
         dn = " · ".join(f"{k} {v:+.1f}%" for k, v in sec[::-1][:5])

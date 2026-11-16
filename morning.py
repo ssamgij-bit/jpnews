@@ -1,7 +1,7 @@
 """평일 08:30(KST) 아침 브리핑 PDF → 텔레그램.
 
 구성
- 1) 글로벌 시황(미국 중심): 지수·금리·환율·원자재·섹터 ETF·대형주 등락(Yahoo), S&P500 상승·하락 상위(finviz),
+ 1) 글로벌 시황(미국 중심): 지수·금리·환율·원자재·섹터 ETF·대형주 등락(Yahoo), S&P500 상승·하락 상위(구성종목 Yahoo 등락), 미국 실적 발표(나스닥 캘린더),
     참고 텔레그램 채널(사제콩이 @ehdwl, 미국 주식 인사이더 @insidertracking)의 아침 글 → AI 정리
  2) 일본 증시 시황: 지수(Yahoo), 신고가 봇의 마감 정리(highs_state.json), 뉴스봇이 보낸 기사(state.json),
     공시봇 하이라이트(jpall 저장소 state 브랜치) → AI 정리
@@ -60,6 +60,24 @@ def save_state(s):
     json.dump(s, open(STATE_PATH, "w", encoding="utf-8"), ensure_ascii=False, indent=0)
 
 
+MODEL_USED = {}   # 이번 브리핑에서 실제로 쓴 AI 모델(태그별) — PDF 끝에 작게 표시
+DIAG = {}         # 섹션별 상태 — 발송 뒤 빠진 섹션이 있으면 관리 채팅으로 경고
+
+
+def ai_cached(state, key, sig, make):
+    """테스트 발송(MORNING_NOW)은 같은 날 정규 발송 때 만든 AI 결과를 재사용(한도 아끼기). MORNING_FRESH_AI=1이면 새로"""
+    cache = state.setdefault("ai_cache", {})
+    c = cache.get(key) or {}
+    if FORCE and os.getenv("MORNING_FRESH_AI") != "1" and c.get("sig") == sig and c.get("obj"):
+        MODEL_USED[key] = (c.get("model") or "?") + "(정규 발송분 재사용)"
+        print(f"[info] [{key}] 오늘 AI 결과 재사용", file=sys.stderr)
+        return c["obj"]
+    o = make()
+    if o and not FORCE:
+        cache[key] = {"sig": sig, "obj": o, "model": MODEL_USED.get(key, "")}
+    return o
+
+
 def gemini_obj(state, prompt, schema, tag, check=None):
     """객체 JSON 응답(AI). 실패하면 None. check(out)가 거짓이면(내용이 빈약·깨짐) 다음 모델로 — 끝까지 없으면 가장 나은 것"""
     best = None
@@ -89,6 +107,7 @@ def gemini_obj(state, prompt, schema, tag, check=None):
                         best = best or out
                         continue
                     print(f"[info] [{tag}] {m} 성공")
+                    MODEL_USED[tag] = m
                     return out
             except Exception as ex:
                 print(f"[warn] [{tag}] {m}: {ex}", file=sys.stderr)
@@ -165,14 +184,46 @@ def finviz_rows(f, order, n=10):
 
 
 def us_earnings():
-    """오늘 밤(미국 현지 '내일') 실적 발표 대형주(시총 100억 달러↑): (장 전, 장 후)"""
-    return (finviz_rows("cap_largeover,earningsdate_tomorrowbefore", "-marketcap", 15),
-            finviz_rows("cap_largeover,earningsdate_tomorrowafter", "-marketcap", 15))
+    """오늘 밤(한국 기준) 미국 실적 발표 대형주(시총 100억 달러↑, 나스닥 실적 캘린더): (장 전, 장 후·시간 미정)"""
+    pre, post = [], []
+    try:
+        r = requests.get("https://api.nasdaq.com/api/calendar/earnings", params={"date": now().strftime("%Y-%m-%d")},
+                         headers={"User-Agent": "Mozilla/5.0", "Accept": "application/json"}, timeout=30)
+        for x in ((r.json().get("data") or {}).get("rows") or []):
+            cap = float(re.sub(r"[^\d.]", "", x.get("marketCap") or "") or 0)
+            if cap >= 1e10:
+                (pre if x.get("time") == "time-pre-market" else post).append(
+                    {"tk": x.get("symbol", ""), "name": x.get("name", ""), "cap": f"{cap / 1e9:,.0f}", "capv": cap})
+    except Exception as ex:
+        print(f"[warn] 미국 실적 캘린더 실패: {ex}", file=sys.stderr)
+    k = lambda r: -r["capv"]
+    return sorted(pre, key=k)[:15], sorted(post, key=k)[:15]
 
 
 def finviz_movers():
     """S&P500 당일 상승·하락 상위(finviz). 실패하면 빈 목록"""
     return finviz_rows("idx_sp500", "-change"), finviz_rows("idx_sp500", "change")
+
+
+SP500_CSV = "https://raw.githubusercontent.com/datasets/s-and-p-500-companies/main/data/constituents.csv"
+
+
+def sp500_movers(n=10):
+    """S&P500 구성종목(공개 목록) 직전 거래일 등락률(Yahoo) → (상승 상위, 하락 상위). finviz 차단 대신"""
+    try:
+        import pandas as pd
+        import yfinance as yf
+        c = pd.read_csv(io.StringIO(requests.get(SP500_CSV, timeout=30).text))
+        meta = {str(sy).replace(".", "-"): (nm, sec, ind) for sy, nm, sec, ind in
+                zip(c["Symbol"], c["Security"], c["GICS Sector"], c["GICS Sub-Industry"])}
+        df = yf.download(list(meta), period="5d", interval="1d", auto_adjust=False, progress=False, threads=True)["Close"].dropna(how="all")
+        ch = ((df.iloc[-1] / df.iloc[-2] - 1) * 100).dropna().sort_values()
+        mk = lambda tk, v: {"tk": tk, "name": meta[tk][0], "sector": meta[tk][1], "ind": meta[tk][2], "cap": "", "pct": float(v)}
+        print(f"[info] S&P500 등락 {len(ch)}종목({df.index[-1]:%Y-%m-%d})", file=sys.stderr)
+        return [mk(k, v) for k, v in ch[::-1][:n].items()], [mk(k, v) for k, v in ch[:n].items()]
+    except Exception as ex:
+        print(f"[warn] S&P500 등락 계산 실패: {ex}", file=sys.stderr)
+        return finviz_movers()
 
 
 # ───────────────────────── 텔레그램 공개 채널 글 ─────────────────────────
@@ -738,6 +789,127 @@ def disclosure_items(since_ts):
     return out[:40]
 
 
+
+# ───────────────────────── 수급·밸류에이션·일정 ─────────────────────────
+JPX_INV = "https://www.jpx.co.jp/markets/statistics-equities/investor-type/index.html"
+JPX_PER = "https://www.jpx.co.jp/markets/statistics-equities/misc/04.html"
+
+
+def jpx_flows(n=4):
+    """JPX 투자부문별 매매동향(주간, 도쿄·나고야 2시장 금액 순매수) → [(시작일, 종료일, {구분: 억엔})] 최근 n주"""
+    import openpyxl
+    out = []
+    try:
+        page = requests.get(JPX_INV, headers={"User-Agent": "Mozilla/5.0"}, timeout=30).text
+        links = sorted({(a, b, u) for u, a, b in re.findall(r'href="([^"]*stock_1_w_(\d{8})_(\d{8})\.xlsx)"', page)}, reverse=True)[:n]
+        for a, b, u in links:
+            wb = openpyxl.load_workbook(io.BytesIO(requests.get("https://www.jpx.co.jp" + u, headers={"User-Agent": "Mozilla/5.0"}, timeout=30).content),
+                                        data_only=True, read_only=True)
+            rows = list(wb.worksheets[0].iter_rows(values_only=True))
+            i = next(k for k, r in enumerate(rows) if len(r) > 1 and r[1] and str(r[1]).startswith("二市場"))
+            v = rows[i + 1]   # 다음 줄 = 금액(천 엔)
+            num = lambda j: float(v[j] or 0) / 1e5 if j < len(v) else 0.0   # 천 엔 → 억 엔
+            out.append((a, b, {"외국인": num(21), "개인": num(13) + num(17), "투자신탁": num(33), "사업법인": num(37),
+                               "신탁은행": num(53), "증권사 자기": num(5)}))
+    except Exception as ex:
+        print(f"[warn] 투자주체별 매매동향 실패: {ex}", file=sys.stderr)
+    return sorted(out)
+
+
+def prime_valuation(state, months=61):
+    """JPX 월간 규모별·업종별 PER·PBR(연결, 가중) — 프라임(2022/3 이전은 1부) 총합 → [(YYYY/MM, PER, PBR)] (월별 값은 상태에 보관)"""
+    import openpyxl
+    cache = state.setdefault("perpbr", {})
+    try:
+        page = requests.get(JPX_PER, headers={"User-Agent": "Mozilla/5.0"}, timeout=30).text
+        links = {ym: u for u, ym in re.findall(r'href="([^"]*perpbr(\d{6})\.xlsx)"', page)}
+        cut = (now() - timedelta(days=31 * months)).strftime("%Y%m")
+        for ym in sorted(links, reverse=True):
+            key = f"{ym[:4]}/{ym[4:]}"
+            if ym < cut or key in cache:
+                continue
+            try:
+                wb = openpyxl.load_workbook(io.BytesIO(requests.get("https://www.jpx.co.jp" + links[ym], headers={"User-Agent": "Mozilla/5.0"}, timeout=30).content),
+                                            data_only=True, read_only=True)
+                for r in wb.worksheets[0].iter_rows(values_only=True):
+                    if len(r) > 11 and r[1] and ("プライム" in str(r[1]) or "第一部" in str(r[1])) and str(r[3] or "").strip() == "総合" and r[10]:
+                        cache[key] = [float(r[10]), float(r[11])]
+                        break
+            except Exception as ex:
+                print(f"[warn] PER·PBR {key} 실패: {ex}", file=sys.stderr)
+    except Exception as ex:
+        print(f"[warn] PER·PBR 목록 실패: {ex}", file=sys.stderr)
+    cutk = (now() - timedelta(days=31 * months)).strftime("%Y/%m")
+    return sorted((k, v[0], v[1]) for k, v in cache.items() if k >= cutk)
+
+
+CAL_KO = [("BOJ Policy Rate", "일본은행 정책금리"), ("Monetary Policy Statement", "일본은행 통화정책 발표"), ("BOJ Press Conference", "일본은행 총재 기자회견"),
+          ("BOJ Gov", "일본은행 총재 발언"), ("Federal Funds Rate", "FOMC 금리 결정"), ("FOMC Meeting Minutes", "FOMC 의사록"), ("FOMC Press Conference", "FOMC 기자회견"),
+          ("Fed Chair", "연준 의장 발언"), ("Core CPI", "근원 CPI"), ("CPI", "CPI"), ("Core PCE", "근원 PCE"), ("PPI", "PPI"),
+          ("Non-Farm Employment Change", "비농업 고용"), ("Unemployment Rate", "실업률"), ("Unemployment Claims", "신규 실업수당 청구"),
+          ("Core Retail Sales", "근원 소매판매"), ("Retail Sales", "소매판매"), ("Philly Fed Manufacturing", "필라델피아 연은 제조업지수"),
+          ("Empire State Manufacturing", "뉴욕 연은 제조업지수"), ("Core PPI", "근원 PPI"), ("Building Permits", "건축 허가"), ("Prelim GDP", "GDP 속보치"), ("Advance GDP", "GDP 속보치"), ("GDP", "GDP"),
+          ("ISM Manufacturing PMI", "ISM 제조업 PMI"), ("ISM Services PMI", "ISM 서비스업 PMI"), ("Flash Manufacturing PMI", "제조업 PMI 속보"),
+          ("Flash Services PMI", "서비스업 PMI 속보"), ("Tankan", "단칸"), ("Trade Balance", "무역수지"), ("Household Spending", "가계지출"),
+          ("Tokyo Core CPI", "도쿄 근원 CPI"), ("National Core CPI", "전국 근원 CPI"), ("JOLTS", "JOLTS 구인"), ("Consumer Sentiment", "소비자심리"),
+          ("Consumer Confidence", "소비자신뢰"), ("Durable Goods", "내구재 주문"), ("Industrial Production", "산업생산"), ("Housing Starts", "주택 착공"), ("Inflation Expectations", "기대 인플레이션"),
+          ("Existing Home Sales", "기존주택 판매"), ("New Home Sales", "신규주택 판매"), ("Average Hourly Earnings", "평균 시급"), ("Bank Holiday", "휴장")]
+
+
+def macro_calendar(days=7):
+    """이번 주·다음 주 미국·일본 주요 지표·이벤트(ForexFactory 공개 캘린더, 중요도 중 이상) → [(KST datetime, 국가, 이름, 예상, 이전, 중요도)]"""
+    out, t0 = [], now()
+    for u in ("https://nfs.faireconomy.media/ff_calendar_thisweek.json", "https://nfs.faireconomy.media/ff_calendar_nextweek.json"):
+        try:
+            r = requests.get(u, headers={"User-Agent": "Mozilla/5.0"}, timeout=20)
+            if r.status_code != 200:
+                continue
+            for x in r.json():
+                if x.get("country") not in ("USD", "JPY") or x.get("impact") not in ("High", "Medium"):
+                    continue
+                d = datetime.fromisoformat(x["date"]).astimezone(JST)
+                if not (t0 - timedelta(hours=2) <= d <= t0 + timedelta(days=days)):
+                    continue
+                ttl = x.get("title", "")
+                ko = next((k for e, k in CAL_KO if e.lower() in ttl.lower()), ttl)
+                if ko != ttl and any(w in ttl for w in ("m/m", "y/y", "q/q")):
+                    ko += " " + re.search(r"([mqy]/[mqy])", ttl).group(1).replace("m/m", "전월비").replace("y/y", "전년비").replace("q/q", "전기비")
+                out.append((d, "미국" if x["country"] == "USD" else "일본", ko, x.get("forecast") or "", x.get("previous") or "", x["impact"]))
+        except Exception as ex:
+            print(f"[warn] 경제 일정 실패({u}): {ex}", file=sys.stderr)
+    return sorted(set(out))[:24]
+
+
+def admin_alert(text):
+    """관리 채팅으로 짧은 경고(없으면 생략)"""
+    chat = os.getenv("TELEGRAM_ADMIN_CHAT_ID")
+    if not chat or DRY_RUN:
+        print(f"[warn] 관리 경고(미발송): {text}", file=sys.stderr); return
+    try:
+        requests.post(f"https://api.telegram.org/bot{os.environ['TELEGRAM_BOT_TOKEN']}/sendMessage",
+                      data={"chat_id": chat, "text": text, "disable_web_page_preview": "true"}, timeout=30)
+    except Exception as ex:
+        print(f"[warn] 관리 경고 실패: {ex}", file=sys.stderr)
+
+
+def health_issues():
+    """발송한 브리핑에서 비거나 실패한 섹션 목록"""
+    d, out = DIAG, []
+    if not d.get("us_ai"): out.append("미국 시황 AI 정리 실패")
+    if not d.get("jp_ai"): out.append("일본 시황 AI 정리 실패")
+    if not d.get("chart"): out.append("TOPIX·환율·금리 차트 실패")
+    if not d.get("gain"): out.append("S&P500 상승·하락 상위 없음")
+    if not d.get("movers"): out.append("일본 업종 주요 종목 없음")
+    if d.get("jp_traded") and not d.get("hi"): out.append("신고가·상승률 상위 없음")
+    if d.get("jp_traded") and not d.get("wrap"): out.append("전 거래일 마감 정리 없음")
+    if not d.get("com"): out.append("커뮤니티 동향·인사이트 없음")
+    if not d.get("flows"): out.append("투자주체별 매매동향 없음")
+    if not d.get("val"): out.append("PER·PBR 없음")
+    if not d.get("cal"): out.append("경제 일정 없음")
+    for k, v in MODEL_USED.items():
+        if "lite" in v: out.append(f"{k}: 경량 모델로 작성({v})")
+    return out
+
 # ───────────────────────── AI 정리 ─────────────────────────
 STR_ARR = {"type": "ARRAY", "items": {"type": "STRING"}}
 US_SCHEMA = {"type": "OBJECT", "properties": {
@@ -1017,7 +1189,10 @@ def stock_table(blocks, gainers=False):
 KANA_RE = re.compile(r"[\u3040-\u30ff]")   # 히라가나·가타카나(일본어 원문 판별)
 
 
-def stash_html(items, title_fallback, caps=None):
+STK_RE = re.compile(r"<b>(\d+)\.")   # 신고가·상승률 종목 조각 머리('<b>순위. 종목')
+
+
+def stash_html(items, title_fallback, caps=None, from_rank=0, more_note=" 생략(분량 조절)"):
     """쌓인 텔레그램 정리(커뮤니티·X·note·신고가 등) → PDF 문서 형식. caps: 종류별 최대 항목 수(잘리면 '외 n건')"""
     out = []
     for x in items:
@@ -1030,6 +1205,8 @@ def stash_html(items, title_fallback, caps=None):
         cap = (caps or {}).get(kind)
         if kind in ("x", "note", "weekly"):
             bl = _regroup(bl)
+        if kind in ("highs", "gainers"):  # 종목 조각만 세고, from_rank가 있으면 그 순위부터(부록)
+            bl = [b for b in bl if STK_RE.match(b.strip()) and int(STK_RE.match(b.strip()).group(1)) > from_rank]
         more = len(bl) - cap if cap is not None and len(bl) > cap else 0
         if more: bl = bl[:cap]
         if kind in ("x", "note", "weekly"):
@@ -1037,11 +1214,11 @@ def stash_html(items, title_fallback, caps=None):
         elif kind in ("highs", "gainers"):
             body = stock_table(bl, kind == "gainers")
             pre = re.split(r"\n\s*\n", x.get("head", ""), maxsplit=1)
-            if len(pre) > 1: body = f"<div class='intro'>{pretty(pre[1])}</div>" + body
+            if len(pre) > 1 and not from_rank: body = f"<div class='intro'>{pretty(pre[1])}</div>" + body
             sub = re.sub(r"<[^>]+>", "", pre[0]).split("\n", 1)[1].strip() if "\n" in pre[0] else sub
         else:
             body = "".join(f"<div class='card'>{pretty(b)}</div>" for b in bl)
-        if more: body += f"<div class='note'>… 외 {more}건 생략(분량 조절)</div>"
+        if more: body += f"<div class='note'>… 외 {more}건{more_note}</div>"
         out.append(f"<div class='stash'><div class='sh'>{esc(title)}</div>" + (f"<div class='shs'>{esc(sub)}</div>" if sub else "") + body + "</div>")
     return "".join(out)
 
@@ -1076,6 +1253,8 @@ td.n{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
 table.disc td:first-child{width:24%} table.disc td:nth-child(2){width:42%}
 img.chart{width:82%;margin:1mm 0;display:block} img.chart.sm{width:62%} img.chart.wide{width:100%}
 .srct{color:#999;font-size:7pt;font-style:normal}
+table.flow td,table.flow th{font-size:8pt;padding:1mm 1.5mm;text-align:right} table.flow td:first-child,table.flow th:first-child{text-align:left} table.flow tr.sum td{font-weight:700;border-top:1px solid #bbb}
+p.val{font-size:8.6pt;margin:2mm 0}
 table.cal td{font-size:8.4pt;padding:1.2mm 2mm} td.cd0{white-space:nowrap;width:16mm;color:#9a6a12;font-weight:700}
 .chg{border:1px solid #e3dccb;border-radius:2mm;padding:2.5mm 3.5mm;margin:0 0 4mm;background:#fcfbf7}
 .chips{display:flex;flex-wrap:wrap;gap:1.5mm} .chip{flex:1 0 17%;border-right:1px solid #eee;padding:0.5mm 1.5mm}
@@ -1141,7 +1320,7 @@ def build_pdf(state, since_ts):
     # ── 1) 미국
     q = quotes([s for s, _ in US_IDX + MACRO + SECTORS + JP_IDX] + MEGA)
     us_day = (q.get("^GSPC") or {}).get("date", "")
-    gain, lose = finviz_movers()
+    gain, lose = sp500_movers()
     ern_pre, ern_post = us_earnings()
     posts = []
     try:   # 네이버 프리미엄 버터대디 요약(맥의 요약봇이 japan stock 봇 저장소에 올려 둠) — 미국 시황 참고 글 맨 앞
@@ -1160,8 +1339,8 @@ def build_pdf(state, since_ts):
     mega = sorted([(s, q[s]["chg"]) for s in MEGA if s in q and q[s]["chg"] is not None], key=lambda x: -x[1])
     qtxt += "\n[대형주] " + ", ".join(f"{s} {c:+.2f}%" for s, c in mega)
     ftxt = lambda rows: ", ".join(f"{r['tk']}({r['name']}, {r['ind']}) {r['pct']:+.2f}%" for r in rows if r.get("pct") is not None) or "(없음)"
-    us = gemini_obj(state, US_PROMPT.format(day=us_day, quotes=qtxt, gain=ftxt(gain), lose=ftxt(lose),
-                                            posts="\n\n".join(posts)[:42000] or "(없음)"), US_SCHEMA, "미국 시황", check=us_ok) or {}
+    us = ai_cached(state, "미국 시황", us_day, lambda: gemini_obj(state, US_PROMPT.format(day=us_day, quotes=qtxt, gain=ftxt(gain), lose=ftxt(lose),
+                                            posts="\n\n".join(posts)[:42000] or "(없음)"), US_SCHEMA, "미국 시황", check=us_ok)) or {}
     # 주목 종목 정리: 등락률이 깨진 줄은 시세 값으로 고치거나 버림
     fixed = []
     for x in us.get("stocks") or []:
@@ -1234,9 +1413,16 @@ def build_pdf(state, since_ts):
         print(f"[warn] 업종 주요 종목 실패: {ex}", file=sys.stderr); movers = []
     mv_txt = "\n".join(f"## {m['sector']} {m['pct']:+.2f}%\n" + "\n".join(
         f"- {x['name']}({x['code']}) {x['pct']:+.2f}%\n  " + ("\n  ".join(x["news"]) or "근거 자료 없음") for x in m["stocks"]) for m in movers) or "(없음)"
-    jp = gemini_obj(state, JP_PROMPT.format(day=jp_day, us=us_sum, idx=jp_idx or "-", wrap=wrap_txt[:6000], movers=mv_txt[:16000], news=news_txt[:8000],
-                                            disc=disc_txt[:9000], earn=earn_txt), JP_SCHEMA, "일본 시황") or {}
+    jp_sig = jp_day + "|" + ",".join(f"{x.get('id')}/{x.get('sec')}" for x in disc) + "|" + ",".join(m["sector"] for m in movers)
+    jp = ai_cached(state, "일본 시황", jp_sig, lambda: gemini_obj(state, JP_PROMPT.format(day=jp_day, us=us_sum, idx=jp_idx or "-", wrap=wrap_txt[:6000], movers=mv_txt[:16000], news=news_txt[:8000],
+                                            disc=disc_txt[:9000], earn=earn_txt), JP_SCHEMA, "일본 시황")) or {}
     hi = [x for x in wraps if x["kind"] in ("highs", "gainers")]
+    flows = jpx_flows()
+    val = prime_valuation(state)
+    cal = macro_calendar()
+    DIAG.update({"us_ai": bool(us.get("summary")), "jp_ai": bool(jp.get("summary")), "chart": bool(rates_img), "gain": len(gain),
+                 "movers": len(movers), "hi": len(hi), "wrap": len(wrap), "com": len(com), "flows": len(flows), "val": len(val),
+                 "cal": len(cal), "jp_traded": bool(jp_day) and jp_day >= since.strftime("%Y-%m-%d")})   # 지난 브리핑 뒤 일본 거래일이 있었나
 
     # ── HTML: 분량(목표 PAGE_MAX쪽)에 맞춰 단계(lv)별로 덜 중요한 부분부터 줄임
     def assemble(lv, ul=0):
@@ -1295,7 +1481,7 @@ def build_pdf(state, since_ts):
         if (ern_pre or ern_post) and ul < 2:
             ek = lambda rows: "".join(f"<tr><td>{esc(r['tk'])} <span class='note'>{esc(r['name'][:26])}</span></td><td class='n'>{esc(r['cap'])}</td></tr>" for r in rows) or "<tr><td class='note'>없음</td><td></td></tr>"
             parts.append("<h3>오늘 밤 실적 발표(미국, 시총 100억 달러↑)</h3><div class='grid'><div><table><tr><th>장 전</th><th>시총($B)</th></tr>" + ek(ern_pre)
-                         + "</table></div><div><table><tr><th>장 마감 후</th><th>시총($B)</th></tr>" + ek(ern_post) + "</table></div></div>")
+                         + "</table></div><div><table><tr><th>장 마감 후·시간 미정</th><th>시총($B)</th></tr>" + ek(ern_post) + "</table></div></div>")
         if us.get("macro"):
             parts.append("<h3>매크로</h3>" + li(us["macro"][:(9, 9, 4, 3, 3, 2)[ul]]))
         if us.get("watch"):
@@ -1314,6 +1500,22 @@ def build_pdf(state, since_ts):
         parts.append(jt)
         if rates_img:
             parts.append(f"<img class='chart wide' src='{rates_img}'>")
+        if flows or val:
+            parts.append("<h3>수급 · 밸류에이션</h3>")
+        if flows:
+            keys = ["외국인", "개인", "투자신탁", "사업법인", "신탁은행", "증권사 자기"]
+            fc = lambda v: f"<td class='n {cls(v)}'>{v:+,.0f}</td>"
+            parts.append("<table class='flow'><tr><th>주간 순매수(억엔)</th>" + "".join(f"<th>{k}</th>" for k in keys) + "</tr>"
+                         + "".join(f"<tr><td>{a[4:6]}/{a[6:]}~{b[4:6]}/{b[6:]}</td>" + "".join(fc(f[k]) for k in keys) + "</tr>" for a, b, f in flows[::-1])
+                         + f"<tr class='sum'><td>{len(flows)}주 합계</td>" + "".join(fc(sum(f[k] for _, _, f in flows)) for k in keys) + "</tr></table>"
+                         "<div class='note'>도쿄·나고야 2시장 현물 금액 기준(개인은 현금+신용). 자료: JPX 투자부문별 매매상황(주간)</div>")
+        if val:
+            ym, per, pbr = val[-1]
+            pr = lambda i, v: sum(1 for x in val if x[i] <= v) * 100 // len(val)
+            lo_p, hi_p = min(x[1] for x in val), max(x[1] for x in val)
+            lo_b, hi_b = min(x[2] for x in val), max(x[2] for x in val)
+            parts.append(f"<p class='val'>프라임 시장 가중 PER <b>{per:.1f}배</b>(최근 {len(val)}개월 백분위 {pr(1, per)} — 0=최저·100=최고, 범위 {lo_p:.1f}~{hi_p:.1f}배) · "
+                         f"PBR <b>{pbr:.1f}배</b>(백분위 {pr(2, pbr)}, {lo_b:.1f}~{hi_b:.1f}배) <span class='note'>{ym} 월말 · 연결 실적 기준 · 프라임 시장 출범(2022/4) 이후 · 자료: JPX</span></p>")
         if jp.get("summary"):
             parts.append("<h3>시장 흐름</h3>" + li(jp["summary"]))
         if secs:
@@ -1394,6 +1596,11 @@ def build_pdf(state, since_ts):
                          "<th>등락</th><th>52주 고가 대비</th><th>공시</th></tr>" + "".join(wrow(r) for r in watch[:(99, 30, 20, 15, 12, 10)[lv]]) + "</table>")
         if jp.get("watch"):
             parts.append("<h3>체크 포인트</h3>" + li(jp["watch"]))
+        if cal:
+            parts.append("<h3>주요 경제 일정 (미국·일본, 앞으로 7일 · 한국 시각)</h3><table class='cal'><tr><th>일시</th><th>국가</th><th>지표·이벤트</th><th>예상</th><th>이전</th></tr>" + "".join(
+                f"<tr><td class='cd0'>{d:%m/%d}({'월화수목금토일'[d.weekday()]}) {d:%H:%M}</td><td>{c}</td><td>{'<b>' if imp == 'High' else ''}{esc(n)}{'</b>' if imp == 'High' else ''}</td>"
+                f"<td class='n'>{esc(f_)}</td><td class='n'>{esc(pv)}</td></tr>" for d, c, n, f_, pv, imp in cal) + "</table>"
+                "<div class='note'>굵은 글씨 = 중요도 높음. 자료: ForexFactory 경제 캘린더</div>")
         # 3
         latest = {}
         for x in com:  # 같은 종류가 여러 번(주말 합산) 쌓였으면 최신 것만
@@ -1406,10 +1613,16 @@ def build_pdf(state, since_ts):
         parts.append("<h2>4. 일본 52주 신고가 · 상승률 상위</h2>")
         hd = max((x.get("day", "") for x in hi), default="")
         hs = [x for x in hi if lv == 0 or x.get("day", "") == hd]   # 줄일 때는 마지막 거래일 것만
-        hcaps = [{"highs": 40, "gainers": 18}, {"highs": 25, "gainers": 12}, {"highs": 18, "gainers": 10},
-                 {"highs": 12, "gainers": 8}, {"highs": 8, "gainers": 6}, {"highs": 6, "gainers": 5}][lv]
-        parts.append(stash_html(sorted(hs, key=lambda x: (x.get("day", ""), x["kind"] != "highs")), "신고가", hcaps)
+        hn = (20, 20, 15, 12, 8, 6)[lv]   # 본문은 상위 20(분량이 넘치면 더 줄임), 나머지는 부록
+        hsort = sorted(hs, key=lambda x: (x.get("day", ""), x["kind"] != "highs"))
+        parts.append(stash_html(hsort, "신고가", {"highs": hn, "gainers": hn}, more_note="은 맨 뒤 부록에" if lv < 2 else " 생략(분량 조절)")
                      if hi else "<p class='note'>이 기간에 쌓인 신고가·상승률 정리가 없습니다(휴장일이거나 아직 발송 전).</p>")
+        if hi and lv < 2:
+            rest = stash_html(hsort, "신고가", None, from_rank=hn)
+            if "<tr><td class='rk'>" in rest:
+                parts.append("<h2 class='pb'>부록. 52주 신고가 · 상승률 상위 (21위 이하)</h2>" + rest)
+        if MODEL_USED:
+            parts.append("<p class='note' style='margin-top:6mm'>AI 작성 모델: " + " · ".join(f"{esc(k)} {esc(v)}" for k, v in MODEL_USED.items()) + "</p>")
         doc = (f"<html><head><meta charset='utf-8'><style>{font_css()}{CSS.replace('%(date)s', t.strftime('%Y-%m-%d'))}</style></head><body>"
                + "".join(parts) + "</body></html>")
         return doc, top3
@@ -1492,8 +1705,13 @@ def main():
             st["sent"] = today
             if new_react:
                 st["react_last"] = new_react
-        if not DRY_RUN:
+        if not DRY_RUN and not FORCE:   # 테스트 발송은 상태를 저장하지 않음(발송 기록·AI 결과를 덮어쓰지 않게)
             save_state(st)
+        iss = health_issues()
+        if iss:
+            print("[warn] 빠진 섹션: " + " / ".join(iss), file=sys.stderr)
+            if not FORCE:
+                admin_alert(f"[아침 브리핑 {now():%m/%d} 점검] " + " / ".join(iss))
     else:
         sys.exit(1)
 
