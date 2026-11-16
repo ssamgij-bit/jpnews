@@ -1029,17 +1029,17 @@ def chart_png(rows, title):
     plt.rcParams["font.family"] = "NanumGothic"
     plt.rcParams["axes.unicode_minus"] = False
     rows = sorted(rows, key=lambda r: r[1])
-    fig, ax = plt.subplots(figsize=(6.2, 0.2 * len(rows) + 0.5), dpi=160)
+    fig, ax = plt.subplots(figsize=(7.4, 0.3 * len(rows) + 0.7), dpi=170)   # 글자·막대 크게(본문 폭 100%)
     cols = ["#cf2f3f" if v >= 0 else "#2360c4" for _, v in rows]
     ax.barh([r[0] for r in rows], [r[1] for r in rows], color=cols, height=0.62)
     for i, (_, v) in enumerate(rows):
         ax.text(v + (0.03 if v >= 0 else -0.03) * max(1, max(abs(x) for _, x in rows)), i, f"{v:+.2f}%",
-                va="center", ha="left" if v >= 0 else "right", fontsize=7.5, color="#333")
+                va="center", ha="left" if v >= 0 else "right", fontsize=10, color="#222", fontweight="bold")
     ax.axvline(0, color="#999", lw=0.6)
-    ax.set_title(title, loc="left", fontsize=9, color="#222")
+    ax.set_title(title, loc="left", fontsize=11.5, color="#111", fontweight="bold")
     for s in ax.spines.values():
         s.set_visible(False)
-    ax.tick_params(labelsize=7.5, length=0)
+    ax.tick_params(labelsize=10.5, length=0)
     ax.xaxis.set_visible(False)
     lim = max(abs(v) for _, v in rows) * 1.35 or 1
     ax.set_xlim(-lim, lim)
@@ -1462,7 +1462,7 @@ def build_pdf(state, since_ts):
         sec_rows = [(n, q[s]["chg"]) for s, n in SECTORS if s in q and q[s]["chg"] is not None]
         if sec_rows and ul < 4:
             try:
-                parts.append(f"<img class='chart{' sm' if ul >= 2 else ''}' src='{chart_png(sec_rows, 'S&P500 섹터 ETF 등락률(%)')}'>")
+                parts.append(f"<img class='chart wide' src='{chart_png(sec_rows, 'S&P500 섹터 ETF 등락률(%)')}'>")
             except Exception as ex:
                 print(f"[warn] 섹터 차트 실패: {ex}", file=sys.stderr)
         if us.get("sectors"):
@@ -1522,7 +1522,7 @@ def build_pdf(state, since_ts):
             try:
                 k = min(8 if lv < 2 else 5, max(1, len(secs) // 2))
                 pick = secs[:k] + [x for x in secs[-k:] if x not in secs[:k]]
-                parts.append(f"<img class='chart' src='{chart_png(pick, f'33업종 등락률 상·하위 {k}(%) · 전 거래일')}'>")
+                parts.append(f"<img class='chart wide' src='{chart_png(pick, f'33업종 등락률 상·하위 {k}(%) · 전 거래일')}'>")
             except Exception as ex:
                 print(f"[warn] 업종 차트 실패: {ex}", file=sys.stderr)
         wb = wrap[-1]["blocks"][:-1] if wrap else []
@@ -1629,11 +1629,11 @@ def build_pdf(state, since_ts):
 
     from weasyprint import HTML
     ul = 0
-    for ul in range(6):   # 미국(1장)은 2쪽 안에: 넘치면 미국 부분만 단계별로 줄임
+    for ul in range(6):   # 미국(1장)은 3쪽 안에: 넘치면 미국 부분만 단계별로 줄임
         d0, _ = assemble(0, ul)
         n_us = len(HTML(string=d0.split("<!--JP-->")[0] + "</body></html>", base_url=DIR).render().pages)
         print(f"[info] 미국 단계 {ul}: {n_us}쪽", file=sys.stderr)
-        if n_us <= 2: break
+        if n_us <= 3: break
     for lv in range(6):
         doc, top3 = assemble(lv, ul)
         rd = HTML(string=doc, base_url=DIR).render()
