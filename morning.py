@@ -990,7 +990,10 @@ X·note 트렌드(T번호, 최근 7일 중 며칠 순위에 올랐는지 포함)
   연예·가십·스포츠 결과처럼 투자와 무관한 것은 빼고, 소비·기업·상품·가격·정책·노동·인구 변화를 우선.
 - ideas: 관련 종목 아이디어 2~4개. 각 {{theme, why, stocks, refs}}.
   theme: 아이디어 한 줄. why: 왜 이 종목들을 볼 만한지 1문장('(추정)').
-  stocks: 일본 상장사 {{name(한국어), code(4자리 종목코드)}} 1~3개 — 화제와 사업(매출 비중이 큰 제품·서비스)의 연결이 분명한 것만. 확실하지 않으면 빈 배열.
+  stocks: 일본 상장사 1~3개. 각 {{name(한국어), code(4자리 종목코드), bm, link}}.
+    bm: 사업 모델 1문장 — 무엇을 누구에게 팔아 어떻게 돈을 버는지, 주력 사업·대략의 매출 구성(확실한 것만).
+    link: 이 화제가 그 회사 매출·이익에 어떻게 이어지는지 1문장('(추정)').
+    화제와 주력 사업의 연결이 분명한 종목만. 확실하지 않으면 빈 배열.
   refs: 근거 글 번호.
 - titles: reactions·insights·ideas의 refs에 쓴 글마다 {{ref, ko}} — ko는 그 글 제목을 한국어로 짧게(30자 이내) 옮긴 것.
 제목·요약에 있는 사실만 쓰고 숫자·평가를 지어내지 마라. 일본어를 쓰지 말고 고유명사도 한글로(일본어 발음대로 한글 표기, 예: 第一興商=다이이치코쇼).
@@ -1014,7 +1017,8 @@ COM_SCHEMA = {"type": "OBJECT", "properties": {
     "reactions": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {"text": {"type": "STRING"}, "refs": _SA}, "required": ["text", "refs"]}},
     "ideas": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {
         "theme": {"type": "STRING"}, "why": {"type": "STRING"}, "refs": _SA,
-        "stocks": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {"name": {"type": "STRING"}, "code": {"type": "STRING"}}, "required": ["name", "code"]}}},
+        "stocks": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {"name": {"type": "STRING"}, "code": {"type": "STRING"},
+                   "bm": {"type": "STRING"}, "link": {"type": "STRING"}}, "required": ["name", "code", "bm", "link"]}}},
         "required": ["theme", "why", "stocks"]}},
     "titles": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {"ref": {"type": "STRING"}, "ko": {"type": "STRING"}}, "required": ["ref", "ko"]}}},
     "required": ["overview", "reactions", "insights", "ideas"]}
@@ -1092,17 +1096,39 @@ def community_fallback(state, since_ts, digest=""):
         blocks.append("<b>[투자 인사이트]</b>\n" + "\n\n".join(
             f"• {esc(str(x['text']).lstrip('•· '))} {ev(x.get('refs'))}".rstrip() for x in ins[:3]))
     lines, dropped = [], 0
-    for x in [x for x in (o.get("ideas") or []) if isinstance(x, dict) and x.get("theme")][:4]:
+    ideas = [x for x in (o.get("ideas") or []) if isinstance(x, dict) and x.get("theme")][:4]
+    codes = []
+    for x in ideas:
+        for st in (x.get("stocks") or [])[:3]:
+            st["code"] = re.sub(r"[^0-9A-Z]", "", str(st.get("code", "")).upper())
+            if st["code"] in names:
+                codes.append(st["code"])
+    qq = jp_quotes(codes) if codes else {}
+    vals = {}
+    try:   # 종목마다 12MF PER·최근 4분기 영업익 증감(신고가 표와 같은 계산)
+        import highs
+        for c in dict.fromkeys(codes):
+            px = (qq.get(c) or {}).get("regularMarketPrice")
+            vals[c] = highs.jp_val({"code": c, "price": f"{px:,.0f}엔" if px else ""}) if px else ""
+    except Exception as ex:
+        print(f"[warn] 아이디어 종목 밸류 실패: {ex}", file=sys.stderr)
+    for x in ideas:
         stks = []
         for st in (x.get("stocks") or [])[:3]:
-            code = re.sub(r"[^0-9A-Z]", "", str(st.get("code", "")).upper())
-            if code in names:   # 상장 목록에 있는 코드만(AI가 지어낸 코드는 뺌)
-                nm = (names[code] or {}).get("ko") or st.get("name", "")
-                stks.append(f"{'⭐' if code in watch else ''}{esc(nm)} {vdl(code)}")
-            else:
+            code = st.get("code", "")
+            if code not in names:   # 상장 목록에 없는 코드(AI가 지어낸 것)는 뺌
                 dropped += 1
-        lines.append(f"• <b>{esc(x['theme'])}</b> — {esc(x.get('why', ''))}" + (f" <b>→ {' · '.join(stks)}</b>" if stks else "")
-                     + f" {ev(x.get('refs'))}".rstrip())
+                continue
+            nm = (names[code] or {}).get("ko") or st.get("name", "")
+            q_ = qq.get(code) or {}
+            meta = " · ".join(filter(None, [f"시총 {oku(q_.get('marketCap'))}" if q_.get("marketCap") else "",
+                                            (f"{q_['regularMarketChangePercent']:+.1f}%(전일)" if q_.get("regularMarketChangePercent") is not None else ""),
+                                            esc(vals.get(code, ""))]))
+            stks.append(f"<br><span class='idst'>▸ <b>{'⭐' if code in watch else ''}{esc(nm)}</b> {vdl(code)}"
+                        + (f" <span class='note'>{meta}</span>" if meta else "")
+                        + (f"<br>&nbsp;&nbsp;&nbsp;사업: {esc(st.get('bm', ''))}" if st.get("bm") else "")
+                        + (f"<br>&nbsp;&nbsp;&nbsp;연결: {esc(st.get('link', ''))}" if st.get("link") else "") + "</span>")
+        lines.append(f"• <b>{esc(x['theme'])}</b> — {esc(x.get('why', ''))} {ev(x.get('refs'))}".rstrip() + "".join(stks))
     if lines:
         blocks.append("<b>[관련 종목 아이디어]</b>\n" + "\n\n".join(lines)
                       + "\n\n<span class='srct'>⭐ = 관심 종목 · 종목코드는 JPX 상장 목록으로 확인한 것만 표시 · 근거의 반응 수는 발송 시점 기준</span>")
@@ -1484,7 +1510,7 @@ table.disc td:first-child{width:24%} table.disc td:nth-child(2){width:42%}
 img.chart{width:82%;margin:1mm 0;display:block} img.chart.sm{width:62%} img.chart.wide{width:100%}
 .srct{color:#999;font-size:7pt;font-style:normal}
 table.flow td,table.flow th{font-size:8pt;padding:1mm 1.5mm;text-align:right} table.flow td:first-child,table.flow th:first-child{text-align:left} table.flow tr.sum td{font-weight:700;border-top:1px solid #bbb}
-p.val{font-size:8.6pt;margin:2mm 0}
+p.val{font-size:8.6pt;margin:2mm 0} .idst{display:block;margin:1.2mm 0 0 2mm;font-size:8.4pt;color:#333}
 table.cal td{font-size:8.4pt;padding:1.2mm 2mm} td.cd0{white-space:nowrap;width:16mm;color:#9a6a12;font-weight:700}
 .chg{border:1px solid #e3dccb;border-radius:2mm;padding:2.5mm 3.5mm;margin:0 0 4mm;background:#fcfbf7}
 .chips{display:flex;flex-wrap:wrap;gap:1.5mm} .chip{flex:1 0 17%;border-right:1px solid #eee;padding:0.5mm 1.5mm}
@@ -1890,7 +1916,7 @@ def build_pdf(state, since_ts):
             if x["ts"] >= latest.get(x["kind"], {}).get("ts", 0): latest[x["kind"]] = x
         cs = [latest[k] for k in ("community", "insight") if k in latest]
         parts.append("<h2>3. 일본 커뮤니티 정리</h2>")
-        parts.append(stash_html(cs, "커뮤니티", {"community": 3, "insight": 6}) if cs
+        parts.append(stash_html(cs, "커뮤니티", {"community": 6, "insight": 6}) if cs
                      else "<p class='note'>이 기간에 쌓인 커뮤니티 요약이 없습니다(개별 화제글은 텔레그램 채널 07:00).</p>")
         # 4
         parts.append("<h2>4. 일본 52주 신고가 · 상승률 상위</h2>")
