@@ -1,15 +1,5 @@
 {
 "seen": {
-"adamjohnson": 1794606311.793425,
-"sohinipodder": 1794606311.7973022,
-"georgelei": 1794606311.8009205,
-"pollymosendz": 1794606311.80474,
-"timsmith": 1794606311.8083177,
-"alexanderkell": 1794606311.81217,
-"abeerabuomar": 1794606311.815981,
-"seniorinvestigativereporter/chiefcorrespondent": 1794606311.8223784,
-"yujinakamura": 1794606311.8262408,
-"keithnaughton": 1794606311.8301249,
 "アメリカ全土の空港で航空機運航停止通信の問題運輸長官": 1794606912.286494,
 "動画pickupnews11月14日": 1794606912.2907128,
 "antondoroshevformerrbnspeededitormoscowrussiabloomberg": 1794606912.2975988,
@@ -2112,7 +2102,10 @@
 "annaedney": 1794864313.7997816,
 "イラン当局イスファハン州の防空システム作動報道を否定濃縮施設所在": 1794864313.8072941,
 "マイクロソフトの世界規模の障害7月から未検知のバグが引き起こす": 1794864911.3970797,
-"米航空便ほぼ正常化3日間で1万8000便超欠航": 1794864911.403455
+"米航空便ほぼ正常化3日間で1万8000便超欠航": 1794864911.403455,
+"ナスダック25％下落エヌビディア経営混乱への懸念広がる": 1794865510.3895547,
+"英俳優ロバートパティンソン新ジェームズボンドに生涯の栄誉": 1794865510.396419,
+"米国株式市場大幅安ａｉ懸念でエヌビディア決算に注目": 1794865510.402921
 },
 "recent": [
 {
@@ -5453,7 +5446,7 @@
 "니케이|ssets.wor.jp/rss/rdf/nikkei/business.rdf": 0,
 "니케이|.wor.jp/rss/rdf/nikkei/international.rdf": 0,
 "로이터|https://news.google.com/rss/search": 0,
-"블룸버그|https://news.google.com/rss/search": 0,
+"블룸버그|https://news.google.com/rss/search": 1,
 "NHK|news.web.nhk/n-data/conf/na/rss/cat5.xml": 0,
 "NHK|news.web.nhk/n-data/conf/na/rss/cat4.xml": 0,
 "NHK|news.web.nhk/n-data/conf/na/rss/cat6.xml": 0,
