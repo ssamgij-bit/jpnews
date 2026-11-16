@@ -1,12 +1,5 @@
 {
 "seen": {
-"速報中アメリカ全土の空港で航空機運航停止通信の問題": 1794609911.8970826,
-"leonardolara": 1794609911.9007697,
-"bradstone": 1794609911.9042332,
-"marcuswright": 1794609911.9078927,
-"sanjaipr": 1794609911.9113035,
-"formerreporterglobaltechnologycoverage": 1794609911.9169605,
-"vickykaiyifeng": 1794609911.920751,
 "matthewburgess": 1794610512.032004,
 "トランプ氏19日に中ロ首脳と3カ国会談へａｐｅｃに合わせ報道": 1794610512.037329,
 "カリスマ失墜で米ai政策の力学一変半導体規制強化へ米中関係も変化必至": 1794610512.0428555,
@@ -2094,7 +2087,10 @@
 "ｏｐｅｃが生産能力巡り会合29日にｏｐｅｃプラス27年生産方針協議": 1794867312.3115246,
 "ロシア報道官日ロ首脳会談の可能性排除せず": 1794867911.9923406,
 "ｅｕ外相欧州安保巡るロシアとの協議時期尚早停戦が先決": 1794867911.9988892,
-"paulbarbagallo": 1794868510.9410567
+"paulbarbagallo": 1794868510.9410567,
+"ｊｐモルガンで取引処理遅延ソフトのバグ原因送金などに影響か": 1794869109.1711366,
+"ｎｚ中銀世界的なリスク増大警告国内の金融システムは強靱報告書": 1794869109.1783242,
+"ｅｕ外相シリアとの連合協定推進で合意関係強化へ": 1794869109.1847432
 },
 "recent": [
 {
@@ -5435,7 +5431,7 @@
 "니케이|ssets.wor.jp/rss/rdf/nikkei/business.rdf": 0,
 "니케이|.wor.jp/rss/rdf/nikkei/international.rdf": 0,
 "로이터|https://news.google.com/rss/search": 0,
-"블룸버그|https://news.google.com/rss/search": 0,
+"블룸버그|https://news.google.com/rss/search": 1,
 "NHK|news.web.nhk/n-data/conf/na/rss/cat5.xml": 0,
 "NHK|news.web.nhk/n-data/conf/na/rss/cat4.xml": 0,
 "NHK|news.web.nhk/n-data/conf/na/rss/cat6.xml": 0,
