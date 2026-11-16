@@ -2,7 +2,7 @@
 # 봇 상태 파일은 main이 아니라 'state' 브랜치에 저장(코드 이력과 분리 · 하루 수백 건의 상태 커밋이 main을 덮지 않게)
 #   bash state.sh pull            → 상태 파일을 작업 폴더로 가져옴(최신 것)
 #   bash state.sh push 파일...     → 그 파일들을 state 브랜치에 저장(다른 봇과 겹치면 재시도)
-# 옮기는 기간 안전장치: main과 state 브랜치 중 더 최근에 저장된 쪽을 씀(예전 코드로 돌던 실행이 main에 남긴 것도 놓치지 않음)
+# state 브랜치에 파일이 있으면 그것을, 없을 때만 main 사본을 씀
 set -u
 FILES="state.json highs_state.json community_state.json morning_state.json weather_state.json"
 BR=state
@@ -12,11 +12,9 @@ pull() {
     || git fetch -q --depth=100 origin +refs/heads/main:refs/remotes/origin/main || true
   for f in $FILES; do
     [ -f ".own_$f" ] && continue   # 이 실행이 직접 쓰는 파일은 덮어쓰지 않음(저장이 한 번 실패해도 내용 유지)
-    ts=$(git log -1 --format=%ct "origin/$BR" -- "$f" 2>/dev/null || true)
-    tm=$(git log -1 --format=%ct origin/main -- "$f" 2>/dev/null || true)
-    # 얕은 fetch(depth=100) 범위 밖이라 state 쪽 커밋 시각을 못 찾아도, 파일이 state 브랜치에 있으면 state를 씀
-    # (주말처럼 오래 안 바뀐 파일이 옛 main 사본으로 되돌아가던 문제 — 2026-11-16 월요일 신고가 누락 원인)
-    if git cat-file -e "origin/$BR:$f" 2>/dev/null && { [ -z "$ts" ] || [ "$ts" -ge "${tm:-0}" ]; }; then src="origin/$BR"; else src=origin/main; fi
+    # state 브랜치에 있으면 항상 state를 씀. (얕은 clone에서는 경계 커밋이 모든 파일을 바꾼 것처럼 보여
+    #  main 쪽 '최근 저장 시각'이 늘 최신으로 나와, 옛 main 사본이 이기던 문제 — 2026-11-16 신고가 누락 원인)
+    if git cat-file -e "origin/$BR:$f" 2>/dev/null; then src="origin/$BR"; else src=origin/main; fi
     git show "$src:$f" > "$f.tmp" 2>/dev/null && mv "$f.tmp" "$f" || rm -f "$f.tmp"
   done
   echo "[state] 상태 파일 가져옴(state 브랜치 우선, 더 최근이면 main)"
