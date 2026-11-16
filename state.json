@@ -1,9 +1,5 @@
 {
 "seen": {
-"ヤマダデンキ不正アクセスで最大350万件が影響受けた可能性": 1794581112.2024615,
-"热传递和热存储技术供应商modinemanufacturingcomod涨34%创2020年11月份以来最大": 1794581112.2116537,
-"日本とメキシコの外相有識者会議で中長期の戦略的関係議論へ": 1794581112.218219,
-"ボストン連銀総裁インフレ抑制優先短期的に住宅市場に打撃でも": 1794581112.225063,
 "热传递和热存储技术供应商modinemanufacturingco涨34%创2020年11月份以来最大盘中涨幅": 1794581716.1630673,
 "イランバーレーンの米軍通信設備を攻撃と発表": 1794581716.1670527,
 "asanthasirimanne": 1794581716.1721442,
@@ -2101,7 +2097,18 @@
 "美元/日元下跌006%报15957": 1794837926.3787358,
 "美联储数据显示11月13日美国有效联邦基金利率为388%交易规模为950亿美元；11月12日为388%交易规模": 1794837926.3854501,
 "百度の79月期最終黒字に転換広告収入2割減aiは4割増": 1794839123.5780928,
-"asean国境を越える煙害で対策強化へ": 1794839123.5820873
+"asean国境を越える煙害で対策強化へ": 1794839123.5820873,
+"pavelalpeyev": 1794840312.131704,
+"amandajordan": 1794840312.1350336,
+"okechfrancis": 1794840312.1384087,
+"jeremyherron": 1794840312.1417465,
+"romyvarghese": 1794840312.1450365,
+"justinavasquez": 1794840312.148427,
+"ecb次期総裁選びクノット氏が今週撤退へオランダ紙": 1794840312.1528356,
+"米商務省第三国経由のａｉ半導体アクセス規制発表対中制限強化の可能性": 1794840312.1579475,
+"米国先端ai半導体への遠隔アクセスを制限輸出規制の迂回防止": 1794840312.1627426,
+"トランプ氏8月末にエヌビディア株最大6200万ドル保有か米紙": 1794840312.1676016,
+"フーシ派イエメン南部沿岸地域を制圧暫定首都アデンに迫る": 1794840312.172291
 },
 "recent": [
 {
@@ -5445,8 +5452,8 @@
 "니케이|assets.wor.jp/rss/rdf/nikkei/economy.rdf": 0,
 "니케이|ssets.wor.jp/rss/rdf/nikkei/business.rdf": 0,
 "니케이|.wor.jp/rss/rdf/nikkei/international.rdf": 0,
-"로이터|https://news.google.com/rss/search": 10,
-"블룸버그|https://news.google.com/rss/search": 10,
+"로이터|https://news.google.com/rss/search": 0,
+"블룸버그|https://news.google.com/rss/search": 0,
 "NHK|news.web.nhk/n-data/conf/na/rss/cat5.xml": 0,
 "NHK|news.web.nhk/n-data/conf/na/rss/cat4.xml": 0,
 "NHK|news.web.nhk/n-data/conf/na/rss/cat6.xml": 0,
@@ -5456,10 +5463,7 @@
 "신랑재경|https://zhibo.sina.com.cn/api/zhibo/feed": 0,
 "제일재경|https://www.yicai.com/api/ajax/getlatest": 0
 },
-"alerted": [
-"로이터|https://news.google.com/rss/search",
-"블룸버그|https://news.google.com/rss/search"
-]
+"alerted": []
 },
 "week": [
 {
