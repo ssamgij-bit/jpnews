@@ -1302,7 +1302,7 @@ def rank_table(groups):
 
 
 def stock_table(blocks, gainers=False):
-    """신고가·상승률 상위 종목 조각 → 표(순위 | 종목·사업 | 등락·종가 | 시총·PER·PBR | 이유)"""
+    """신고가·상승률 상위 종목 조각 → 표(순위 | 종목·사업 | 등락·종가 | 시총·12MF PER·최근 4분기 영업익 증감 | 이유)"""
     rows = []
     for b in blocks:
         lines = [x.strip() for x in b.strip().split("\n") if x.strip()]
@@ -1316,15 +1316,20 @@ def stock_table(blocks, gainers=False):
         pct = re.search(r"([+-]\d+(?:\.\d+)?%)", rest + " " + info)
         px = re.search(r"종가 ([\d,\.]+엔)", info)
         cap = re.search(r"시총 ([\d,\.]+(?:조|억)\s*엔)", rest + " " + info)
-        per = re.search(r"PER ([\d\.,]+배)", info); pbr = re.search(r"PBR ([\d\.,]+배)", info)
+        per = re.search(r"PER ([\d\.,]+배(?:\(회사 예상\))?|적자)", info)
+        mf = "12MF PER" in info
+        opg = re.search(r"영업익\(최근 4분기\) ([^·]+)", info)
+        opv = opg.group(1).strip() if opg else ""
+        opc = cls(float(opv[:-1])) if re.fullmatch(r"[+-]\d+%", opv) else ""
         pv = pct.group(1) if pct else ""
         rows.append(
             f"<tr><td class='rk'>{rk}</td>"
             f"<td><b>{'★ ' if star else ''}{esc(_plain(name))}</b> {vdl(code)}<div class='meta'>{esc(short(biz, 46))}</div></td>"
             f"<td class='n'><span class='{cls(float(pv[:-1]) if pv else 0)}'>{pv}</span><div class='meta'>{px.group(1) if px else ''}</div></td>"
-            f"<td class='n'>{cap.group(1).replace(' ', '') if cap else ''}<div class='meta'>{(per.group(1) if per else '-')} · {(pbr.group(1) if pbr else '-')}</div></td>"
+            f"<td class='n'>{cap.group(1).replace(' ', '') if cap else ''}<div class='meta'>{('' if mf else '예상 ') + (per.group(1).replace('(회사 예상)', '*') if per else '-')}</div>"
+            f"<div class='meta'>{'영업익 ' if opv else ''}<span class='{opc}'>{esc(opv)}</span></div></td>"
             f"<td class='why'>{esc(short(why, 120))}</td></tr>")
-    return ("<table class='stk'><tr><th></th><th style='width:27%'>종목</th><th>등락·종가</th><th>시총·PER·PBR</th><th>오른 이유</th></tr>"
+    return ("<table class='stk'><tr><th></th><th style='width:27%'>종목</th><th>등락·종가</th><th>시총·12MF PER·영업익(4Q)</th><th>오른 이유</th></tr>"
             + "".join(rows) + "</table>") if rows else ""
 
 
@@ -1798,14 +1803,17 @@ def build_pdf(state, since_ts):
         parts.append("<h2>4. 일본 52주 신고가 · 상승률 상위</h2>")
         hd = max((x.get("day", "") for x in hi), default="")
         hs = [x for x in hi if lv == 0 or x.get("day", "") == hd]   # 줄일 때는 마지막 거래일 것만
-        hn = (20, 20, 15, 12, 8, 6)[lv]   # 본문은 상위 20(분량이 넘치면 더 줄임), 나머지는 부록
+        hn = (30, 30, 20, 15, 10, 8)[lv]   # 본문은 상위 30(분량이 넘치면 더 줄임), 나머지는 부록
         hsort = sorted(hs, key=lambda x: (x.get("day", ""), x["kind"] != "highs"))
         parts.append(stash_html(hsort, "신고가", {"highs": hn, "gainers": hn}, more_note="은 맨 뒤 부록에" if lv < 2 else " 생략(분량 조절)")
                      if hi else "<p class='note'>이 기간에 쌓인 신고가·상승률 정리가 없습니다(휴장일이거나 아직 발송 전).</p>")
+        if hi:
+            parts.append("<p class='note'>12MF PER = 애널리스트 컨센서스 EPS(이번 기·다음 기를 남은 개월 수로 가중, Yahoo) 기준, * = 컨센서스가 없어 회사 예상 EPS 기준. "
+                         "영업익 = 최근 4개 분기 영업이익 합계의 전년 같은 4개 분기 대비(카부탄). '예상'은 이전 방식(카부탄 표시 예상 PER).</p>")
         if hi and lv < 2:
             rest = stash_html(hsort, "신고가", None, from_rank=hn)
             if "<tr><td class='rk'>" in rest:
-                parts.append("<h2 class='pb'>부록. 52주 신고가 · 상승률 상위 (21위 이하)</h2>" + rest)
+                parts.append(f"<h2 class='pb'>부록. 52주 신고가 · 상승률 상위 ({hn + 1}위 이하)</h2>" + rest)
         if MODEL_USED:
             parts.append("<p class='note' style='margin-top:6mm'>AI 작성 모델: " + " · ".join(f"{esc(k)} {esc(v)}" for k, v in MODEL_USED.items()) + "</p>")
         doc = (f"<html><head><meta charset='utf-8'><style>{font_css()}{CSS.replace('%(date)s', t.strftime('%Y-%m-%d'))}</style></head><body>"

@@ -222,6 +222,66 @@ def jp_cap(h):
     return int(m2.group(1) or 0) * 10000 + float(m2.group(2) or 0) if m2 else None
 
 
+def _kb_rows(seg):
+    out = []
+    for tr in re.findall(r"<tr[^>]*>(.*?)</tr>", seg, re.S):
+        c = [re.sub(r"<[^>]+>", "", x).replace("&nbsp;", " ").strip() for x in re.findall(r"<t[hd][^>]*>(.*?)</t[hd]>", tr, re.S)]
+        if c and re.search(r"\d{2}\.\d{2}", c[0]):   # 결산기 칸(예: 2026.08, 予 2027.08, 25.09-11)
+            out.append(c)
+    return out
+
+
+def jp_val(r):
+    """12MF PER(애널리스트 컨센서스 EPS: 이번 기·다음 기를 남은 개월 수로 가중, 컨센서스가 없으면 회사 예상 EPS)과
+    최근 4개 분기 누적 영업이익의 전년 같은 4개 분기 대비 증감률(카부탄 분기 실적) → '12MF PER x배 · 영업익(최근 4분기) +y%'"""
+    code = r["code"]
+    out = []
+    try:
+        price = num(str(r.get("price", "")).replace("엔", ""))
+        h = get(f"https://kabutan.jp/stock/finance?code={code}")
+        eps0 = fy_end = None
+        i = h.find("修正1株配")   # 통기 실적 표(회사 예상 '予' 줄)
+        for c in _kb_rows(h[max(0, i - 1500):i + 4000]) if i > 0 else []:
+            m = re.search(r"予\s*(\d{4})\.(\d{2})", c[0])
+            if m and len(c) > 5 and num(c[5]) is not None:
+                eps0, fy_end = num(c[5]), datetime(int(m.group(1)), int(m.group(2)), 28, tzinfo=JST)
+                break
+        eps12, lab = None, ""
+        for _ in range(2):   # 야후가 가끔 빈 표를 줌 → 한 번 더
+            try:
+                import yfinance as yf
+                ee = yf.Ticker(f"{code}.T").earnings_estimate
+                e0, e1 = float(ee.loc["0y", "avg"]), float(ee.loc["+1y", "avg"])
+                if e0 == e0 and e1 == e1:   # NaN 아님
+                    left = max(0.0, min(12.0, ((fy_end or now() + timedelta(days=180)) - now()).days / 30.44))
+                    eps12, lab = left / 12 * e0 + (1 - left / 12) * e1, ""
+                break
+            except Exception:
+                time.sleep(2)
+        if eps12 is None and eps0:
+            eps12, lab = eps0, "(회사 예상)"
+        if price and eps12:
+            out.append(f"12MF PER {price / eps12:.1f}배{lab}" if eps12 > 0 else "12MF PER 적자")
+        j = h.find("3ヵ月決算")   # 분기 실적 표
+        seg = h[j:j + 6000] if j > 0 else ""
+        seg = seg[:seg.find("前年同期比")] if "前年同期比" in seg else seg   # 분기 표(최근 8개 분기)까지만
+        q = [num(c[2]) for c in _kb_rows(seg) if len(c) > 2]
+        q = [x for x in q if x is not None]
+        if len(q) >= 8:
+            now4, prev4 = sum(q[-4:]), sum(q[-8:-4])
+            if prev4 > 0 and now4 > 0:
+                out.append(f"영업익(최근 4분기) {(now4 / prev4 - 1) * 100:+.0f}%")
+            elif prev4 <= 0 < now4:
+                out.append("영업익(최근 4분기) 흑자 전환")
+            elif now4 <= 0 < prev4:
+                out.append("영업익(최근 4분기) 적자 전환")
+            else:
+                out.append("영업익(최근 4분기) 적자 지속")
+    except Exception as ex:
+        print(f"[warn] 밸류 계산 실패 {code}: {ex}", file=sys.stderr)
+    return " · ".join(out)
+
+
 def jp_profile(r):
     if JP_MOBILE:
         h = get(f"https://s.kabutan.jp/stocks/{r['code']}/")
@@ -625,6 +685,9 @@ def build(state, mk, day, asof, stocks, final):
                 + esc(" · ".join(f"{k} {v}" for k, v in sec.most_common(8))))
     if flow:
         head.append("\n<b>[흐름]</b>\n" + "\n\n".join(f"• {esc(x.lstrip('•· '))}" for x in flow))
+    if mk == "JP":   # PER은 12MF 기준, PBR 대신 최근 4분기 영업이익 증감률
+        for r in top:
+            r["val"] = jp_val(r) or r.get("val", "")
     blocks = []
     for i, r in enumerate(top, 1):
         w = by.get(r["code"], {})
@@ -648,7 +711,7 @@ def build(state, mk, day, asof, stocks, final):
             lines.append(f"외 {len(rest) - len(shown)}종목")
         blocks.append("\n".join(lines))
     blocks.append("<i>신고가 이유는 뉴스·공시 제목 기준 요약이며, '(추정)'은 근거 제목이 없는 경우입니다. "
-                  "시총·PER·PBR은 각 사이트 표시값입니다.</i>")
+                  "시총은 각 사이트 표시값, 일본 PER은 12MF(애널리스트 컨센서스, 없으면 회사 예상), 영업익은 최근 4개 분기 합계의 전년 대비입니다.</i>")
     return "\n".join(head), blocks
 
 
@@ -865,6 +928,8 @@ def jp_gain_msg(state, day, rows, highs):
     nh = sum(r["code"] in highs for r in rows)
     head = (f"<b>&gt;&gt;[상승률 상위 {len(rows)}] 일본 {day[5:]} 도쿄 마감</b>\n"
             f"(ETF·리츠·시총 {GAIN_MIN_CAP:,.0f}억 엔 미만 제외, ★ = 오늘 52주 신고가 {nh}종목)")
+    for r in rows:   # PER은 12MF 기준, PBR 대신 최근 4분기 영업이익 증감률
+        r["val"] = jp_val(r) or r.get("val", "")
     blocks = []
     for i, r in enumerate(rows, 1):
         w = by.get(r["code"], {})
