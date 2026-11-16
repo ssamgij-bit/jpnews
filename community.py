@@ -600,7 +600,7 @@ def send_chunks(header, blocks, silent, sep="\n\n━━━━━━━━━━\
     return ok
 
 
-PDF_KINDS = {"community": ("<b>[24시간 동향]", "<b>[투자 관련 한눈에]"), "insight": None}
+PDF_KINDS = {"community": None, "insight": None}   # 아침 브리핑 커뮤니티 메모 재료(글별 [내용]·[댓글] 요약 포함 — 사람들 반응 요약에 씀)
 
 
 # ───────────────────────── 즉시 알림(★4 이상) ─────────────────────────

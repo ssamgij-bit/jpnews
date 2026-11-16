@@ -982,6 +982,8 @@ COM_PROMPT = """너는 한국 자산운용사의 일본 주식(소비재·산업
 X·note 트렌드(T번호, 최근 7일 중 며칠 순위에 올랐는지 포함)다. 이것을 하나로 통합해 투자 메모로 정리하라. JSON 하나만 출력. 보고서체('~함', '~로 보임').
 
 - overview: 전반 흐름 2~3문장. 여러 글을 묶어 '전반적으로 ~ 이야기가 많았음' 식으로. 며칠째 이어지는 화제와 새로 떠오른 화제를 구분해 언급. 사실만.
+- reactions: 사람들의 반응 요약 2~3개. 각 {{text, refs}}. 화제별로 사람들이 어떻게 받아들였는지(공감·불만·냉소·불안·기대 등)와
+  많이 나온 의견을 1문장으로. [오전 7시 발송분 요약]의 [댓글] 요약과 반응 수(댓글·북마크 수)에 근거하고, 댓글 정보가 없으면 문장 앞에 '(추정)'.
 - insights: 투자 관점에서 중요해 보이는 점 2~3개. 각 {{text, refs}}.
   text: 1~2문장. '무슨 화제 → 수요·가격·규제·소비 행태에 어떤 변화일 수 있는지'. 해석이므로 문장 앞에 '(추정)'.
   refs: 근거가 된 글 번호(예 ["P3","O12"]) 1~3개. 근거 없는 인사이트는 쓰지 마라.
@@ -990,7 +992,7 @@ X·note 트렌드(T번호, 최근 7일 중 며칠 순위에 올랐는지 포함)
   theme: 아이디어 한 줄. why: 왜 이 종목들을 볼 만한지 1문장('(추정)').
   stocks: 일본 상장사 {{name(한국어), code(4자리 종목코드)}} 1~3개 — 화제와 사업(매출 비중이 큰 제품·서비스)의 연결이 분명한 것만. 확실하지 않으면 빈 배열.
   refs: 근거 글 번호.
-- titles: insights·ideas의 refs에 쓴 글마다 {{ref, ko}} — ko는 그 글 제목을 한국어로 짧게(30자 이내) 옮긴 것.
+- titles: reactions·insights·ideas의 refs에 쓴 글마다 {{ref, ko}} — ko는 그 글 제목을 한국어로 짧게(30자 이내) 옮긴 것.
 제목·요약에 있는 사실만 쓰고 숫자·평가를 지어내지 마라. 일본어를 쓰지 말고 고유명사도 한글로(일본어 발음대로 한글 표기, 예: 第一興商=다이이치코쇼).
 
 [상위 글(오전 7시 발송분)]
@@ -1009,12 +1011,13 @@ _SA = {"type": "ARRAY", "items": {"type": "STRING"}}
 COM_SCHEMA = {"type": "OBJECT", "properties": {
     "overview": {"type": "STRING"},
     "insights": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {"text": {"type": "STRING"}, "refs": _SA}, "required": ["text", "refs"]}},
+    "reactions": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {"text": {"type": "STRING"}, "refs": _SA}, "required": ["text", "refs"]}},
     "ideas": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {
         "theme": {"type": "STRING"}, "why": {"type": "STRING"}, "refs": _SA,
         "stocks": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {"name": {"type": "STRING"}, "code": {"type": "STRING"}}, "required": ["name", "code"]}}},
         "required": ["theme", "why", "stocks"]}},
     "titles": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {"ref": {"type": "STRING"}, "ko": {"type": "STRING"}}, "required": ["ref", "ko"]}}},
-    "required": ["overview", "insights", "ideas"]}
+    "required": ["overview", "reactions", "insights", "ideas"]}
 
 
 def _com_ok(o):
@@ -1063,7 +1066,7 @@ def community_fallback(state, since_ts, digest=""):
         tl.append(f"T{i} {x.get('ko', '')}({x.get('cat', '')}, {ref[f'T{i}'][1]}): {x.get('reason', '')}")
     slot = datetime.fromtimestamp(last, JST)
     o = ai_cached(state, "커뮤니티 요약", str(int(last)), lambda: gemini_obj(state, COM_PROMPT.format(
-        slot=f"{slot:%m/%d} 오전 7시", picks="\n".join(pl) or "(없음)", digest=digest[:5000] or "(없음)", others="\n".join(ol) or "(없음)",
+        slot=f"{slot:%m/%d} 오전 7시", picks="\n".join(pl) or "(없음)", digest=digest[:14000] or "(없음)", others="\n".join(ol) or "(없음)",
         trends="\n".join(tl) or "(없음)"), COM_SCHEMA, "커뮤니티 요약", check=_com_ok))
     if not o or not o.get("overview"):
         return None
@@ -1080,6 +1083,10 @@ def community_fallback(state, since_ts, digest=""):
 
     names, watch = jp_names(), set(watch_codes())
     blocks = [f"<b>[전반 흐름]</b>\n{esc(str(o['overview']))}"]
+    rea = [x for x in (o.get("reactions") or []) if isinstance(x, dict) and x.get("text")]
+    if rea:
+        blocks.append("<b>[사람들의 반응]</b>\n" + "\n\n".join(
+            f"• {esc(str(x['text']).lstrip('•· '))} {ev(x.get('refs'))}".rstrip() for x in rea[:3]))
     ins = [x for x in (o.get("insights") or []) if isinstance(x, dict) and x.get("text")]
     if ins:
         blocks.append("<b>[투자 인사이트]</b>\n" + "\n\n".join(
