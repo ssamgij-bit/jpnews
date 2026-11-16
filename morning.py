@@ -428,7 +428,7 @@ def jgb10():
         return None
 
 
-def jgb10_hist(years=5):
+def jgb10_hist(years=10):
     """일본 국채 10년 금리 일별 이력(재무성: 과거분 jgbcm_all + 이번 달 jgbcm) → [(datetime, %)] 최근 years년"""
     out = {}
     for u in ("https://www.mof.go.jp/jgbs/reference/interest_rate/data/jgbcm_all.csv",
@@ -453,7 +453,7 @@ def jgb10_hist(years=5):
     return sorted((d, v) for d, v in out.items() if d >= cut)
 
 
-def usdjpy_hist(years=5):
+def usdjpy_hist(years=10):
     """달러/엔 일봉 종가(Yahoo) → [(datetime, 값)] 최근 years년"""
     try:
         import yfinance as yf
@@ -467,9 +467,9 @@ def usdjpy_hist(years=5):
 
 
 def bond10_hist(code):
-    """네이버 증권 국채 10년 금리(KR10YT=RR·US10YT=RR) → [(datetime, %)] 최근 5년. 1년 이전은 주간, 최근 1년은 일별"""
+    """네이버 증권 국채 10년 금리(KR10YT=RR·US10YT=RR) → [(datetime, %)] 최근 10년. 1년 이전은 주간, 최근 1년은 일별"""
     out = {}
-    for typ in ("areaYearFive", "areaYear"):  # 뒤의 일별 값이 앞의 주간 값을 덮어씀
+    for typ in ("areaYearTen", "areaYear"):  # 뒤의 일별 값이 앞의 주간 값을 덮어씀
         try:
             r = requests.get("https://m.stock.naver.com/front-api/chart/pricesByPeriod",
                              params={"reutersCode": code, "category": "bond", "chartInfoType": "governmentBond", "scriptChartType": typ},
@@ -483,7 +483,7 @@ def bond10_hist(code):
 
 
 def rates_chart_png(fx, jgb, peers=None):
-    """달러/엔 + 국채 10년(일본·미국·한국) 최근 5년 선 차트(좌우 2칸) → data URI. 최근값과 1년 전 대비 변화를 제목에"""
+    """달러/엔 + 국채 10년(일본·미국·한국) 최근 10년 선 차트(좌우 2칸) → data URI. 최근값과 1년 전 대비 변화를 제목에"""
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
@@ -509,8 +509,8 @@ def rates_chart_png(fx, jgb, peers=None):
         ax.scatter([last_d], [last], color=col, s=10, zorder=3)
         hi, lo = max(ys), min(ys)
         ax.set_title(f"{name}  {fmt(last)}  (1년 전 대비 {dfmt(y1, last)})\n", loc="left", fontsize=8.5, color="#222")
-        ax.text(0, 1.02, f"5년 최고 {fmt(hi)} · 최저 {fmt(lo)} · {last_d:%Y-%m-%d} 기준", transform=ax.transAxes, fontsize=6.8, color="#888")
-        ax.xaxis.set_major_locator(mdates.MonthLocator(bymonth=(1,)))
+        ax.text(0, 1.02, f"10년 최고 {fmt(hi)} · 최저 {fmt(lo)} · {last_d:%Y-%m-%d} 기준", transform=ax.transAxes, fontsize=6.8, color="#888")
+        ax.xaxis.set_major_locator(mdates.YearLocator(2))
         ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y"))
         ax.tick_params(labelsize=6.8, length=0)
         ax.grid(axis="y", color="#eee", lw=0.6)
@@ -542,8 +542,8 @@ def rates_chart_png(fx, jgb, peers=None):
             lag = " ".join(f"({n} {d:%m/%d})" for n, _, _, d in info if d != last_d)
             ax.text(0, 1.02, "1년 전 대비 " + " · ".join(x[2] for x in info) + f" · {last_d:%Y-%m-%d} 기준{(' ' + lag) if lag else ''} · 네이버 증권",
                     transform=ax.transAxes, fontsize=6.8, color="#888")
-            ax.set_xlim(right=last_d + timedelta(days=170))
-            ax.xaxis.set_major_locator(mdates.MonthLocator(bymonth=(1,)))
+            ax.set_xlim(right=last_d + timedelta(days=330))
+            ax.xaxis.set_major_locator(mdates.YearLocator(2))
             ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y"))
             ax.tick_params(labelsize=6.8, length=0)
             ax.grid(axis="y", color="#eee", lw=0.6)
