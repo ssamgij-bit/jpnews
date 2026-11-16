@@ -979,11 +979,13 @@ def health_issues():
 COM_SITE = {"hb": "하테나 북마크", "gc": "걸즈채널", "tg": "토게터", "nt": "note"}
 COM_PROMPT = """너는 한국 자산운용사의 일본 주식 담당 애널리스트를 돕는 데스크다.
 아래는 {slot} 텔레그램 채널로 보낸 일본 커뮤니티 화제글(상위 글)과 그 요약, 그 전 24시간 동안 반응이 늘어난 다른 글 제목·반응 수, X·note 트렌드다.
-이것을 하나로 통합해, 일본 주식 투자자가 주목할 부분만 5~7개로 정리하라. JSON 객체 하나만 출력.
-- points: 각 항목 1~2문장(90자 이내), '~함' 보고서체. 형식 '[주제] 무슨 화제인지 — 왜 주목할 만한지'.
-  소비·기업·상품·정책·사회 변화처럼 수요나 기업 실적에 이어질 수 있는 화제를 우선하고, 연예·가십은 투자 의미가 있을 때만.
-  관련 일본 상장사가 확실하면 괄호에 '기업명(종목코드)'. 확실하지 않으면 쓰지 마라.
-  제목·요약에 있는 사실만 쓰고 숫자·평가를 지어내지 마라. '왜 주목할 만한지'는 해석이므로 '(추정)'을 붙여라.
+이것을 하나로 통합해 일본 주식 투자자에게 짧은 메모처럼 정리하라. JSON 객체 하나만 출력. 보고서체('~함', '~로 보임').
+- overview: 커뮤니티 전반 흐름 2~3문장. '전반적으로 ~ 이야기가 많았음' 식으로 여러 글을 묶어서. 사실만.
+- insights: 투자 관점에서 중요해 보이는 점 2~3개. 각 1~2문장, 근거가 된 화제를 짧게 언급하고 해석이므로 '(추정)'을 붙여라.
+  소비·기업·상품·정책·사회 변화처럼 수요나 실적에 이어질 수 있는 것을 우선, 연예·가십은 투자 의미가 있을 때만.
+- ideas: 관련 종목 아이디어 2~4개. theme(아이디어 한 줄), why(왜 이 종목들을 볼 만한지 1문장, '(추정)'),
+  stocks(일본 상장사 '기업명(종목코드)' 1~3개 — 사업과 화제의 연결이 분명한 것만. 확실하지 않으면 빈 배열).
+제목·요약에 있는 사실만 쓰고 숫자·평가를 지어내지 마라.
 일본어를 쓰지 말고 고유명사도 한글로(일본어 발음대로 한글 표기, 예: 第一興商=다이이치코쇼). JSON 외 텍스트 금지.
 
 [상위 글(오전 7시 발송분)]
@@ -999,7 +1001,9 @@ COM_PROMPT = """너는 한국 자산운용사의 일본 주식 담당 애널리�
 {trends}
 """
 _SA = {"type": "ARRAY", "items": {"type": "STRING"}}
-COM_SCHEMA = {"type": "OBJECT", "properties": {"points": _SA}, "required": ["points"]}
+COM_SCHEMA = {"type": "OBJECT", "properties": {"overview": {"type": "STRING"}, "insights": _SA,
+    "ideas": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {"theme": {"type": "STRING"}, "why": {"type": "STRING"}, "stocks": _SA},
+              "required": ["theme", "why"]}}}, "required": ["overview", "insights", "ideas"]}
 
 
 def community_fallback(state, since_ts, digest=""):
@@ -1024,11 +1028,18 @@ def community_fallback(state, since_ts, digest=""):
     o = ai_cached(state, "커뮤니티 요약", str(int(last)), lambda: gemini_obj(state, COM_PROMPT.format(
         slot=f"{slot:%m/%d} 오전 7시", picks=picks or "(없음)", digest=digest[:5000] or "(없음)", others=others or "(없음)",
         trends=trends or "(없음)"), COM_SCHEMA, "커뮤니티 요약"))
-    if not o or not o.get("points"):
+    if not o or not o.get("overview"):
         return None
-    blocks = ["<b>[주목할 부분]</b>\n" + "\n\n".join(f"• {esc(str(t).lstrip('•· '))}" for t in o["points"][:7])]
+    blocks = [f"<b>[전반 흐름]</b>\n{esc(str(o['overview']))}"]
+    if o.get("insights"):
+        blocks.append("<b>[투자 인사이트]</b>\n" + "\n\n".join(f"• {esc(str(t).lstrip('•· '))}" for t in o["insights"][:3]))
+    ideas = [x for x in (o.get("ideas") or []) if isinstance(x, dict) and x.get("theme")]
+    if ideas:
+        blocks.append("<b>[관련 종목 아이디어]</b>\n" + "\n\n".join(
+            f"• <b>{esc(x['theme'])}</b> — {esc(x.get('why', ''))}" + (f"\n  → {esc(' · '.join(map(str, x['stocks'][:3])))}" if x.get("stocks") else "")
+            for x in ideas[:4]))
     print(f"[info] 커뮤니티 요약을 {slot:%m/%d %H:%M} 다이제스트({len(keys)}건) 기준으로 다시 만듦", file=sys.stderr)
-    return {"ts": last, "kind": "community", "head": f"<b>&gt;&gt;[커뮤니티] 일본 커뮤니티 — 주목할 부분</b> {slot:%m/%d} 오전 7시 텔레그램 발송분 기준", "blocks": blocks}
+    return {"ts": last, "kind": "community", "head": f"<b>&gt;&gt;[커뮤니티] 일본 커뮤니티 정리</b> {slot:%m/%d} 오전 7시 텔레그램 발송분 기준", "blocks": blocks}
 
 # ───────────────────────── AI 정리 ─────────────────────────
 STR_ARR = {"type": "ARRAY", "items": {"type": "STRING"}}
@@ -1810,7 +1821,7 @@ def build_pdf(state, since_ts):
         for x in com:  # 같은 종류가 여러 번(주말 합산) 쌓였으면 최신 것만
             if x["ts"] >= latest.get(x["kind"], {}).get("ts", 0): latest[x["kind"]] = x
         cs = [latest[k] for k in ("community", "insight") if k in latest]
-        parts.append("<h2>3. 일본 커뮤니티 — 주목할 부분</h2>")
+        parts.append("<h2>3. 일본 커뮤니티 정리</h2>")
         parts.append(stash_html(cs, "커뮤니티", {"community": 3, "insight": 6}) if cs
                      else "<p class='note'>이 기간에 쌓인 커뮤니티 요약이 없습니다(개별 화제글은 텔레그램 채널 07:00).</p>")
         # 4
