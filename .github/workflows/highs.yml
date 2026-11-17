@@ -56,7 +56,7 @@ jobs:
             python relay_wait.py "16:40,17:10,17:40" "0-4" 19200 || exit 0
           fi
           bash state.sh pull && touch .pulled
-          timeout 25m python highs.py "${{ github.event.inputs.market || 'auto' }}"
+          timeout 45m python highs.py "${{ github.event.inputs.market || 'auto' }}"
       - name: Save state
         if: always()
         run: |
