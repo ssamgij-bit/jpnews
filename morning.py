@@ -384,6 +384,10 @@ def watch_codes():
                     DIAG["watch_src"] = "bad"
                 _WATCH.extend(dict.fromkeys(str(c)[:4].upper() for c in mine))
                 print(f"[info] 관심 종목 {len(_WATCH)}개({src}, 전체 사용자 {len(users)}명)", file=sys.stderr)
+                for k, v in users.items():   # 사용자 구분용(채팅 ID는 끝 3자리만)
+                    print(f"[info]  사용자 …{k[-3:]}{'(주인 지정)' if k in [str(o) for o in (j.get('owners') or [])] else ''}{'(관리 채팅)' if k == me else ''}: "
+                          f"{len(v)}종목, 2875 {'있음' if '2875' in v else '없음'}, 2897 {'있음' if '2897' in v else '없음'}", file=sys.stderr)
+                print(f"[info]  관리 채팅 …{me[-3:]} · 주인 지정 {len(j.get('owners') or [])}개", file=sys.stderr)
         except Exception as ex:
             print(f"[warn] 관심 종목 읽기 실패: {ex}", file=sys.stderr)
         if not _WATCH:   # 공시봇 상태의 관심 종목은 모든 사용자 구독이 섞여 있어 대신 쓰지 않음
