@@ -2260,17 +2260,10 @@
 "日本经济再现负增长日央行12月还加息吗": 1794894919.209407,
 "集客や広告宣伝支援karteに不正アクセス利用企業に影響": 1794894919.2162514,
 "随時更新ロシアウクライナに軍事侵攻11月17日の動き": 1794895509.118788,
-"日本向亚洲国家提供闲置油罐用于石油储备": 1794895509.1244338
+"日本向亚洲国家提供闲置油罐用于石油储备": 1794895509.1244338,
+"印度国防部长将于11月18日至19日访问日本": 1794896107.489227
 },
 "recent": [
-{
-"id": "n789310_0",
-"ko": "캐피털 이코노믹스 \"일본 3분기 GDP 부진에도 일본은행 12월 금리 인상 전망 유효\"",
-"gist": "캐피털 이코노믹스는 일본의 3분기 GDP 부진에도 불구하고 인플레이션 압력으로 인해 일본은행이 12월에 금리를 인상할 가능성이 여전히 높다고 분석했다.",
-"ts": 1794789313.8540678,
-"mid": 3911,
-"sent": true
-},
 {
 "id": "n789912_0",
 "ko": "시바 료타로의 단편 소설에 초점을 맞춘 기획전, 오사카에서 개최",
@@ -5538,6 +5531,12 @@
 "ts": 1794895511.767102,
 "mid": 4074,
 "sent": true
+},
+{
+"id": "n896107_0",
+"ko": "인도 국방장관, 11월 18~19일 일본 방문 예정",
+"gist": "인도 국방장관이 11월 18일부터 19일까지 일본을 공식 방문할 예정이다.",
+"ts": 1794896108.9287872
 }
 ],
 "digest": [],
@@ -5613,8 +5612,8 @@
 "니케이|assets.wor.jp/rss/rdf/nikkei/economy.rdf": 0,
 "니케이|ssets.wor.jp/rss/rdf/nikkei/business.rdf": 0,
 "니케이|.wor.jp/rss/rdf/nikkei/international.rdf": 0,
-"로이터|https://news.google.com/rss/search": 2,
-"블룸버그|https://news.google.com/rss/search": 3,
+"로이터|https://news.google.com/rss/search": 3,
+"블룸버그|https://news.google.com/rss/search": 4,
 "NHK|news.web.nhk/n-data/conf/na/rss/cat5.xml": 0,
 "NHK|news.web.nhk/n-data/conf/na/rss/cat4.xml": 0,
 "NHK|news.web.nhk/n-data/conf/na/rss/cat6.xml": 0,
@@ -5625,6 +5624,7 @@
 "제일재경|https://www.yicai.com/api/ajax/getlatest": 0
 },
 "alerted": [
+"로이터|https://news.google.com/rss/search",
 "블룸버그|https://news.google.com/rss/search"
 ]
 },
