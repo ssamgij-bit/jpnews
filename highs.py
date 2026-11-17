@@ -917,6 +917,140 @@ def jp_gainers(today):
 
 HIGH_MIN_CAP = float(os.getenv("HIGH_MIN_CAP", "300"))  # 억 엔. 52주 신고가(일본)에서 이보다 작은 시가총액 종목은 제외
 
+# ───────────────────────── 일본 하락률 상위 · 52주 신저가 ─────────────────────────
+DOWN_PROMPT = """{role}
+오늘({day}) {country} 증시에서 {what} 종목들이다. 종목마다 JSON 배열 항목 하나를 출력하라(입력 순서대로, 빠짐없이).
+
+ code: 종목코드 그대로
+ ko: 한국어 사명. {naming}
+ biz: 무슨 회사인지 한국어 40자 이내. profile(회사 개요·업종)에 근거해 주력 제품·서비스를 구체적으로.
+ reason: 왜 주가가 약한지를 한국어 2문장(130자 이내), '~함' 보고서체.
+         ① 사업상 악재를 먼저 쓴다. 예: 실적 부진·가이던스 하향, 수요 둔화·재고 증가, 원가·환율 부담, 경쟁 심화, 규제·소송,
+            증자·전환사채에 따른 희석, 대주주 매도, 업황 악화, 금리·정책 변화.
+         ② 그 근거가 된 뉴스·공시를 날짜와 함께 덧붙인다(예: 11/13 통기 영업이익 예상 하향 공시).
+         '신저가 경신', '하락 마감', '외국인 순매도' 같은 결과만 쓰지 마라. 뉴스로 원인이 확인되지 않으면 사업 구조와 업종 흐름으로
+         가장 그럴듯한 원인을 쓰되 문장 앞에 '(추정)'을 붙여라. 자료에 없는 숫자를 만들지 마라.
+ basis: reason의 근거. '공시', '뉴스', '추정' 중 하나.
+{rules}
+
+종목:
+{items}
+"""
+DOWN_N = int(os.getenv("DOWN_TOP_N", "30"))
+DOWN_CACHE = {}   # 하락률 상위와 신저가에 함께 나오는 종목 설명 재사용
+
+
+def jp_mobile_rank(path, today, per_i, min_td, pool=GAIN_POOL, pages=20):
+    """카부탄 모바일 순위 페이지(신저가·하락률 등) → 주식 목록(ETF·리츠 제외). per_i: PER 칸 위치(PBR은 그다음)"""
+    rows, seen = [], set()
+    for page in range(1, pages + 1):
+        h = get(f"https://s.kabutan.jp/warnings/{path}/", params={"page": page})
+        if page == 1:
+            m = re.search(r"株価：(\d+)年(\d+)月(\d+)日", h)
+            if not m or f"{int(m.group(1)):04d}-{int(m.group(2)):02d}-{int(m.group(3)):02d}" != today and not FORCE:
+                return []
+        new = 0
+        for tr in re.findall(r"<tr>(.*?)</tr>", h, re.S):
+            m = re.search(r'href="/stocks/(\w+)/".*?<p class="font-bold[^"]*">(.*?)</p>.*?(\w+)\s*<span class="px-1[^"]*">(.*?)</span>',
+                          tr, re.S)
+            tds = re.findall(r"<td[^>]*>(.*?)</td>", tr, re.S)
+            if not m or m.group(1) in seen or len(tds) < min_td:
+                continue
+            seen.add(m.group(1))
+            new += 1
+            mkt = _jp_mkt(m.group(4))
+            if mkt in ("東E", "東R", "東I"):
+                continue
+            pct = re.findall(r"([+-]?[\d.]+)</span><span[^>]*>%", tds[1])
+            per, pbr = text_of(tds[per_i]).replace("倍", "").strip(), text_of(tds[per_i + 1]).replace("倍", "").strip()
+            rows.append({"code": m.group(1), "name": text_of(m.group(2)), "mkt": mkt, "price": text_of(tds[0]) + "엔",
+                         "pct": num(pct[0]) if pct else None,
+                         "val": " · ".join(x for x in (f"PER {per}배" if num(per) else "", f"PBR {pbr}배" if num(pbr) else "") if x)})
+        if not new or len(rows) >= pool:
+            break
+        time.sleep(0.7)
+    return rows
+
+
+def jp_down_msg(state, day, kind, rows, mark):
+    """kind: 'losers'(하락률 상위, 하락률 큰 순) · 'lows'(52주 신저가, 시총 큰 순). mark: ★ 표시할 종목코드(하락률 상위에서 오늘 신저가)"""
+    now = now_in("JST")
+    if kind == "losers":
+        rows = sorted([r for r in rows if (r.get("pct") or 0) < 0], key=lambda r: r["pct"])
+    else:
+        rows = [r for r in rows if (r.get("pct") or 0) < 0]   # 장중 신저가를 찍고 반등해 끝난 종목은 제외(하락 마감만)
+    keep, n_chk = [], 0
+    for r in rows:   # 시총을 종목 페이지에서 읽음(300억 엔 미만 제외)
+        if kind == "losers" and len(keep) >= DOWN_N or n_chk >= 250:
+            break
+        try:
+            jp_profile(r)
+        except Exception as ex:
+            print(f"[warn] 카부탄 종목 페이지 실패 {r['code']}: {ex}", file=sys.stderr)
+        n_chk += 1
+        time.sleep(0.4)
+        if r.get("cap") is not None and r["cap"] >= GAIN_MIN_CAP:
+            keep.append(r)
+    if kind == "lows":
+        n_all = len(keep)
+        keep.sort(key=lambda r: -(r.get("cap") or 0))
+        keep = keep[:DOWN_N]
+    todo = [r for r in keep if r["code"] not in DOWN_CACHE]
+    for r in todo:
+        r["news"] = jp_news(r, now)
+        time.sleep(0.5)
+    what = "하락률 상위" if kind == "losers" else "52주 신저가를 경신한"
+    DOWN_CACHE.update(describe(state, "JP", day, todo, DOWN_PROMPT.replace("{what}", what), ITEM_SCHEMA, BATCH,
+                               ("code", "name", "profile", "pct", "news")))
+    if kind == "losers":
+        nl = sum(r["code"] in mark for r in keep)
+        head = (f"<b>&gt;&gt;[하락률 상위 {len(keep)}] 일본 {day[5:]} 도쿄 마감</b>\n"
+                f"(ETF·리츠·시총 {GAIN_MIN_CAP:,.0f}억 엔 미만 제외, ★ = 오늘 52주 신저가 {nl}종목)")
+    else:
+        cut = f", 후보가 많아 {n_chk}종목만 시총 확인" if n_chk < len(rows) else ""
+        head = (f"<b>&gt;&gt;[52주 신저가] 일본 {day[5:]} 도쿄 마감 · {n_all}종목</b>\n"
+                f"(카부탄 기준, ETF·리츠·시총 {GAIN_MIN_CAP:,.0f}억 엔 미만·반등 마감 제외{cut}, 시총 큰 순 {len(keep)}종목)")
+    for r in keep:   # PER은 12MF 기준, 최근 4분기 영업이익 증감률
+        r["val"] = jp_val(r) or r.get("val", "")
+    blocks = []
+    for i, r in enumerate(keep, 1):
+        w = DOWN_CACHE.get(r["code"], {})
+        star = "★ " if r["code"] in mark else ""
+        pct = f"{r['pct']:+.2f}%" if r["pct"] is not None else "-"
+        lines = [f"<b>{i}. {star}{esc(w.get('ko') or r['name'])}({r['code']} JP)</b> {pct}",
+                 f"종가 {esc(r['price'])} · {cap_str('JP', r.get('cap'))}" + (f" · {esc(r['val'])}" if r.get("val") else "")]
+        if w.get("biz"):
+            lines.append(f"\n• 사업: {esc(w['biz'])}")
+        if w.get("reason"):
+            lines.append(f"• 이유: {esc(w['reason'])}")
+        lines.append(f"\n&gt;<a href=\"https://kabutan.jp/stock/news?code={r['code']}\">카부탄 뉴스·공시</a>")
+        blocks.append("\n".join(lines))
+    blocks.append("<i>하락 이유는 뉴스·공시 제목 기준 요약이며, '(추정)'은 근거 제목이 없는 경우입니다.</i>")
+    return head, blocks
+
+
+def run_down(state, day, today):
+    """신저가 → 하락률 상위(★ = 신저가) 순서로 아침 PDF용 저장"""
+    lows = None
+    if state["last"].get("JPLOW") != today or FORCE:
+        try:
+            lows = jp_mobile_rank("record_w52_low_price", today, 3, 6)
+            if lows:
+                stash(state, "lows", day, *jp_down_msg(state, day, "lows", lows, set()))
+            state["last"]["JPLOW"] = today
+        except Exception as ex:
+            print(f"[warn] 신저가 실패: {ex}", file=sys.stderr)
+    if state["last"].get("JPLOSE") != today or FORCE:
+        try:
+            if lows is None:
+                lows = jp_mobile_rank("record_w52_low_price", today, 3, 6)
+            g = jp_mobile_rank("price_decrease", today, 4, 7)
+            if g:
+                stash(state, "losers", day, *jp_down_msg(state, day, "losers", g, {r["code"] for r in lows or []}))
+            state["last"]["JPLOSE"] = today
+        except Exception as ex:
+            print(f"[warn] 하락률 상위 실패: {ex}", file=sys.stderr)
+
 def jp_gain_msg(state, day, rows, highs):
     """상승률 상위 메시지. highs: 오늘 52주 신고가 종목코드 집합(★ 표시)."""
     now = now_in("JST")
@@ -983,7 +1117,7 @@ def run_market(state, mk):
     cfg = MARKETS[mk]
     now = now_in(cfg["tz"])
     today = now.strftime("%Y-%m-%d")
-    done = state["last"].get(mk) == today and (mk != "JP" or state["last"].get("JPGAIN") == today)
+    done = state["last"].get(mk) == today and (mk != "JP" or all(state["last"].get(k) == today for k in ("JPGAIN", "JPLOW", "JPLOSE")))
     if not FORCE and (done or now.hour < cfg["after"] or now.weekday() >= 5):
         print(f"[info] {mk}: 발송 대상 아님(마지막 {state['last'].get(mk)}, 현지 {now:%m-%d %H:%M})")
         return
@@ -1041,6 +1175,8 @@ def run_market(state, mk):
                 state["last"]["JPGAIN"] = today
         except Exception as ex:
             print(f"[warn] 상승률 상위 실패: {ex}", file=sys.stderr)
+    if ok and mk == "JP" and TO_PDF:
+        run_down(state, day, today)
 
 
 def main():

@@ -363,6 +363,7 @@ def jpall_state():
 
 
 _WATCH = []
+WATCH_CHAT = os.environ.get("WATCH_CHAT") or "520"   # 관심 종목 = japan stock 봇에서 이 채팅(ID 끝자리)이 구독한 종목
 def watch_codes():
     """관심 종목 = japan stock 봇(@JP_stock_yh_bot) 주인 구독 목록(한 곳에서 관리).
     공시봇 state의 관심 종목은 암호화돼 있어 직접 못 읽음 → 워커 /watchlist 를 WATCH_KEY로 읽음"""
@@ -372,22 +373,17 @@ def watch_codes():
             if key:
                 j = requests.get(os.environ.get("WATCH_URL", "https://jp-disclosure-bot.ssamgij.workers.dev/watchlist"),
                                  headers={"x-watch-key": key, "User-Agent": "Mozilla/5.0"}, timeout=30).json()
-                # 워커의 codes는 주인 지정(ALLOWED_CHAT_IDS)이 없으면 모든 사용자 구독을 합친 것 → 주인(관리 채팅) 구독만 씀
+                # 워커의 codes는 주인 지정(ALLOWED_CHAT_IDS) 채팅 전부의 구독을 합친 것(다른 채팅 구독도 섞임) → 내 채팅 구독만 씀
                 users = {str(k): v for k, v in (j.get("users") or {}).items()}
                 me = os.environ.get("TELEGRAM_ADMIN_CHAT_ID", "").strip()
-                if me and me in users:
-                    mine, src = users[me], "주인 구독"
-                elif j.get("owners"):
-                    mine, src = j.get("codes") or [], "워커 주인 목록"
+                cand = [k for k in users if me and k == me] or [k for k in users if k.endswith(WATCH_CHAT)]
+                if len(cand) == 1:
+                    mine, src = users[cand[0]], "내 채팅 구독"
                 else:
                     mine, src = [], "확인 불가"
                     DIAG["watch_src"] = "bad"
                 _WATCH.extend(dict.fromkeys(str(c)[:4].upper() for c in mine))
-                print(f"[info] 관심 종목 {len(_WATCH)}개({src}, 전체 사용자 {len(users)}명)", file=sys.stderr)
-                for k, v in users.items():   # 사용자 구분용(채팅 ID는 끝 3자리만)
-                    print(f"[info]  사용자 …{k[-3:]}{'(주인 지정)' if k in [str(o) for o in (j.get('owners') or [])] else ''}{'(관리 채팅)' if k == me else ''}: "
-                          f"{len(v)}종목, 2875 {'있음' if '2875' in v else '없음'}, 2897 {'있음' if '2897' in v else '없음'}", file=sys.stderr)
-                print(f"[info]  관리 채팅 …{me[-3:]} · 주인 지정 {len(j.get('owners') or [])}개", file=sys.stderr)
+                print(f"[info] 관심 종목 {len(_WATCH)}개({src}, 구독 채팅 {len(users)}개)", file=sys.stderr)
         except Exception as ex:
             print(f"[warn] 관심 종목 읽기 실패: {ex}", file=sys.stderr)
         if not _WATCH:   # 공시봇 상태의 관심 종목은 모든 사용자 구독이 섞여 있어 대신 쓰지 않음
@@ -994,7 +990,7 @@ def health_issues():
     if not d.get("us_ai"): out.append("미국 시황 AI 정리 실패")
     if not d.get("jp_ai"): out.append("일본 시황 AI 정리 실패")
     if not d.get("chart"): out.append("TOPIX·환율·금리 차트 실패")
-    if d.get("watch_src") == "bad": out.append("관심 종목: 주인 구독 목록을 못 찾음(TELEGRAM_ADMIN_CHAT_ID가 봇 구독 채팅과 다름)")
+    if d.get("watch_src") == "bad": out.append("관심 종목: 내 채팅 구독 목록을 못 찾음(WATCH_CHAT 확인)")
     if not d.get("gain"): out.append("S&P500 상승·하락 상위 없음")
     if d.get("n_mf", 0) >= 10 and (d["n_mf"] - d.get("n_co", 0)) / d["n_mf"] < 0.3:
         out.append(f"12MF PER 컨센서스 적용 낮음({d['n_mf'] - d.get('n_co', 0)}/{d['n_mf']})")
@@ -1445,7 +1441,7 @@ def rank_table(groups):
     return "<table class='rank'><tr><th></th><th style='width:38%'>주제</th><th>내용</th></tr>" + "".join(rows) + "</table>" if rows else ""
 
 
-def stock_table(blocks, gainers=False):
+def stock_table(blocks, down=False):
     """신고가·상승률 상위 종목 조각 → 표(순위 | 종목·사업 | 등락·종가 | 시총·12MF PER·최근 4분기 영업익 증감 | 이유)"""
     rows = []
     for b in blocks:
@@ -1473,13 +1469,14 @@ def stock_table(blocks, gainers=False):
             f"<td class='n'>{cap.group(1).replace(' ', '') if cap else ''}<div class='meta'>{('' if mf else '예상 ') + (per.group(1).replace('(회사 예상)', '*') if per else '-')}</div>"
             f"<div class='meta'>{'영업익 ' if opv else ''}<span class='{opc}'>{esc(opv)}</span></div></td>"
             f"<td class='why'>{esc(short(why, 120))}</td></tr>")
-    return ("<table class='stk'><tr><th></th><th style='width:27%'>종목</th><th>등락·종가</th><th>시총·12MF PER·영업익(4Q)</th><th>오른 이유</th></tr>"
+    return (f"<table class='stk'><tr><th></th><th style='width:27%'>종목</th><th>등락·종가</th><th>시총·12MF PER·영업익(4Q)</th><th>{'내린' if down else '오른'} 이유</th></tr>"
             + "".join(rows) + "</table>") if rows else ""
 
 
 KANA_RE = re.compile(r"[\u3040-\u30ff]")   # 히라가나·가타카나(일본어 원문 판별)
 
 
+STK_KINDS = ("highs", "gainers", "lows", "losers")   # 종목 표로 그리는 정리(신고가·상승률·신저가·하락률)
 STK_RE = re.compile(r"<b>(\d+)\.")   # 신고가·상승률 종목 조각 머리('<b>순위. 종목')
 
 
@@ -1496,14 +1493,14 @@ def stash_html(items, title_fallback, caps=None, from_rank=0, more_note=" 생략
         cap = (caps or {}).get(kind)
         if kind in ("x", "note", "weekly"):
             bl = _regroup(bl)
-        if kind in ("highs", "gainers"):  # 종목 조각만 세고, from_rank가 있으면 그 순위부터(부록)
+        if kind in STK_KINDS:  # 종목 조각만 세고, from_rank가 있으면 그 순위부터(부록)
             bl = [b for b in bl if STK_RE.match(b.strip()) and int(STK_RE.match(b.strip()).group(1)) > from_rank]
         more = len(bl) - cap if cap is not None and len(bl) > cap else 0
         if more: bl = bl[:cap]
         if kind in ("x", "note", "weekly"):
             body = rank_table(bl)
-        elif kind in ("highs", "gainers"):
-            body = stock_table(bl, kind == "gainers")
+        elif kind in STK_KINDS:
+            body = stock_table(bl, kind in ("lows", "losers"))
             pre = re.split(r"\n\s*\n", x.get("head", ""), maxsplit=1)
             if len(pre) > 1 and not from_rank: body = f"<div class='intro'>{pretty(pre[1])}</div>" + body
             sub = re.sub(r"<[^>]+>", "", pre[0]).split("\n", 1)[1].strip() if "\n" in pre[0] else sub
@@ -1727,6 +1724,7 @@ def build_pdf(state, since_ts):
         state, jp_p + "\n[이번 응답] 위 항목 중 news·disc만 출력하라.", JP_B, "일본 뉴스·공시")) or {}
     jp = {**jp_b, **jp_a}
     hi = [x for x in wraps if x["kind"] in ("highs", "gainers")]
+    lo = [x for x in wraps if x["kind"] in ("lows", "losers")]
     # 커뮤니티: 오전 7시 다이제스트(+ 봇이 남긴 요약·주간 인사이트)를 하나로 통합해 '주목할 부분'만
     try:
         dig = "\n".join(strip_html(b) for x in com for b in x.get("blocks", []))
@@ -1982,6 +1980,16 @@ def build_pdf(state, since_ts):
             rest = stash_html(hsort, "신고가", None, from_rank=hn)
             if "<tr><td class='rk'>" in rest:
                 parts.append(f"<h2 class='pb'>부록. 52주 신고가 · 상승률 상위 ({hn + 1}위 이하)</h2>" + rest)
+        # 5
+        parts.append("<h2>5. 일본 52주 신저가 · 하락률 상위</h2>")
+        ld = max((x.get("day", "") for x in lo), default="")
+        ls_ = sorted([x for x in lo if lv == 0 or x.get("day", "") == ld], key=lambda x: (x.get("day", ""), x["kind"] != "lows"))
+        parts.append(stash_html(ls_, "신저가", {"lows": hn, "losers": hn}, more_note="은 맨 뒤 부록에" if lv < 2 else " 생략(분량 조절)")
+                     if lo else "<p class='note'>이 기간에 쌓인 신저가·하락률 정리가 없습니다(휴장일이거나 아직 발송 전).</p>")
+        if lo and lv < 2:
+            rest = stash_html(ls_, "신저가", None, from_rank=hn)
+            if "<tr><td class='rk'>" in rest:
+                parts.append(f"<h2 class='pb'>부록. 52주 신저가 · 하락률 상위 ({hn + 1}위 이하)</h2>" + rest)
         if MODEL_USED:
             parts.append("<p class='note' style='margin-top:6mm'>AI 작성 모델: " + " · ".join(f"{esc(k)} {esc(v)}" for k, v in MODEL_USED.items()) + "</p>")
         doc = (f"<html><head><meta charset='utf-8'><style>{font_css()}{CSS.replace('%(date)s', t.strftime('%Y-%m-%d'))}</style></head><body>"
