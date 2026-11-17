@@ -372,13 +372,22 @@ def watch_codes():
             if key:
                 j = requests.get(os.environ.get("WATCH_URL", "https://jp-disclosure-bot.ssamgij.workers.dev/watchlist"),
                                  headers={"x-watch-key": key, "User-Agent": "Mozilla/5.0"}, timeout=30).json()
-                _WATCH.extend(str(c)[:4].upper() for c in (j.get("codes") or []))
+                # 워커의 codes는 주인 지정(ALLOWED_CHAT_IDS)이 없으면 모든 사용자 구독을 합친 것 → 주인(관리 채팅) 구독만 씀
+                users = {str(k): v for k, v in (j.get("users") or {}).items()}
+                me = os.environ.get("TELEGRAM_ADMIN_CHAT_ID", "").strip()
+                if me and me in users:
+                    mine, src = users[me], "주인 구독"
+                elif j.get("owners"):
+                    mine, src = j.get("codes") or [], "워커 주인 목록"
+                else:
+                    mine, src = [], "확인 불가"
+                    DIAG["watch_src"] = "bad"
+                _WATCH.extend(dict.fromkeys(str(c)[:4].upper() for c in mine))
+                print(f"[info] 관심 종목 {len(_WATCH)}개({src}, 전체 사용자 {len(users)}명)", file=sys.stderr)
         except Exception as ex:
             print(f"[warn] 관심 종목 읽기 실패: {ex}", file=sys.stderr)
-        if not _WATCH:
-            _WATCH.extend((jpall_state().get("watch") or {}).keys())
-        if not _WATCH:
-            print("[warn] 관심 종목 없음(WATCH_KEY 비밀값 확인)", file=sys.stderr)
+        if not _WATCH:   # 공시봇 상태의 관심 종목은 모든 사용자 구독이 섞여 있어 대신 쓰지 않음
+            print("[warn] 관심 종목 없음(WATCH_KEY·TELEGRAM_ADMIN_CHAT_ID 비밀값 확인)", file=sys.stderr)
     return _WATCH
 
 
@@ -455,6 +464,26 @@ def watch_calendar(t, days=7):
     return sorted(by.items())
 
 
+_JSEC = {}
+def jp_sector_of():
+    """종목코드 → 33업종(한국어) (JPX 상장 종목 목록 전체)"""
+    if not _JSEC:
+        import openpyxl
+        import highs
+        try:
+            ua = {"User-Agent": "Mozilla/5.0"}
+            page = requests.get("https://www.jpx.co.jp/markets/statistics-equities/misc/01.html", headers=ua, timeout=30).text
+            u = "https://www.jpx.co.jp" + re.search(r'href="([^"]+data_j\.xlsx?)"', page).group(1)
+            wb = openpyxl.load_workbook(io.BytesIO(requests.get(u, headers=ua, timeout=60).content), read_only=True)
+            for r in list(wb.active.iter_rows(values_only=True))[1:]:
+                if r[3] and "株式" in str(r[3]) and r[5] and str(r[5]).strip() != "-":
+                    sct = str(r[5]).strip()
+                    _JSEC[str(r[1])[:4].upper()] = highs.SECTOR_KO.get(sct, highs.SECTOR_ALIAS.get(sct, sct))
+        except Exception as ex:
+            print(f"[warn] 업종 목록 실패: {ex}", file=sys.stderr)
+    return _JSEC
+
+
 def watch_rows(since_ts):
     """관심 종목: 전일 등락·52주 고가 근접·기간 중 공시"""
     st = jpall_state()
@@ -469,14 +498,14 @@ def watch_rows(since_ts):
     for x in st.get("hl", []):  # 하이라이트 밖 관심 종목 공시(제목만)
         if x.get("code") in codes and x.get("ts", 0) > since_ts and x.get("sec") == "watch" and x["code"] not in disc:
             disc.setdefault(x["code"], []).append(x["txt"])
-    rows = []
+    rows, sec = [], jp_sector_of()
     for c in codes:
         x = q.get(c) or {}
         hi52, dh = x.get("fiftyTwoWeekHigh"), x.get("regularMarketDayHigh")
         rows.append({"code": c, "ko": (names.get(c) or {}).get("ko") or x.get("shortName", c), "px": x.get("regularMarketPrice"),
                      "chg": x.get("regularMarketChangePercent"), "cap": x.get("marketCap"),
                      "nh": bool(hi52 and dh and dh >= hi52), "gap": (x.get("regularMarketPrice") / hi52 - 1) * 100 if hi52 and x.get("regularMarketPrice") else None,
-                     "disc": disc.get(c, [])})
+                     "disc": disc.get(c, []), "sec": sec.get(c) or "기타"})
     rows.sort(key=lambda r: -(abs(r["chg"] or 0)))
     return rows
 
@@ -840,7 +869,8 @@ def disclosure_items(since_ts):
     if not st:
         return []
     order = {"watch": 0, "beat": 1, "up": 2, "newfc": 3, "evt": 4, "ret": 5, "miss": 6, "down": 7, "prog": 8, "hold": 9, "mon": 10}
-    hl = [x for x in st.get("hl", []) if x.get("ts", 0) > since_ts and x.get("sec") in order]
+    mine = set(watch_codes())   # 공시봇의 '관심 종목' 칸은 모든 사용자 구독 기준 → 주인 구독 종목만
+    hl = [x for x in st.get("hl", []) if x.get("ts", 0) > since_ts and x.get("sec") in order and (x["sec"] != "watch" or x.get("code") in mine)]
     hl.sort(key=lambda x: (0 if x.get("top") else 1, order[x["sec"]], -(x.get("mc") or 0)))
     seen, out = set(), []
     for x in hl:
@@ -960,6 +990,7 @@ def health_issues():
     if not d.get("us_ai"): out.append("미국 시황 AI 정리 실패")
     if not d.get("jp_ai"): out.append("일본 시황 AI 정리 실패")
     if not d.get("chart"): out.append("TOPIX·환율·금리 차트 실패")
+    if d.get("watch_src") == "bad": out.append("관심 종목: 주인 구독 목록을 못 찾음(TELEGRAM_ADMIN_CHAT_ID가 봇 구독 채팅과 다름)")
     if not d.get("gain"): out.append("S&P500 상승·하락 상위 없음")
     if d.get("n_mf", 0) >= 10 and (d["n_mf"] - d.get("n_co", 0)) / d["n_mf"] < 0.3:
         out.append(f"12MF PER 컨센서스 적용 낮음({d['n_mf'] - d.get('n_co', 0)}/{d['n_mf']})")
@@ -1539,6 +1570,7 @@ a{color:#2360c4;text-decoration:none}
 .t3h{font-weight:700;color:#9a6a12;margin-bottom:1mm}
 .jpl{color:#9a6a12;font-size:8.2pt;margin-top:0.5mm}
 table.watch td:last-child{font-size:8pt;color:#444}
+table.watch tr.wsec td{background:#eef2f7;border-top:1.5px solid #9aa9bd;font-size:9pt;color:#1f2d3d}
 p.earnl{font-size:8.6pt;line-height:1.75;margin:1mm 0 3mm}
 """
 
@@ -1901,8 +1933,19 @@ def build_pdf(state, since_ts):
                 nh = " <b class='up'>신고가</b>" if r["nh"] else ""
                 return (f"<tr><td>{esc(r['ko'])} <span class='note'>{vdl(r['code'])}</span>{nh}</td><td class='n'>{px}</td>"
                         f"<td class='n {cls(r['chg'])}'>{ch}</td><td class='n'>{gap}</td><td>{esc(' / '.join(r['disc'])[:160])}</td></tr>")
-            parts.append("<h3>관심 종목 <span class='note'>전 거래일 등락 큰 순 · 기간 중 공시</span></h3><table class='watch'><tr><th>종목</th><th>종가</th>"
-                         "<th>등락</th><th>52주 고가 대비</th><th>공시</th></tr>" + "".join(wrow(r) for r in watch[:(99, 30, 20, 15, 12, 10)[lv]]) + "</table>")
+            sp = dict(secs or [])
+            grp = {}
+            for r in watch[:(99, 30, 20, 15, 12, 10)[lv]]:
+                grp.setdefault(r["sec"], []).append(r)
+            # 업종은 종목 수 많은 순(같으면 업종 안 최대 등락 큰 순), 업종 안은 등락 큰 순
+            order_ = sorted(grp, key=lambda k: (k == "기타", -len(grp[k]), -max(abs(r["chg"] or 0) for r in grp[k])))
+
+            def ghead(k):
+                p_ = sp.get(k)
+                pt = f" <span class='{cls(p_)}'>업종 {p_:+.2f}%</span>" if p_ is not None else ""
+                return f"<tr class='wsec'><td colspan='5'><b>{esc(k)}</b> <span class='note'>{len(grp[k])}종목</span>{pt}</td></tr>"
+            parts.append("<h3>관심 종목 <span class='note'>업종별(33업종) · 업종 안은 전 거래일 등락 큰 순 · 기간 중 공시</span></h3><table class='watch'><tr><th>종목</th><th>종가</th>"
+                         "<th>등락</th><th>52주 고가 대비</th><th>공시</th></tr>" + "".join(ghead(k) + "".join(wrow(r) for r in grp[k]) for k in order_) + "</table>")
         if jp.get("watch"):
             parts.append("<h3>체크 포인트</h3>" + li(jp["watch"]))
         if cal:
