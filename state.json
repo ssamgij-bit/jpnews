@@ -6219,7 +6219,7 @@
 "니케이|ssets.wor.jp/rss/rdf/nikkei/business.rdf": 0,
 "니케이|.wor.jp/rss/rdf/nikkei/international.rdf": 0,
 "로이터|https://news.google.com/rss/search": 0,
-"블룸버그|https://news.google.com/rss/search": 0,
+"블룸버그|https://news.google.com/rss/search": 1,
 "NHK|news.web.nhk/n-data/conf/na/rss/cat5.xml": 0,
 "NHK|news.web.nhk/n-data/conf/na/rss/cat4.xml": 0,
 "NHK|news.web.nhk/n-data/conf/na/rss/cat6.xml": 0,
@@ -6232,20 +6232,6 @@
 "alerted": []
 },
 "week": [
-{
-"ts": 1794300459.0400302,
-"ko": "소프트뱅크그룹 고토 CFO, 오하이오주 프로젝트 규모 축소 논의한 바 없음",
-"gist": "소프트뱅크그룹 고토 CFO가 최근 우려가 제기된 오하이오주 데이터센터 프로젝트의 규모 축소 계획이나 논의가 없다고 밝혔다.",
-"b": [
-"1) 소프트뱅크그룹의 고토 최고재무책임자(CFO)가 언급함.",
-"2) 오하이오주 프로젝트 규모 축소에 대해 논의된 바가 없음을 확인함."
-],
-"ins": "(추정) 이번 발언은 대규모 투자 프로젝트에 대한 시장의 우려를 불식시키는 데 기여할 수 있으나, 향후 실제 투자 집행 과정에서의 재무적 부담이나 진행 상황을 지속적으로 모니터링해야 하는 리스크가 존재한다.",
-"cos": "",
-"url": "https://finance.sina.com.cn/7x24/?id=5205697",
-"src": "신랑재경",
-"score": 4
-},
 {
 "ts": 1794300979.5577822,
 "ko": "일본 국가 부채, 9월 말 1323조 엔... 환율 개입으로 단기 증권 상환",
