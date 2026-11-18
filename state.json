@@ -1,8 +1,5 @@
 {
 "seen": {
-"nataliaoriol": 1794762910.7777967,
-"chisakiwatanabe": 1794762910.7808695,
-"shannonkoneil": 1794762910.7831461,
 "福岡市長選挙再選挙へ候補者13人法定得票数に届かず": 1794763512.926594,
 "johndetrixhe": 1794764113.0183947,
 "kellygilblom": 1794764712.3534245,
@@ -3048,7 +3045,9 @@
 "andrewmendez": 1795021515.5891702,
 "銅相場5%超急落ai関連トレード崩れる供給逼迫でも金属市場に売り": 1795021515.5949254,
 "トランプ氏プーチン氏と中国で個別会談の見通し当局者": 1795021515.5999362,
-"原油下落北海ブレント92ドル割れ利益確定売りやリスク回避強まる": 1795021515.605501
+"原油下落北海ブレント92ドル割れ利益確定売りやリスク回避強まる": 1795021515.605501,
+"anthropicisnotfullysqueezedmarkettalk": 1795022114.4257903,
+"deutschebankleakrevivesscrutinyoverepsteinandoligarchties": 1795022114.4330773
 },
 "recent": [
 {
@@ -6327,56 +6326,7 @@
 }
 ],
 "digest": [],
-"pending": [
-{
-"source": "bloomberg",
-"label": "블룸버그",
-"gn": true,
-"title": "Bobby Allyn",
-"lead": "",
-"link": "https://news.google.com/rss/articles/CBMiZ0FVX3lxTE84TTVXOWFfcVY2U0daN2ltS2gxek11MlRJMWdsb2JqcC1TVGlVUkFXZFRZRzRNazEwQ3FZeC0yblZuay10U0tTdlM0N2t6aG53eHRqekc3Z08yUmxISng2X28zRVZVZ2c?oc=5",
-"ts": 1795014402,
-"key": "bobbyallyn",
-"id": "n21515_0",
-"first_try": 1795021537.413207
-},
-{
-"source": "bloomberg",
-"label": "블룸버그",
-"gn": true,
-"title": "銅相場5%超急落、AI関連トレード崩れる－供給逼迫でも金属市場に売り",
-"lead": "",
-"link": "https://news.google.com/rss/articles/CBMijgFBVV95cUxQZnVLQzdoQ0VMcVU2OGdReU8yMUlVZngzYkFwSi1JZmd1cGw3RjFuY3AydUEyV2hZOFFwcGlYUzYxU1FDY3ZjcS1UZFhrNGpHWVVyMV9UT3VPVVd6dXYxZXJtWG0yMks5ZUxzMlBST1hHRUxiR3dVMktfRkNwdnE4ZFg0MEJXNzNwSlBpRUZR?oc=5",
-"ts": 1795020704,
-"key": "銅相場5%超急落ai関連トレード崩れる供給逼迫でも金属市場に売り",
-"id": "n21515_1",
-"first_try": 1795021537.413211
-},
-{
-"source": "reuters",
-"label": "로이터",
-"gn": true,
-"title": "トランプ氏、プーチン氏と中国で個別会談の見通し＝当局者",
-"lead": "",
-"link": "https://news.google.com/rss/articles/CBMihgFBVV95cUxPNjlvaVNYX2tBcHBVRWlJdG03TU9mSXJtemEwTFN6ZUs3em04Ymh1U2NQNTN5dW0tUnUxSkhoam1Oa3huWGR1R3lVOG9SVDZmSWhQNlBwbWI4aHNKd0xaWG5TSWV3UVhydnQwWVQwbmNzUmFmWGFWTGtyZk84bjRVc2NZdkVUQQ?oc=5",
-"ts": 1795020823,
-"key": "トランプ氏プーチン氏と中国で個別会談の見通し当局者",
-"id": "n21515_2",
-"first_try": 1795021537.4132123
-},
-{
-"source": "bloomberg",
-"label": "블룸버그",
-"gn": true,
-"title": "原油下落、北海ブレント92ドル割れ－利益確定売りやリスク回避強まる",
-"lead": "",
-"link": "https://news.google.com/rss/articles/CBMijgFBVV95cUxPdmZsRG5ITGRVc0puN0JOa2R1bENnYXNIeXhKZld1Ym04anNGYmp0SGVKUEhoWjBDRGE2bDZJZmlYWnEzcGZ1ZVdFbHNpV1VzQkxzMVlISk9GZVZ5OGxwZnR1bVI5c2Uyd2pwRUVydGo4dUVaWVk2NW1wa3E1MEVNRUIwUWphaEdTZFdHV0ZR?oc=5",
-"ts": 1795021195,
-"key": "原油下落北海ブレント92ドル割れ利益確定売りやリスク回避強まる",
-"id": "n21515_3",
-"first_try": 1795021537.413213
-}
-],
+"pending": [],
 "daily": {
 "date": "2026-11-19",
 "count": 2
@@ -6442,7 +6392,7 @@
 },
 "version": 3,
 "health": {
-"llm": 1,
+"llm": 0,
 "src": {
 "니케이|://assets.wor.jp/rss/rdf/nikkei/news.rdf": 0,
 "니케이|assets.wor.jp/rss/rdf/nikkei/markets.rdf": 0,
