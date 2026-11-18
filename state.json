@@ -1,16 +1,5 @@
 {
 "seen": {
-"validapau": 1794750315.9531255,
-"jamesamott": 1794750315.9559393,
-"堀江広美": 1794750315.9583375,
-"zulfugaragayev": 1794750315.9613914,
-"saragharaibeh": 1794750315.964365,
-"johanneskoch": 1794750315.9668949,
-"stephanieflanders": 1794750315.9702358,
-"samnagarajan": 1794750315.973192,
-"belindacao": 1794750315.975979,
-"neilweinberg": 1794750315.9781682,
-"kevinmiller": 1794750315.9810045,
 "jamesboxell": 1794750912.622289,
 "aprilma": 1794750912.6248891,
 "julianluk": 1794750912.6275907,
@@ -3017,15 +3006,19 @@
 "美元/日元上涨005%报15943": 1795008919.2654567,
 "ソフトバンクgの孫社長aiバブルではない投資継続の考え": 1795008919.2708437,
 "margarytakirakosian": 1795008919.2753918,
-"frbは12月の05ポイント利上げを検討すべきウォラー理事": 1795008919.2809875
+"frbは12月の05ポイント利上げを検討すべきウォラー理事": 1795008919.2809875,
+"審理に関与していない裁判官が判決に署名押印するミス": 1795009512.895173,
+"大塚美佳": 1795009512.8984919,
+"amogelangmbatha": 1795009512.9026473,
+"audreywan": 1795009512.906345,
+"formereditoreuropeancreditandcorporatefinance": 1795009512.9127913,
+"robertlavelle": 1795009512.9167545,
+"小宮弘子": 1795009512.920087,
+"daniellechaves": 1795009512.9242218,
+"127120_rkq%5ek20stockprice&latestnews": 1795009512.9254172,
+"中国テンセント79月は数年ぶりの減益ai投資が利益圧迫": 1795009512.9307523
 },
 "recent": [
-{
-"id": "n913513_2",
-"ko": "칸세키, 혼다 럭비팀에 아웃도어 제품 공급",
-"gist": "홈센터 운영사 칸세키가 혼다 럭비팀 '도치기 혼다 히트'와 공식 공급업체 계약을 체결했다.",
-"ts": 1794913550.7580893
-},
 {
 "id": "n913514_3",
 "ko": "NTT데이터, 생성형 AI 활용해 노후 기간 시스템 현대화 및 유지보수 공수 50% 절감",
@@ -6297,6 +6290,12 @@
 "ts": 1795008992.120509,
 "mid": 4246,
 "sent": true
+},
+{
+"id": "n9512_0",
+"ko": "도쿄지방법원, 심리에 참여하지 않은 판사가 판결문에 서명·날인하는 오류 발생",
+"gist": "도쿄지방법원이 내린 민사 판결에서 심리에 관여하지 않은 판사가 서명·날인한 절차상 위법이 발견되어 도쿄고등법원이 파기환송을 명령했다.",
+"ts": 1795009532.0345118
 }
 ],
 "digest": [],
@@ -6373,7 +6372,7 @@
 "니케이|assets.wor.jp/rss/rdf/nikkei/economy.rdf": 0,
 "니케이|ssets.wor.jp/rss/rdf/nikkei/business.rdf": 0,
 "니케이|.wor.jp/rss/rdf/nikkei/international.rdf": 0,
-"로이터|https://news.google.com/rss/search": 1,
+"로이터|https://news.google.com/rss/search": 0,
 "블룸버그|https://news.google.com/rss/search": 0,
 "NHK|news.web.nhk/n-data/conf/na/rss/cat5.xml": 0,
 "NHK|news.web.nhk/n-data/conf/na/rss/cat4.xml": 0,
