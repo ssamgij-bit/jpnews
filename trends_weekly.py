@@ -100,6 +100,23 @@ def youtube_popular(geo, key, n=8):
     d = json.loads(_get("https://www.googleapis.com/youtube/v3/videos?" + q))
     return [(v["snippet"]["title"], v["snippet"]["channelTitle"], int(v.get("statistics", {}).get("viewCount", 0))) for v in d.get("items", [])]
 
+# ───────── 왜 떴는지: 구글 뉴스 제목 ─────────
+def news_heads(q, lang, geo, n=3):
+    """검색어로 지난 7일 구글 뉴스 제목 n개(언론사 이름은 뗌) — Gemini가 '왜 떴는지'를 추측 대신 기사 근거로 쓰게(2026-11-19)"""
+    import html
+    hl = {"ko": "ko", "ja": "ja", "en": "en-US"}[lang]
+    u = "https://news.google.com/rss/search?" + urllib.parse.urlencode({"q": f"{q} when:7d", "hl": hl, "gl": geo, "ceid": f"{geo}:{hl.split('-')[0]}"})
+    try: x = _get(u, timeout=20, headers={"User-Agent": "Mozilla/5.0"}).decode("utf-8", "ignore")
+    except Exception: return []
+    return [re.sub(r"\s+-\s+[^-]+$", "", html.unescape(t)).strip()[:90] for t in re.findall(r"<item><title>(.*?)</title>", x)[:n]]
+
+def attach_news(d, geo):
+    for key in ("gweek", "wiki"):
+        heads = []
+        for it in d.get(key) or []:
+            heads.append(news_heads(it[0], d["lang"], geo)); time.sleep(0.4)
+        d[key + "_news"] = heads
+
 # ───────── 묶기 ─────────
 def collect(state, log=print):
     """나라별 원자료. state: {'apps': {날짜: {cc: [[id, name], ...]}}} — 앱 기준 순위용(매일 쌓음)"""
@@ -125,6 +142,8 @@ def collect(state, log=print):
         key = os.environ.get("YOUTUBE_API_KEY") or os.environ.get("GEMINI_API_KEY") or ""
         try: d["yt"] = youtube_popular(geo, key) if key else None
         except Exception as e: d["yt"] = None; d["yt_err"] = str(e)[:80]; log("trends", geo, "youtube error", str(e)[:120])
+        try: attach_news(d, geo)
+        except Exception as e: log("trends", geo, "news error", str(e)[:120])
         data[geo] = d
     return data
 
@@ -143,7 +162,8 @@ def snap_apps(state):
 PROMPT = """너는 한국 애널리스트에게 '요즘 {name} 사람들이 무엇에 관심을 갖는지'를 정리해 주는 비서다.
 아래는 지난 1주 동안 {name}에서 새로 뜬 검색어·앱·위키백과 문서·유튜브 영상 목록이다(원문 {lang}).
 규칙
-- 모든 항목을 한국어로: 각 id마다 "한국어 이름 — 왜 떴는지 한 줄(20자 안팎)". 관련 검색어·문맥으로 알 수 있는 것만 쓰고, 모르면 "— 설명 없음"이 아니라 무엇인지(인물·스포츠·드라마 등)만.
+- 모든 항목을 한국어로: 각 id마다 "한국어 이름 — 왜 떴는지 한 줄(35자 안팎)". 예: "나카타 노아 — 배우, 23세로 급서 소식".
+- '왜 떴는지'는 함께 준 [뉴스] 기사 제목과 관련 검색어를 근거로 쓴다. 근거가 없으면 지어내지 말고 무엇인지(인물·스포츠·드라마 등)만.
 - 고유명사는 한국에서 통용되는 표기나 한글 발음. 일본어·영어 원문을 그대로 남기지 말 것.
 - summary: 이번 주 관심사를 3줄로(정치·사건, 연예·스포츠, 소비·기술·투자처럼 묶어서). 투자와 이어지는 신호(기업·제품·소비 트렌드)가 있으면 꼭 한 줄 넣기.
 출력 JSON: {{"summary": ["...", "...", "..."], "items": [{{"id": "gw0", "ko": "한국어 이름 — 설명"}}, ...]}}
@@ -152,9 +172,10 @@ PROMPT = """너는 한국 애널리스트에게 '요즘 {name} 사람들이 무�
 
 def ai_notes(d, gemini_json):
     rows = []
-    for k, it in enumerate(d.get("gweek") or []): rows.append(f"gw{k}: {it[0]} (관련: {it[3]})")
+    nw = lambda key, k: " [뉴스] " + " / ".join((d.get(key + "_news") or [[]] * 99)[k]) if k < len(d.get(key + "_news") or []) and d[key + "_news"][k] else ""
+    for k, it in enumerate(d.get("gweek") or []): rows.append(f"gw{k}: {it[0]} (관련: {it[3]})" + nw("gweek", k))
     for k, it in enumerate(d.get("apps") or []): rows.append(f"ap{k}: {it[0]}")
-    for k, it in enumerate(d.get("wiki") or []): rows.append(f"wk{k}: {it[0]}")
+    for k, it in enumerate(d.get("wiki") or []): rows.append(f"wk{k}: {it[0]}" + nw("wiki", k))
     for k, it in enumerate(d.get("yt") or []): rows.append(f"yt{k}: {it[0]} / 채널 {it[1]}")
     if not rows: return {}
     out = gemini_json(PROMPT.format(name=d["name"], lang=d["lang"], rows="\n".join(rows)))
@@ -188,5 +209,5 @@ def render(geo, d, notes, week_lab):
         L += ["", "<i>④ 유튜브: API 키에 YouTube Data API 권한이 없어 건너뜀</i>"]
     miss = [lab for k, lab in (("gweek", "구글 트렌드"), ("wiki", "위키백과")) if d.get(k) is None]
     if miss: L += ["", f"<i>못 가져온 항목: {', '.join(miss)}</i>"]
-    L += ["", "<i>출처: 구글 트렌드(급상승만, 상시 인기 검색어 제외)·애플 앱스토어 순위·위키미디어 조회수·유튜브. 검색량은 구간값</i>"]
+    L += ["", "<i>출처: 구글 트렌드(급상승만, 상시 인기 검색어 제외)·구글 뉴스(이유 근거)·애플 앱스토어 순위·위키미디어 조회수·유튜브. 검색량은 구간값</i>"]
     return "\n".join(L)
