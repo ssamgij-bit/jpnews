@@ -25,7 +25,7 @@ def _vol(s):
     return v * {"만": 1e4, "천": 1e3, "억": 1e8, "K": 1e3, "M": 1e6, "B": 1e9}.get(u, 1)
 
 # ───────── 구글 트렌드 ─────────
-def google_week(geo, n=15):
+def google_week(geo, n=30):   # 부고·스포츠를 빼고도 15개 남게 넉넉히
     """실시간 인기(지난 7일) 화면 → [(검색어, 검색량 문자열, 상승률, 관련 검색어)] 검색량 큰 순"""
     from playwright.sync_api import sync_playwright
     with sync_playwright() as p:
@@ -65,7 +65,7 @@ def app_rising(now_list, base_list, n=8):
 # ───────── 위키백과 ─────────
 SKIP_WIKI = re.compile(r"^(특수|위키백과|Special|Wikipedia|特別|Wikipedia|ウィキペディア|Portal|포털|Help|도움말|File|파일)[:：]|^(대문|Main_Page|メインページ|-|Undefined)$", re.I)
 
-def wiki_rising(lang, end, n=10):
+def wiki_rising(lang, end, n=16):
     """end(포함)까지 7일 조회수 합 vs 그 전 7일 → 2배 넘게 는 문서 [(제목, 7일 조회수, 배수 또는 None)]"""
     def day(d):
         for k in range(4):   # 위키미디어는 요청이 몰리면 429 → 기다렸다 다시
@@ -164,9 +164,11 @@ PROMPT = """너는 한국 애널리스트에게 '요즘 {name} 사람들이 무�
 규칙
 - 모든 항목을 한국어로: 각 id마다 "한국어 이름 — 왜 떴는지 한 줄(35자 안팎)". 예: "나카타 노아 — 배우, 23세로 급서 소식".
 - '왜 떴는지'는 함께 준 [뉴스] 기사 제목과 관련 검색어를 근거로 쓴다. 근거가 없으면 지어내지 말고 무엇인지(인물·스포츠·드라마 등)만.
+- cat(분류): "부고"(사망·추모), "스포츠"(경기·선수·팀·대회·부상·이적), "연예", "정치·사회", "사건사고", "소비·제품", "기술·게임", "금융·투자", "기타" 중 하나. 운동선수의 사망은 "부고".
+- stock(관련 상장사): cat이 소비·제품/기술·게임/금융·투자/연예일 때만, 이 관심이 매출로 이어질 상장사 1~2개를 "회사명(티커 거래소)" 형식으로. 예: "캡콤(9697 JP)", "테이크투(TTWO US)". 일본 상장사를 우선하고 없으면 해외. 직접 관련이 확실할 때만 쓰고, 애매하면 빈 문자열.
 - 고유명사는 한국에서 통용되는 표기나 한글 발음. 일본어·영어 원문을 그대로 남기지 말 것.
-- summary: 이번 주 관심사를 3줄로(정치·사건, 연예·스포츠, 소비·기술·투자처럼 묶어서). 투자와 이어지는 신호(기업·제품·소비 트렌드)가 있으면 꼭 한 줄 넣기.
-출력 JSON: {{"summary": ["...", "...", "..."], "items": [{{"id": "gw0", "ko": "한국어 이름 — 설명"}}, ...]}}
+- summary: 부고·스포츠는 빼고 이번 주 관심사를 3줄로(정치·사회, 연예, 소비·기술·투자처럼 묶어서). 투자와 이어지는 신호(기업·제품·소비 트렌드)가 있으면 꼭 한 줄 넣기.
+출력 JSON: {{"summary": ["...", "...", "..."], "items": [{{"id": "gw0", "ko": "한국어 이름 — 설명", "cat": "연예", "stock": ""}}, ...]}}
 
 {rows}"""
 
@@ -181,33 +183,80 @@ def ai_notes(d, gemini_json):
     out = gemini_json(PROMPT.format(name=d["name"], lang=d["lang"], rows="\n".join(rows)))
     if not isinstance(out, dict): return {}
     if isinstance(out.get("items"), list):   # [{"id","ko"}] → {id: ko}
+        out["cats"] = {x.get("id"): x.get("cat") for x in out["items"] if isinstance(x, dict)}
+        out["stocks"] = {x.get("id"): (x.get("stock") or "").strip() for x in out["items"] if isinstance(x, dict) and x.get("cat") in INVEST}
         out["items"] = {x.get("id"): x.get("ko") for x in out["items"] if isinstance(x, dict)}
     return out
 
 def esc(s): return (s or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
+DROP = {"부고", "스포츠"}   # 사용자 요청(2026-11-19): 부고·스포츠는 빼기
+INVEST = {"소비·제품", "기술·게임", "금융·투자", "연예"}   # 관련 상장사를 붙이는 분류(2026-11-19)
+ORDER = ["소비·제품", "기술·게임", "금융·투자", "연예", "정치·사회", "사건사고", "기타"]
+
+# ───────── 세 나라 공통 관심사(맨 앞 메시지) ─────────
+CROSS_PROMPT = """아래는 지난 1주 한국·일본·미국에서 새로 뜬 관심사(이미 한국어로 정리, [분류] 표시)다.
+1) common: 두 나라 이상에서 같이 뜬 주제(같은 게임·제품·기업·사건·인물·현상). 이름이 달라도 같은 주제면 묶기. 억지로 만들지 말고 없으면 빈 배열.
+   각 항목: theme(주제 한국어), where(예: "일본·미국"), why(왜 같이 떴는지 한 줄, 아래 목록 근거로만).
+2) diff: 나라별 이번 주 특징 한 줄씩(한국, 일본, 미국 순서로 3개). 소비·기술·투자와 이어지는 것을 우선.
+출력 JSON: {{"common": [{{"theme": "...", "where": "...", "why": "..."}}], "diff": ["한국: ...", "일본: ...", "미국: ..."]}}
+
+{rows}"""
+
+def cross_rows(data, notes):
+    rows = []
+    for geo, ko_name, *_ in GEOS:
+        it = (notes.get(geo) or {}).get("items") or {}; cats = (notes.get(geo) or {}).get("cats") or {}
+        for key, src in (("gw", "gweek"), ("ap", "apps"), ("wk", "wiki"), ("yt", "yt")):
+            for k, x in enumerate(data[geo].get(src) or []):
+                if cats.get(f"{key}{k}") in DROP: continue
+                rows.append(f"{ko_name} [{cats.get(f'{key}{k}') or '-'}] {it.get(f'{key}{k}') or x[0]}")
+    return rows
+
+def render_cross(out, week_lab):
+    L = [f"🌐 <b>이번 주 세 나라 관심사 비교</b> · {week_lab}", "", "<b>두 나라 이상 공통</b>"]
+    com = [c for c in (out or {}).get("common") or [] if isinstance(c, dict) and c.get("theme")]
+    L += [f"• <b>{esc(c['theme'])}</b> ({esc(c.get('where', ''))}) — {esc(c.get('why', ''))}" for c in com[:6]] or ["• 이번 주는 겹치는 주제 없음"]
+    diff = [x for x in (out or {}).get("diff") or [] if isinstance(x, str)]
+    if diff: L += ["", "<b>나라별 특징</b>"] + [f"• {esc(x)}" for x in diff[:3]]
+    L += ["", "<i>나라별 상세는 아래 메시지 3개. 부고·스포츠 제외</i>"]
+    return "\n".join(L)
+
 def render(geo, d, notes, week_lab):
     it = (notes or {}).get("items") or {}
+    cats = (notes or {}).get("cats") or {}
+    keep = lambda key, rows, n: [(k, x) for k, x in enumerate(rows or []) if cats.get(f"{key}{k}") not in DROP][:n]
+    dropped = sum(1 for v in cats.values() if v in DROP)
+    stk = (notes or {}).get("stocks") or {}
     ko = lambda key, raw: esc(it.get(key) or raw)
+    sk = lambda key: f"\n   <i>→ 관련주(추정): {esc(stk[key])}</i>" if stk.get(key) else ""
     flag = {"KR": "🇰🇷", "JP": "🇯🇵", "US": "🇺🇸"}[geo]
     L = [f"{flag} <b>요즘 {d['name']} 관심사</b> · {week_lab}"]
     sm = (notes or {}).get("summary") or []
     if sm: L += ["", "<b>요약</b>"] + [f"• {esc(x)}" for x in sm[:3]]
     if d.get("gweek"):
-        L += ["", "<b>① 구글 급상승 · 지난 7일</b> (검색량 순)"]
-        L += [f"{k + 1}. {ko(f'gw{k}', x[0])} · {x[1]}" for k, x in enumerate(d["gweek"])]
+        L += ["", "<b>① 구글 급상승 · 지난 7일</b> " + ("(성격별, 묶음 안은 검색량 순)" if cats else "(검색량 순)")]
+        rows = keep("gw", d["gweek"], 15)
+        if cats:   # 성격별로 묶기(소비·기술·금융을 위로), 묶음 안은 검색량 순(2026-11-19)
+            for c in ORDER:
+                grp = [(k, x) for k, x in rows if (cats.get(f"gw{k}") if cats.get(f"gw{k}") in ORDER else "기타") == c]
+                if grp: L += [f"<u>{c}</u>"] + [f"• {ko(f'gw{k}', x[0])} · {x[1]}" + sk(f"gw{k}") for k, x in grp]
+        else:
+            L += [f"{j + 1}. {ko(f'gw{k}', x[0])} · {x[1]}" + sk(f"gw{k}") for j, (k, x) in enumerate(rows)]
     if d.get("apps") is not None:
         L += ["", f"<b>② 앱스토어 무료 앱 급상승</b> ({d.get('apps_base') or '이전 기록'} 대비, 아이폰)"]
-        L += [f"• {ko(f'ap{k}', x[0])} · " + (f"{x[1]}위 → {x[2]}위" if x[1] else f"새로 진입 {x[2]}위") for k, x in enumerate(d["apps"])] or ["• 큰 변화 없음"]
+        L += [f"• {ko(f'ap{k}', x[0])} · " + (f"{x[1]}위 → {x[2]}위" if x[1] else f"새로 진입 {x[2]}위") + sk(f"ap{k}") for k, x in enumerate(d["apps"])] or ["• 큰 변화 없음"]
     if d.get("wiki"):
         L += ["", "<b>③ 위키백과 급상승 문서</b> (지난 7일 조회수)"]
-        L += [f"• {ko(f'wk{k}', x[0])} · {x[1] / 1e4:,.1f}만 회" + (f"(전주 {x[2]:.1f}배)" if x[2] else "(전주 상위권 밖)") for k, x in enumerate(d["wiki"])]
+        L += [f"• {ko(f'wk{k}', x[0])} · {x[1] / 1e4:,.1f}만 회" + (f"(전주 {x[2]:.1f}배)" if x[2] else "(전주 상위권 밖)") + sk(f"wk{k}") for k, x in keep("wk", d["wiki"], 10)]
     if d.get("yt"):
         L += ["", "<b>④ 유튜브 인기 급상승</b>"]
-        L += [f"• {ko(f'yt{k}', x[0])} · 조회 {x[2] / 1e4:,.0f}만" for k, x in enumerate(d["yt"])]
+        L += [f"• {ko(f'yt{k}', x[0])} · 조회 {x[2] / 1e4:,.0f}만" + sk(f"yt{k}") for k, x in keep("yt", d["yt"], 8)]
     elif d.get("yt_err"):
         L += ["", "<i>④ 유튜브: API 키에 YouTube Data API 권한이 없어 건너뜀</i>"]
     miss = [lab for k, lab in (("gweek", "구글 트렌드"), ("wiki", "위키백과")) if d.get(k) is None]
     if miss: L += ["", f"<i>못 가져온 항목: {', '.join(miss)}</i>"]
+    if dropped: L += ["", f"<i>부고·스포츠 {dropped}건은 뺌</i>"]
+    if any(stk.values()): L += ["<i>관련주는 AI 추정 — 매출 연관성·티커는 직접 확인 필요</i>"]
     L += ["", "<i>출처: 구글 트렌드(급상승만, 상시 인기 검색어 제외)·구글 뉴스(이유 근거)·애플 앱스토어 순위·위키미디어 조회수·유튜브. 검색량은 구간값</i>"]
     return "\n".join(L)

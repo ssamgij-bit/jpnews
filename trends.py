@@ -14,16 +14,20 @@ import trends_weekly as TW
 STATE_PATH = "community_state.json"
 SCHEMA = {"type": "OBJECT", "properties": {
     "summary": {"type": "ARRAY", "items": {"type": "STRING"}},
-    "items": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {"id": {"type": "STRING"}, "ko": {"type": "STRING"}}, "required": ["id", "ko"]}}},
+    "items": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {"id": {"type": "STRING"}, "ko": {"type": "STRING"}, "cat": {"type": "STRING", "enum": ["부고", "스포츠", "연예", "정치·사회", "사건사고", "소비·제품", "기술·게임", "금융·투자", "기타"]}, "stock": {"type": "STRING"}}, "required": ["id", "ko", "cat"]}}},
     "required": ["summary", "items"]}
+
+CROSS_SCHEMA = {"type": "OBJECT", "properties": {
+    "common": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {"theme": {"type": "STRING"}, "where": {"type": "STRING"}, "why": {"type": "STRING"}}, "required": ["theme", "where", "why"]}},
+    "diff": {"type": "ARRAY", "items": {"type": "STRING"}}}, "required": ["common", "diff"]}
 
 def log(*a): print("[trends]", *a, file=sys.stderr, flush=True)
 
-def gem(state):
+def gem(state, schema=SCHEMA, need="items"):
     def call(prompt):
         key = os.getenv("GEMINI_API_KEY", "")
         body = {"contents": [{"parts": [{"text": prompt}]}],
-                "generationConfig": {"temperature": 0.2, "maxOutputTokens": 12000, "responseMimeType": "application/json", "responseSchema": SCHEMA}}
+                "generationConfig": {"temperature": 0.2, "maxOutputTokens": 12000, "responseMimeType": "application/json", "responseSchema": schema}}
         for m in bot._order(state, bot.WRITE_MODELS + bot.TRIAGE_MODELS, bot.available_models(state, key)):
             try:
                 r = requests.post(f"https://generativelanguage.googleapis.com/v1beta/models/{m}:generateContent?key={key}", json=body, timeout=180)
@@ -31,7 +35,7 @@ def gem(state):
                 cand = (r.json().get("candidates") or [{}])[0]
                 txt = "".join(p.get("text", "") for p in (cand.get("content") or {}).get("parts", []) if not p.get("thought"))
                 out = json.loads(re.sub(r"^```(?:json)?|```$", "", txt.strip()).strip())
-                if isinstance(out, dict) and out.get("items"): return out
+                if isinstance(out, dict) and need in out: return out
             except Exception as e:
                 log(m, str(e)[:100])
         return {}
@@ -69,7 +73,12 @@ def main():
         from datetime import timedelta
         lab = f"{(now - timedelta(days=7)):%m/%d}~{(now - timedelta(days=1)):%m/%d}"
         data = TW.collect(ts, log=log)
-        msgs = [TW.render(geo, data[geo], TW.ai_notes(data[geo], gem(s)), lab) for geo, *_ in TW.GEOS]
+        notes = {geo: TW.ai_notes(data[geo], gem(s)) for geo, *_ in TW.GEOS}
+        msgs = [TW.render(geo, data[geo], notes[geo], lab) for geo, *_ in TW.GEOS]
+        rows = TW.cross_rows(data, notes)
+        if rows and any(n.get("items") for n in notes.values()):   # 번역이 없으면 비교도 엉터리라 생략
+            cross = gem(s, TW.CROSS_SCHEMA, "common")(TW.CROSS_PROMPT.format(rows="\n".join(rows)))
+            if cross: msgs.insert(0, TW.render_cross(cross, lab))
         t14 = now.replace(hour=14, minute=0, second=0, microsecond=0)
         wait = (t14 - datetime.now(bot.JST)).total_seconds()
         if 0 < wait < 1200 and os.getenv("TRENDS_NOW") != "1": log(f"14:00까지 {wait:.0f}초 대기"); time.sleep(wait)
