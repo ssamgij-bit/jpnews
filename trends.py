@@ -12,6 +12,8 @@ import bot
 import trends_weekly as TW
 
 STATE_PATH = "community_state.json"
+# 시험 발송(trends_test 버튼): 지금 바로, 관리자 개인 대화로만, 기록은 안 남김. 이어 달리기 중에는 무시(매시 반복 발송 방지)
+TEST = os.getenv("TRENDS_TEST") == "1" and os.getenv("RELAY") != "1"
 SCHEMA = {"type": "OBJECT", "properties": {
     "summary": {"type": "ARRAY", "items": {"type": "STRING"}},
     "items": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {"id": {"type": "STRING"}, "ko": {"type": "STRING"}, "cat": {"type": "STRING", "enum": ["부고", "스포츠", "연예", "정치·사회", "사건사고", "소비·제품", "기술·게임", "금융·투자", "기타"]}, "stocks": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {"ko": {"type": "STRING"}, "ticker": {"type": "STRING"}, "ex": {"type": "STRING"}, "local": {"type": "STRING"}}, "required": ["ko", "ticker", "ex"]}}}, "required": ["id", "ko", "cat"]}}},
@@ -41,9 +43,10 @@ def gem(state, schema=SCHEMA, need="items"):
         return {}
     return call
 
-def send(text):
+def send(text, chat=None):
     if os.getenv("DRY_RUN") == "1": print(text); return True
-    tok, chat = os.environ["TELEGRAM_BOT_TOKEN"], os.environ["TELEGRAM_CHAT_ID"]
+    tok = os.environ["TELEGRAM_BOT_TOKEN"]
+    chat = chat or (os.getenv("TELEGRAM_ADMIN_CHAT_ID") if TEST else None) or os.environ["TELEGRAM_CHAT_ID"]
     parts, buf = [], ""
     for line in text.split("\n"):
         if len(buf) + len(line) > 3800: parts.append(buf); buf = ""
@@ -69,10 +72,16 @@ def main():
     except Exception as e: log("app snapshot", e)
     now = datetime.now(bot.JST); wk = now.strftime("%G-%V")
     due = now.weekday() == 5 and (now.hour, now.minute) >= (13, 45) and ts.get("done") != wk
+    if TEST: os.environ["TRENDS_NOW"] = "1"
     if due or os.getenv("TRENDS_NOW") == "1":
         from datetime import timedelta
         lab = f"{(now - timedelta(days=7)):%m/%d}~{(now - timedelta(days=1)):%m/%d}"
         data = TW.collect(ts, log=log)
+        try:
+            nf, nf_week = TW.netflix_top()
+            for geo, *_ in TW.GEOS: data[geo]["netflix"] = nf.get(geo); data[geo]["netflix_week"] = nf_week
+        except Exception as e: log("netflix", str(e)[:120])
+        data["JP"]["jptopics"] = TW.jp_topics((s.get("xweek") or []) + (s.get("nweek") or []))
         hist = ts.setdefault("hist", {})
         TW.mark_streaks(data, hist, wk)
         if os.getenv("TRENDS_NOW") != "1": TW.record_week(data, hist, wk)   # 시험 실행은 기록 안 함
@@ -87,6 +96,12 @@ def main():
         if 0 < wait < 1200 and os.getenv("TRENDS_NOW") != "1": log(f"14:00까지 {wait:.0f}초 대기"); time.sleep(wait)
         if all(send(m) for m in msgs) and os.getenv("TRENDS_NOW") != "1": ts["done"] = wk
         log("발송", len(msgs))
+        # 이상 알림(관리자): 나라별 구글·유튜브 검색이 둘 다 비었거나 번역이 전부 실패
+        bad = [n for geo, n, *_ in TW.GEOS if data[geo].get("gweek") is None and data[geo].get("ysearch") is None]
+        if not any(n.get("items") for n in notes.values()): bad.append("번역·분류(Gemini) 전부 실패")
+        admin = os.getenv("TELEGRAM_ADMIN_CHAT_ID")
+        if bad and admin and not TEST:
+            send("⚠️ 주간 관심사 일부 실패: " + ", ".join(bad) + " — 발송은 됨, 로그 확인 필요", chat=admin)
     json.dump(s, open(STATE_PATH, "w", encoding="utf-8"), ensure_ascii=False)
 
 if __name__ == "__main__":
