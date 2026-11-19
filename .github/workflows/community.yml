@@ -63,6 +63,7 @@ jobs:
           DIGEST_NOW: ${{ github.event.inputs.digest_now == 'true' && '1' || '0' }}
           WEEKLY_NOW: ${{ github.event.inputs.weekly_now == 'true' && '1' || '0' }}
           X_NOW: ${{ github.event.inputs.x_now == 'true' && '1' || '0' }}
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
           NOTE_NOW: ${{ github.event.inputs.note_now == 'true' && '1' || '0' }}
         run: |
           git config user.name "jp-community-bot"
@@ -72,7 +73,7 @@ jobs:
           }
           bash state.sh pull
           if [ "$RELAY" != "1" ]; then  # 직접 실행(테스트): 한 번만
-            rc=0; timeout 11m python community.py || rc=$?; save_state; exit $rc
+            rc=0; timeout 11m python community.py || rc=$?; save_state; timeout 25m python trends.py || echo "::warning::주간 관심사 실패"; save_state; exit $rc
           fi
           # 이어 달리기: 약 5시간 20분 동안 매시 50분(JST)에 한 번씩 실행
           end=$(( $(date +%s) + 19200 )); fails=0; grace=120
@@ -82,6 +83,8 @@ jobs:
             bash state.sh pull; git checkout -q origin/main -- '*.py' 2>/dev/null || true   # 최신 상태 파일(state 브랜치) + 최신 코드
             if timeout 11m python community.py; then fails=0; else fails=$((fails + 1)); echo "::warning::커뮤니티봇 실행 실패($fails회 연속)"; fi
             save_state || echo "::warning::상태 저장 실패"
+            timeout 25m python trends.py || echo "::warning::주간 관심사 실패"   # 토요일 14시 한·일·미 주간 관심사(평소엔 앱 순위 저장만)
+            save_state || true
             [ $fails -ge 3 ] && exit 1
           done
           exit 0
