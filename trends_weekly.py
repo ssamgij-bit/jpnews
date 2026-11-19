@@ -48,6 +48,44 @@ def google_week(geo, n=30):   # 부고·스포츠를 빼고도 15개 남게 넉�
     out.sort(key=lambda x: -_vol(x[1]))
     return out[:n]
 
+# ───────── 유튜브 검색 급상승(구글 트렌드 'YouTube 검색', 2026-11-19) ─────────
+YT_JS = """async (geo) => {
+  const req = {comparisonItem: [{keyword: '', geo: geo, time: 'now 7-d'}], category: 0, property: 'youtube'};
+  const r = await fetch('/trends/api/explore?hl=ko&tz=-540&req=' + encodeURIComponent(JSON.stringify(req)));
+  const tx = await r.text(); if (!r.ok) return 'HTTP ' + r.status;
+  const w = JSON.parse(tx.slice(tx.indexOf('{'))).widgets.find(x => x.id === 'RELATED_QUERIES');
+  const r2 = await fetch('/trends/api/widgetdata/relatedsearches?hl=ko&tz=-540&req=' + encodeURIComponent(JSON.stringify(w.request)) + '&token=' + w.token);
+  const t2 = await r2.text(); if (!r2.ok) return 'HTTP ' + r2.status;
+  const L = JSON.parse(t2.slice(t2.indexOf('{'))).default.rankedList;
+  return (L[1] || {rankedKeyword: []}).rankedKeyword.map(k => [k.query, k.formattedValue]);
+}"""
+
+def youtube_search(geo, n=12):
+    """지난 7일 유튜브 검색 급상승어 [(검색어, 상승률)] — 비슷한 말(gta 6 / gta 6 review)은 하나로"""
+    from playwright.sync_api import sync_playwright
+    with sync_playwright() as p:
+        try: b = p.chromium.launch(channel="chrome")
+        except Exception: b = p.chromium.launch()
+        try:
+            pg = b.new_page(locale="ko-KR")
+            pg.goto(f"https://trends.google.com/trends/explore?date=now%207-d&geo={geo}&gprop=youtube&hl=ko", timeout=60000)
+            pg.wait_for_timeout(4000)
+            rows = pg.evaluate(YT_JS, geo)
+        finally:
+            b.close()
+    if not isinstance(rows, list): raise RuntimeError(str(rows))
+    def same(a, b):   # 포함 관계, 앞 4글자 이상 같음, 숫자 아닌 낱말(2글자+) 공유 → 같은 주제
+        ka, kb = re.sub(r"[\s\W_]+", "", a.lower()), re.sub(r"[\s\W_]+", "", b.lower())
+        if ka in kb or kb in ka or (len(ka) >= 4 and len(kb) >= 4 and ka[:4] == kb[:4]): return True
+        ta = {t for t in a.lower().split() if len(t) >= 2 and not t.isdigit()}
+        return bool(ta & {t for t in b.lower().split() if len(t) >= 2 and not t.isdigit()})
+    out = []
+    for q, v in rows:
+        if not q.strip() or any(same(q, o[0]) for o in out): continue
+        out.append((q, "급등" if v in ("급등", "Breakout") else v))
+        if len(out) >= n: break
+    return out
+
 # ───────── 앱스토어 ─────────
 def app_top(cc, n=100):
     d = json.loads(_get(f"https://rss.marketingtools.apple.com/api/v2/{cc}/apps/top-free/{n}/apps.json"))
@@ -111,7 +149,7 @@ def news_heads(q, lang, geo, n=3):
     return [re.sub(r"\s+-\s+[^-]+$", "", html.unescape(t)).strip()[:90] for t in re.findall(r"<item><title>(.*?)</title>", x)[:n]]
 
 def attach_news(d, geo):
-    for key in ("gweek", "wiki"):
+    for key in ("gweek", "ysearch", "wiki"):
         heads = []
         for it in d.get(key) or []:
             heads.append(news_heads(it[0], d["lang"], geo)); time.sleep(0.4)
@@ -125,7 +163,7 @@ def collect(state, log=print):
     data = {}
     for geo, ko, lang, cc in GEOS:
         d = {"name": ko, "lang": lang}
-        for k, fn in (("gweek", lambda: google_week(geo)), ("wiki", lambda: wiki_rising(lang, end))):
+        for k, fn in (("gweek", lambda: google_week(geo)), ("ysearch", lambda: youtube_search(geo)), ("wiki", lambda: wiki_rising(lang, end))):
             try: d[k] = fn()
             except Exception as e: d[k] = None; log("trends", geo, k, "error", str(e)[:120])
             time.sleep(2)
@@ -177,6 +215,7 @@ def ai_notes(d, gemini_json):
     rows = []
     nw = lambda key, k: " [뉴스] " + " / ".join((d.get(key + "_news") or [[]] * 99)[k]) if k < len(d.get(key + "_news") or []) and d[key + "_news"][k] else ""
     for k, it in enumerate(d.get("gweek") or []): rows.append(f"gw{k}: {it[0]} (관련: {it[3]})" + nw("gweek", k))
+    for k, it in enumerate(d.get("ysearch") or []): rows.append(f"ys{k}: {it[0]} (유튜브 검색어)" + nw("ysearch", k))
     for k, it in enumerate(d.get("apps") or []): rows.append(f"ap{k}: {it[0]}")
     for k, it in enumerate(d.get("wiki") or []): rows.append(f"wk{k}: {it[0]}" + nw("wiki", k))
     for k, it in enumerate(d.get("yt") or []): rows.append(f"yt{k}: {it[0]} / 채널 {it[1]}")
@@ -248,7 +287,7 @@ def mark_streaks(data, hist, wk):
     for geo, *_ in GEOS:
         d = data[geo]; d["streak"] = {}
         if geo not in (hist.get(_prev_week(wk)) or {}): continue
-        for key, src in (("gw", "gweek"), ("wk", "wiki")):
+        for key, src in (("gw", "gweek"), ("ys", "ysearch"), ("wk", "wiki")):
             for k, x in enumerate(d.get(src) or []):
                 n, w = 1, _prev_week(wk)
                 while _key(x[0]) in ((hist.get(w) or {}).get(geo) or {}).get(key, []):
@@ -256,7 +295,8 @@ def mark_streaks(data, hist, wk):
                 d["streak"][f"{key}{k}"] = n
 
 def record_week(data, hist, wk):
-    hist[wk] = {geo: {"gw": [_key(x[0]) for x in data[geo].get("gweek") or []], "wk": [_key(x[0]) for x in data[geo].get("wiki") or []]}
+    hist[wk] = {geo: {"gw": [_key(x[0]) for x in data[geo].get("gweek") or []], "ys": [_key(x[0]) for x in data[geo].get("ysearch") or []],
+                      "wk": [_key(x[0]) for x in data[geo].get("wiki") or []]}
                 for geo, *_ in GEOS if data[geo].get("gweek") or data[geo].get("wiki")}
     for w in sorted(hist)[:-10]: hist.pop(w, None)
 
@@ -273,7 +313,7 @@ def cross_rows(data, notes):
     rows = []
     for geo, ko_name, *_ in GEOS:
         it = (notes.get(geo) or {}).get("items") or {}; cats = (notes.get(geo) or {}).get("cats") or {}
-        for key, src in (("gw", "gweek"), ("ap", "apps"), ("wk", "wiki"), ("yt", "yt")):
+        for key, src in (("gw", "gweek"), ("ys", "ysearch"), ("ap", "apps"), ("wk", "wiki"), ("yt", "yt")):
             for k, x in enumerate(data[geo].get(src) or []):
                 if cats.get(f"{key}{k}") in DROP: continue
                 rows.append(f"{ko_name} [{cats.get(f'{key}{k}') or '-'}] {it.get(f'{key}{k}') or x[0]}")
@@ -310,21 +350,24 @@ def render(geo, d, notes, week_lab):
                 if grp: L += [f"<u>{c}</u>"] + [f"• {ko(f'gw{k}', x[0])} · {x[1]}" + sk(f"gw{k}") for k, x in grp]
         else:
             L += [f"{j + 1}. {ko(f'gw{k}', x[0])} · {x[1]}" + sk(f"gw{k}") for j, (k, x) in enumerate(rows)]
+    if d.get("ysearch"):
+        L += ["", "<b>② 유튜브 검색 급상승 · 지난 7일</b> (상승률)"]
+        L += [f"• {ko(f'ys{k}', x[0])} · {x[1]}" + sk(f"ys{k}") for k, x in keep("ys", d["ysearch"], 10)]
     if d.get("apps") is not None:
-        L += ["", f"<b>② 앱스토어 무료 앱 급상승</b> ({d.get('apps_base') or '이전 기록'} 대비, 아이폰)"]
+        L += ["", f"<b>③ 앱스토어 무료 앱 급상승</b> ({d.get('apps_base') or '이전 기록'} 대비, 아이폰)"]
         L += [f"• {ko(f'ap{k}', x[0])} · " + (f"{x[1]}위 → {x[2]}위" if x[1] else f"새로 진입 {x[2]}위") + sk(f"ap{k}") for k, x in enumerate(d["apps"])] or ["• 큰 변화 없음"]
     if d.get("wiki"):
-        L += ["", "<b>③ 위키백과 급상승 문서</b> (지난 7일 조회수)"]
+        L += ["", "<b>④ 위키백과 급상승 문서</b> (지난 7일 조회수)"]
         L += [f"• {ko(f'wk{k}', x[0])} · {x[1] / 1e4:,.1f}만 회" + (f"(전주 {x[2]:.1f}배)" if x[2] else "(전주 상위권 밖)") + sk(f"wk{k}") for k, x in keep("wk", d["wiki"], 10)]
     if d.get("yt"):
-        L += ["", "<b>④ 유튜브 인기 급상승</b>"]
+        L += ["", "<b>⑤ 유튜브 인기 동영상</b>"]
         L += [f"• {ko(f'yt{k}', x[0])} · 조회 {x[2] / 1e4:,.0f}만" + sk(f"yt{k}") for k, x in keep("yt", d["yt"], 8)]
     elif d.get("yt_err"):
-        L += ["", "<i>④ 유튜브: API 키에 YouTube Data API 권한이 없어 건너뜀</i>"]
-    miss = [lab for k, lab in (("gweek", "구글 트렌드"), ("wiki", "위키백과")) if d.get(k) is None]
+        L += ["", "<i>⑤ 유튜브 인기 동영상: API 키에 YouTube Data API 권한이 없어 건너뜀</i>"]
+    miss = [lab for k, lab in (("gweek", "구글 트렌드"), ("ysearch", "유튜브 검색어"), ("wiki", "위키백과")) if d.get(k) is None]
     if miss: L += ["", f"<i>못 가져온 항목: {', '.join(miss)}</i>"]
     if dropped: L += ["", f"<i>부고·스포츠 {dropped}건은 뺌</i>"]
     if stq: L += ["", "<i>🆕 = 이번 주 처음, (n주째) = n주 연속 급상승</i>"]
     if any(stk.values()): L += ["<i>관련주는 AI 추정(매출 연관성은 직접 확인). 일본·한국 티커는 상장사 목록과 대조해 틀린 것은 뺐고, 해외 티커는 미확인</i>"]
-    L += ["", "<i>출처: 구글 트렌드(급상승만, 상시 인기 검색어 제외)·구글 뉴스(이유 근거)·애플 앱스토어 순위·위키미디어 조회수·유튜브. 검색량은 구간값</i>"]
+    L += ["", "<i>출처: 구글 트렌드(웹·유튜브 검색 급상승만, 상시 인기 검색어 제외)·구글 뉴스(이유 근거)·애플 앱스토어 순위·위키미디어 조회수·유튜브. 검색량은 구간값</i>"]
     return "\n".join(L)
