@@ -14,7 +14,7 @@ import trends_weekly as TW
 STATE_PATH = "community_state.json"
 SCHEMA = {"type": "OBJECT", "properties": {
     "summary": {"type": "ARRAY", "items": {"type": "STRING"}},
-    "items": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {"id": {"type": "STRING"}, "ko": {"type": "STRING"}, "cat": {"type": "STRING", "enum": ["부고", "스포츠", "연예", "정치·사회", "사건사고", "소비·제품", "기술·게임", "금융·투자", "기타"]}, "stock": {"type": "STRING"}}, "required": ["id", "ko", "cat"]}}},
+    "items": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {"id": {"type": "STRING"}, "ko": {"type": "STRING"}, "cat": {"type": "STRING", "enum": ["부고", "스포츠", "연예", "정치·사회", "사건사고", "소비·제품", "기술·게임", "금융·투자", "기타"]}, "stocks": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {"ko": {"type": "STRING"}, "ticker": {"type": "STRING"}, "ex": {"type": "STRING"}, "local": {"type": "STRING"}}, "required": ["ko", "ticker", "ex"]}}}, "required": ["id", "ko", "cat"]}}},
     "required": ["summary", "items"]}
 
 CROSS_SCHEMA = {"type": "OBJECT", "properties": {
@@ -73,6 +73,9 @@ def main():
         from datetime import timedelta
         lab = f"{(now - timedelta(days=7)):%m/%d}~{(now - timedelta(days=1)):%m/%d}"
         data = TW.collect(ts, log=log)
+        hist = ts.setdefault("hist", {})
+        TW.mark_streaks(data, hist, wk)
+        if os.getenv("TRENDS_NOW") != "1": TW.record_week(data, hist, wk)   # 시험 실행은 기록 안 함
         notes = {geo: TW.ai_notes(data[geo], gem(s)) for geo, *_ in TW.GEOS}
         msgs = [TW.render(geo, data[geo], notes[geo], lab) for geo, *_ in TW.GEOS]
         rows = TW.cross_rows(data, notes)

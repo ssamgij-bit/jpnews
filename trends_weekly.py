@@ -165,10 +165,11 @@ PROMPT = """너는 한국 애널리스트에게 '요즘 {name} 사람들이 무�
 - 모든 항목을 한국어로: 각 id마다 "한국어 이름 — 왜 떴는지 한 줄(35자 안팎)". 예: "나카타 노아 — 배우, 23세로 급서 소식".
 - '왜 떴는지'는 함께 준 [뉴스] 기사 제목과 관련 검색어를 근거로 쓴다. 근거가 없으면 지어내지 말고 무엇인지(인물·스포츠·드라마 등)만.
 - cat(분류): "부고"(사망·추모), "스포츠"(경기·선수·팀·대회·부상·이적), "연예", "정치·사회", "사건사고", "소비·제품", "기술·게임", "금융·투자", "기타" 중 하나. 운동선수의 사망은 "부고".
-- stock(관련 상장사): cat이 소비·제품/기술·게임/금융·투자/연예일 때만, 이 관심이 매출로 이어질 상장사 1~2개를 "회사명(티커 거래소)" 형식으로. 예: "캡콤(9697 JP)", "테이크투(TTWO US)". 일본 상장사를 우선하고 없으면 해외. 직접 관련이 확실할 때만 쓰고, 애매하면 빈 문자열.
+- stocks(관련 상장사): cat이 소비·제품/기술·게임/금융·투자/연예일 때만, 이 관심이 매출로 이어질 상장사 0~2개. 일본 상장사를 우선하고 없으면 해외. 직접 관련이 확실할 때만 쓰고, 애매하면 빈 배열.
+  각 상장사: ko(한국어 회사명), ticker(일본은 4자리 코드, 한국은 6자리, 미국은 티커), ex(JP/KS/KQ/US/기타 거래소 코드), local(현지 정식 회사명 — 일본은 일본어 정식 사명, 예: "カプコン")
 - 고유명사는 한국에서 통용되는 표기나 한글 발음. 일본어·영어 원문을 그대로 남기지 말 것.
 - summary: 부고·스포츠는 빼고 이번 주 관심사를 3줄로(정치·사회, 연예, 소비·기술·투자처럼 묶어서). 투자와 이어지는 신호(기업·제품·소비 트렌드)가 있으면 꼭 한 줄 넣기.
-출력 JSON: {{"summary": ["...", "...", "..."], "items": [{{"id": "gw0", "ko": "한국어 이름 — 설명", "cat": "연예", "stock": ""}}, ...]}}
+출력 JSON: {{"summary": ["...", "...", "..."], "items": [{{"id": "gw0", "ko": "한국어 이름 — 설명", "cat": "기술·게임", "stocks": [{{"ko": "캡콤", "ticker": "9697", "ex": "JP", "local": "カプコン"}}]}}, ...]}}
 
 {rows}"""
 
@@ -184,15 +185,80 @@ def ai_notes(d, gemini_json):
     if not isinstance(out, dict): return {}
     if isinstance(out.get("items"), list):   # [{"id","ko"}] → {id: ko}
         out["cats"] = {x.get("id"): x.get("cat") for x in out["items"] if isinstance(x, dict)}
-        out["stocks"] = {x.get("id"): (x.get("stock") or "").strip() for x in out["items"] if isinstance(x, dict) and x.get("cat") in INVEST}
+        out["stocks"] = {x.get("id"): check_stocks(x.get("stocks")) for x in out["items"] if isinstance(x, dict) and x.get("cat") in INVEST}
         out["items"] = {x.get("id"): x.get("ko") for x in out["items"] if isinstance(x, dict)}
     return out
 
 def esc(s): return (s or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 DROP = {"부고", "스포츠"}   # 사용자 요청(2026-11-19): 부고·스포츠는 빼기
+# ───────── 관련주 티커 확인(2026-11-19) ─────────
+_LISTS = {}
+def _norm(t):
+    import unicodedata
+    t = unicodedata.normalize("NFKC", t or "").lower()
+    for w in ("株式会社", "(株)", "ホールディングス", "holdings", "グループ", "㈱", "주식회사", "(주)", "홀딩스", "지주"):
+        t = t.replace(w, "")
+    return re.sub(r"[\s・.,&'\-()（）]", "", t)
+
+def _listed(kind):
+    """data/jpx_list.csv(일본 상장사, 매월 갱신)·krx_list.csv → {코드: 이름}"""
+    if kind not in _LISTS:
+        import csv
+        f = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", f"{kind}_list.csv")
+        try: _LISTS[kind] = {r["code"].strip().upper(): r["name"] for r in csv.DictReader(open(f, encoding="utf-8"))}
+        except Exception: _LISTS[kind] = {}
+    return _LISTS[kind]
+
+def _same(a, b):
+    import difflib
+    a, b = _norm(a), _norm(b)
+    return bool(a and b) and (a in b or b in a or difflib.SequenceMatcher(None, a, b).ratio() >= 0.6)
+
+def check_stocks(sts):
+    """AI가 고른 관련주 → 일본·한국은 상장사 목록에서 코드가 있고 회사명이 맞을 때만 남김, 해외는 그대로(미확인). 표시용 문자열."""
+    out = []
+    for x in sts if isinstance(sts, list) else []:
+        if not isinstance(x, dict): continue
+        ko_nm, tk, ex = (x.get("ko") or "").strip(), (x.get("ticker") or "").strip().upper(), (x.get("ex") or "").strip().upper()
+        if not ko_nm or not tk: continue
+        if ex == "JP":
+            nm = _listed("jpx").get(tk)
+            if not nm or not _same(x.get("local"), nm): continue   # 없는 코드거나 다른 회사 → 버림
+        elif ex in ("KS", "KQ"):
+            nm = _listed("krx").get(tk.zfill(6))
+            if not nm or not (_same(ko_nm, nm) or _same(x.get("local"), nm)): continue
+            tk = tk.zfill(6)
+        out.append(f"{ko_nm}({tk} {ex or '?'})")
+    return ", ".join(out[:2])
+
 INVEST = {"소비·제품", "기술·게임", "금융·투자", "연예"}   # 관련 상장사를 붙이는 분류(2026-11-19)
 ORDER = ["소비·제품", "기술·게임", "금융·투자", "연예", "정치·사회", "사건사고", "기타"]
+
+# ───────── 주 단위 연속성(2026-11-19): 새로 등장 / n주째 ─────────
+def _key(t): return re.sub(r"[\s\W_]+", "", (t or "").lower())
+
+def _prev_week(wk, n=1):
+    y, w = map(int, wk.split("-"))
+    d = dt.date.fromisocalendar(y, w, 6) - dt.timedelta(weeks=n)
+    return f"{d.isocalendar()[0]}-{d.isocalendar()[1]:02d}"
+
+def mark_streaks(data, hist, wk):
+    """hist: {주: {나라: {"gw": [키...], "wk": [...]}}}. 지난주 기록이 있을 때만 표시(첫 주는 표시 안 함)"""
+    for geo, *_ in GEOS:
+        d = data[geo]; d["streak"] = {}
+        if geo not in (hist.get(_prev_week(wk)) or {}): continue
+        for key, src in (("gw", "gweek"), ("wk", "wiki")):
+            for k, x in enumerate(d.get(src) or []):
+                n, w = 1, _prev_week(wk)
+                while _key(x[0]) in ((hist.get(w) or {}).get(geo) or {}).get(key, []):
+                    n += 1; w = _prev_week(w)
+                d["streak"][f"{key}{k}"] = n
+
+def record_week(data, hist, wk):
+    hist[wk] = {geo: {"gw": [_key(x[0]) for x in data[geo].get("gweek") or []], "wk": [_key(x[0]) for x in data[geo].get("wiki") or []]}
+                for geo, *_ in GEOS if data[geo].get("gweek") or data[geo].get("wiki")}
+    for w in sorted(hist)[:-10]: hist.pop(w, None)
 
 # ───────── 세 나라 공통 관심사(맨 앞 메시지) ─────────
 CROSS_PROMPT = """아래는 지난 1주 한국·일본·미국에서 새로 뜬 관심사(이미 한국어로 정리, [분류] 표시)다.
@@ -228,7 +294,8 @@ def render(geo, d, notes, week_lab):
     keep = lambda key, rows, n: [(k, x) for k, x in enumerate(rows or []) if cats.get(f"{key}{k}") not in DROP][:n]
     dropped = sum(1 for v in cats.values() if v in DROP)
     stk = (notes or {}).get("stocks") or {}
-    ko = lambda key, raw: esc(it.get(key) or raw)
+    stq = d.get("streak") or {}
+    ko = lambda key, raw: esc(it.get(key) or raw) + (" 🆕" if stq.get(key) == 1 else f" <b>({stq[key]}주째)</b>" if stq.get(key, 0) >= 2 else "")
     sk = lambda key: f"\n   <i>→ 관련주(추정): {esc(stk[key])}</i>" if stk.get(key) else ""
     flag = {"KR": "🇰🇷", "JP": "🇯🇵", "US": "🇺🇸"}[geo]
     L = [f"{flag} <b>요즘 {d['name']} 관심사</b> · {week_lab}"]
@@ -257,6 +324,7 @@ def render(geo, d, notes, week_lab):
     miss = [lab for k, lab in (("gweek", "구글 트렌드"), ("wiki", "위키백과")) if d.get(k) is None]
     if miss: L += ["", f"<i>못 가져온 항목: {', '.join(miss)}</i>"]
     if dropped: L += ["", f"<i>부고·스포츠 {dropped}건은 뺌</i>"]
-    if any(stk.values()): L += ["<i>관련주는 AI 추정 — 매출 연관성·티커는 직접 확인 필요</i>"]
+    if stq: L += ["", "<i>🆕 = 이번 주 처음, (n주째) = n주 연속 급상승</i>"]
+    if any(stk.values()): L += ["<i>관련주는 AI 추정(매출 연관성은 직접 확인). 일본·한국 티커는 상장사 목록과 대조해 틀린 것은 뺐고, 해외 티커는 미확인</i>"]
     L += ["", "<i>출처: 구글 트렌드(급상승만, 상시 인기 검색어 제외)·구글 뉴스(이유 근거)·애플 앱스토어 순위·위키미디어 조회수·유튜브. 검색량은 구간값</i>"]
     return "\n".join(L)
