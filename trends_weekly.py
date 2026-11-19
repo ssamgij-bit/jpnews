@@ -9,6 +9,9 @@
 """
 import datetime as dt, json, os, re, time, urllib.parse, urllib.request
 
+DEADLINE = [float("inf")]   # 수집 마감 시각(trends.py가 정함) — 넘으면 남은 느린 자료는 건너뜀(2026-11-19)
+def late(): return time.time() > DEADLINE[0]
+
 GEOS = [("KR", "한국", "ko", "kr"), ("JP", "일본", "ja", "jp"), ("US", "미국", "en", "us")]
 UA = {"User-Agent": "jp-trends-bot/1.0 (weekly research digest)"}
 
@@ -119,6 +122,7 @@ def wiki_rising(lang, end, n=16):
     """end(포함)까지 7일 조회수 합 vs 그 전 7일 → 2배 넘게 는 문서 [(제목, 7일 조회수, 배수 또는 None)]"""
     def day(d):
         for k in range(4):   # 위키미디어는 요청이 몰리면 429 → 기다렸다 다시
+            if late(): return None
             try: return json.loads(_get(f"https://wikimedia.org/api/rest_v1/metrics/pageviews/top/{lang}.wikipedia/all-access/{d:%Y/%m/%d}"))["items"][0]["articles"]
             except Exception as e:
                 if "429" not in str(e) or k == 3: return None
@@ -164,7 +168,7 @@ def attach_news(d, geo):
     for key in ("gweek", "ysearch", "wiki"):
         heads = []
         for it in d.get(key) or []:
-            heads.append(news_heads(it[0], d["lang"], geo)); time.sleep(0.4)
+            heads.append([] if late() else news_heads(it[0], d["lang"], geo)); time.sleep(0.4)
         d[key + "_news"] = heads
 
 # ───────── 묶기 ─────────
@@ -176,6 +180,7 @@ def collect(state, log=print):
     for geo, ko, lang, cc in GEOS:
         d = {"name": ko, "lang": lang}
         for k, fn in (("gweek", lambda: google_week(geo)), ("ysearch", lambda: youtube_search(geo)), ("wiki", lambda: wiki_rising(lang, end))):
+            if late() and k == "wiki": d[k] = None; log("trends", geo, k, "skip: 시간 초과"); continue
             try: d[k] = fn()
             except Exception as e: d[k] = None; log("trends", geo, k, "error", str(e)[:120])
             time.sleep(2)
@@ -366,7 +371,9 @@ def render(geo, d, notes, week_lab):
             L += [f"{j + 1}. {ko(f'gw{k}', x[0])} · {x[1]}" + sk(f"gw{k}") for j, (k, x) in enumerate(rows)]
     if d.get("ysearch"):
         L += ["", "<b>② 유튜브 검색 급상승 · 지난 7일</b> (상승률)"]
-        L += [f"• {ko(f'ys{k}', x[0])} · {x[1]}" + sk(f"ys{k}") for k, x in keep("ys", d["ysearch"], 10)]
+        web = [_key(g[0]) for g in d.get("gweek") or []]
+        onweb = lambda q: any(w and (w in _key(q) or _key(q) in w) for w in web)
+        L += [f"• {ko(f'ys{k}', x[0])} · {x[1]}" + (" · <i>웹 검색에도 급상승</i>" if onweb(x[0]) else "") + sk(f"ys{k}") for k, x in keep("ys", d["ysearch"], 10)]
     if d.get("apps") is not None:
         L += ["", f"<b>③ 앱스토어 무료 앱 급상승</b> ({d.get('apps_base') or '이전 기록'} 대비, 아이폰)"]
         L += [f"• {ko(f'ap{k}', x[0])} · " + (f"{x[1]}위 → {x[2]}위" if x[1] else f"새로 진입 {x[2]}위") + sk(f"ap{k}") for k, x in enumerate(d["apps"])] or ["• 큰 변화 없음"]

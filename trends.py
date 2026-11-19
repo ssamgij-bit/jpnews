@@ -12,6 +12,8 @@ import bot
 import trends_weekly as TW
 
 STATE_PATH = "community_state.json"
+T0 = time.time()
+COLLECT_MIN, GEMINI_MIN = 12, 20   # 시작 후 수집은 12분, Gemini는 20분까지(작업 한도 25분 안에 반드시 발송, 2026-11-19)
 # 시험 발송(trends_test 버튼): 지금 바로, 관리자 개인 대화로만, 기록은 안 남김. 이어 달리기 중에는 무시(매시 반복 발송 방지)
 TEST = os.getenv("TRENDS_TEST") == "1" and os.getenv("RELAY") != "1"
 SCHEMA = {"type": "OBJECT", "properties": {
@@ -30,9 +32,11 @@ def gem(state, schema=SCHEMA, need="items"):
         key = os.getenv("GEMINI_API_KEY", "")
         body = {"contents": [{"parts": [{"text": prompt}]}],
                 "generationConfig": {"temperature": 0.2, "maxOutputTokens": 12000, "responseMimeType": "application/json", "responseSchema": schema}}
-        for m in bot._order(state, bot.WRITE_MODELS + bot.TRIAGE_MODELS, bot.available_models(state, key)):
+        for m in bot._order(state, bot.WRITE_MODELS + bot.TRIAGE_MODELS, bot.available_models(state, key))[:3]:   # 최대 3개 모델
+            left = T0 + GEMINI_MIN * 60 - time.time()
+            if left < 30: log("gemini skip: 시간 초과"); break
             try:
-                r = requests.post(f"https://generativelanguage.googleapis.com/v1beta/models/{m}:generateContent?key={key}", json=body, timeout=180)
+                r = requests.post(f"https://generativelanguage.googleapis.com/v1beta/models/{m}:generateContent?key={key}", json=body, timeout=min(120, left))
                 if r.status_code != 200: log(m, r.status_code); continue
                 cand = (r.json().get("candidates") or [{}])[0]
                 txt = "".join(p.get("text", "") for p in (cand.get("content") or {}).get("parts", []) if not p.get("thought"))
@@ -73,10 +77,19 @@ def main():
     now = datetime.now(bot.JST); wk = now.strftime("%G-%V")
     due = now.weekday() == 5 and (now.hour, now.minute) >= (13, 45) and ts.get("done") != wk
     if TEST: os.environ["TRENDS_NOW"] = "1"
+    TW.DEADLINE[0] = T0 + COLLECT_MIN * 60
+    # 토요일 12:50 회차에 무거운 수집(구글·유튜브 검색·위키·뉴스)을 미리 해 둠 → 13:50 회차는 번역·발송만(14:00 정각 발송, 2026-11-19)
+    pre = ts.get("pre") or {}
+    if now.weekday() == 5 and (12, 45) <= (now.hour, now.minute) < (13, 45) and ts.get("done") != wk and pre.get("wk") != wk and not TEST:
+        ts["pre"] = {"wk": wk, "at": time.time(), "data": TW.collect(ts, log=log)}
+        log("미리 수집 완료")
     if due or os.getenv("TRENDS_NOW") == "1":
         from datetime import timedelta
         lab = f"{(now - timedelta(days=7)):%m/%d}~{(now - timedelta(days=1)):%m/%d}"
-        data = TW.collect(ts, log=log)
+        if pre.get("wk") == wk and not TEST and all(pre.get("data", {}).get(g) for g, *_ in TW.GEOS):
+            data = pre["data"]; log("미리 수집한 자료 사용")
+        else:
+            data = TW.collect(ts, log=log)
         data["JP"]["jptopics"] = TW.jp_topics((s.get("xweek") or []) + (s.get("nweek") or []))
         hist = ts.setdefault("hist", {})
         TW.mark_streaks(data, hist, wk)
@@ -90,7 +103,7 @@ def main():
         t14 = now.replace(hour=14, minute=0, second=0, microsecond=0)
         wait = (t14 - datetime.now(bot.JST)).total_seconds()
         if 0 < wait < 1200 and os.getenv("TRENDS_NOW") != "1": log(f"14:00까지 {wait:.0f}초 대기"); time.sleep(wait)
-        if all(send(m) for m in msgs) and os.getenv("TRENDS_NOW") != "1": ts["done"] = wk
+        if all(send(m) for m in msgs) and os.getenv("TRENDS_NOW") != "1": ts["done"] = wk; ts.pop("pre", None)
         log("발송", len(msgs))
         # 이상 알림(관리자): 나라별 구글·유튜브 검색이 둘 다 비었거나 번역이 전부 실패
         bad = [n for geo, n, *_ in TW.GEOS if data[geo].get("gweek") is None and data[geo].get("ysearch") is None]
