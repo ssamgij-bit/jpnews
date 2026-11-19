@@ -77,10 +77,6 @@ def main():
         from datetime import timedelta
         lab = f"{(now - timedelta(days=7)):%m/%d}~{(now - timedelta(days=1)):%m/%d}"
         data = TW.collect(ts, log=log)
-        try:
-            nf, nf_week = TW.netflix_top()
-            for geo, *_ in TW.GEOS: data[geo]["netflix"] = nf.get(geo); data[geo]["netflix_week"] = nf_week
-        except Exception as e: log("netflix", str(e)[:120])
         data["JP"]["jptopics"] = TW.jp_topics((s.get("xweek") or []) + (s.get("nweek") or []))
         hist = ts.setdefault("hist", {})
         TW.mark_streaks(data, hist, wk)

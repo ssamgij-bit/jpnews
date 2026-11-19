@@ -86,31 +86,7 @@ def youtube_search(geo, n=12):
         if len(out) >= n: break
     return out
 
-# ───────── 넷플릭스 나라별 주간 TOP10(공식 공개 자료, 2026-11-19) ─────────
-NF_URL = "https://www.netflix.com/tudum/top10/data/all-weeks-countries.tsv"
-
-def netflix_top():
-    """{나라: [(분류, 순위, 제목, 시즌, 누적 주수)]} — 가장 최근 주, 시리즈 5·영화 3"""
-    import csv, io
-    raw = _get(NF_URL, timeout=90, headers={"User-Agent": "Mozilla/5.0"}).decode("utf-8", "ignore")
-    rows = [r for r in csv.DictReader(io.StringIO(raw), delimiter="\t") if r.get("country_iso2") in ("KR", "JP", "US")]
-    last = max(r["week"] for r in rows)
-    out = {}
-    for r in rows:
-        if r["week"] != last: continue
-        cat = "시리즈" if r["category"] == "TV" else "영화"
-        if int(r["weekly_rank"]) > (5 if cat == "시리즈" else 3): continue
-        sea = r["season_title"] if r["season_title"] not in ("N/A", "", r["show_title"]) else ""
-        out.setdefault(r["country_iso2"], []).append((cat, int(r["weekly_rank"]), r["show_title"], sea, int(r.get("cumulative_weeks_in_top_10") or 0)))
-    for v in out.values(): v.sort(key=lambda x: (x[0] != "시리즈", x[1]))
-    return out, last
-
 # ───────── 일본 X 트렌드·note 급상승(커뮤니티 봇이 매시 모은 기록, 이미 한국어) ─────────
-def _nfweek(w):
-    """넷플릭스 주(일요일 끝) '2026-11-15' → '11/09~11/15'"""
-    try: e = dt.date.fromisoformat(w); return f"{e - dt.timedelta(days=6):%m/%d}~{e:%m/%d}"
-    except Exception: return w or ""
-
 def jp_topics(recs, n=8, days=7):
     """[{ts, ko, cat, reason}] → 지난 7일 자주 뜬 순 [(주제, 분류, 이유, 횟수)]. 스포츠·부고 제외"""
     cut, cnt, last = time.time() - days * 86400, {}, {}
@@ -253,7 +229,6 @@ def ai_notes(d, gemini_json):
     for k, it in enumerate(d.get("gweek") or []): rows.append(f"gw{k}: {it[0]} (관련: {it[3]})" + nw("gweek", k))
     for k, it in enumerate(d.get("ysearch") or []): rows.append(f"ys{k}: {it[0]} (유튜브 검색어)" + nw("ysearch", k))
     for k, it in enumerate(d.get("apps") or []): rows.append(f"ap{k}: {it[0]}")
-    for k, it in enumerate(d.get("netflix") or []): rows.append(f"nf{k}: {it[2]}" + (f" / {it[3]}" if it[3] else "") + f" (넷플릭스 {it[0]}, 한국어 공식 제목이 있으면 그것으로)")
     for k, it in enumerate(d.get("wiki") or []): rows.append(f"wk{k}: {it[0]}" + nw("wiki", k))
     for k, it in enumerate(d.get("yt") or []): rows.append(f"yt{k}: {it[0]} / 채널 {it[1]}")
     if not rows: return {}
@@ -350,10 +325,10 @@ def cross_rows(data, notes):
     rows = []
     for geo, ko_name, *_ in GEOS:
         it = (notes.get(geo) or {}).get("items") or {}; cats = (notes.get(geo) or {}).get("cats") or {}
-        for key, src in (("gw", "gweek"), ("ys", "ysearch"), ("ap", "apps"), ("nf", "netflix"), ("wk", "wiki"), ("yt", "yt")):
+        for key, src in (("gw", "gweek"), ("ys", "ysearch"), ("ap", "apps"), ("wk", "wiki"), ("yt", "yt")):
             for k, x in enumerate(data[geo].get(src) or []):
                 if cats.get(f"{key}{k}") in DROP: continue
-                rows.append(f"{ko_name} [{cats.get(f'{key}{k}') or '-'}] {it.get(f'{key}{k}') or (x[2] if key == 'nf' else x[0])}" + (" (넷플릭스)" if key == "nf" else ""))
+                rows.append(f"{ko_name} [{cats.get(f'{key}{k}') or '-'}] {it.get(f'{key}{k}') or x[0]}")
         for t in data[geo].get("jptopics") or []:
             rows.append(f"{ko_name} [{t[1]}] {t[0]} — {t[2]} (X·note)")
     return rows
@@ -395,24 +370,21 @@ def render(geo, d, notes, week_lab):
     if d.get("apps") is not None:
         L += ["", f"<b>③ 앱스토어 무료 앱 급상승</b> ({d.get('apps_base') or '이전 기록'} 대비, 아이폰)"]
         L += [f"• {ko(f'ap{k}', x[0])} · " + (f"{x[1]}위 → {x[2]}위" if x[1] else f"새로 진입 {x[2]}위") + sk(f"ap{k}") for k, x in enumerate(d["apps"])] or ["• 큰 변화 없음"]
-    if d.get("netflix"):
-        L += ["", "<b>④ 넷플릭스 주간 TOP</b> (" + _nfweek(d.get("netflix_week")) + ", 공식)"]
-        L += [f"• {x[0]} {x[1]}위 {esc(it.get(f'nf{k}') or x[2])}" + (" 🆕" if x[4] == 1 else f" ({x[4]}주째)") for k, x in enumerate(d["netflix"])]
     if d.get("jptopics"):
         L += ["", "<b>+ 일본 X 트렌드·note 화제</b> (지난 7일 자주 뜬 순, 커뮤니티 봇 집계)"]
         L += [f"• {esc(t[0])} <i>[{esc(t[1])}]</i> — {esc(t[2][:60])}" for t in d["jptopics"]]
     if d.get("wiki"):
-        L += ["", "<b>⑤ 위키백과 급상승 문서</b> (지난 7일 조회수)"]
+        L += ["", "<b>④ 위키백과 급상승 문서</b> (지난 7일 조회수)"]
         L += [f"• {ko(f'wk{k}', x[0])} · {x[1] / 1e4:,.1f}만 회" + (f"(전주 {x[2]:.1f}배)" if x[2] else "(전주 상위권 밖)") + sk(f"wk{k}") for k, x in keep("wk", d["wiki"], 10)]
     if d.get("yt"):
-        L += ["", "<b>⑥ 유튜브 인기 동영상</b>"]
+        L += ["", "<b>⑤ 유튜브 인기 동영상</b>"]
         L += [f"• {ko(f'yt{k}', x[0])} · 조회 {x[2] / 1e4:,.0f}만" + sk(f"yt{k}") for k, x in keep("yt", d["yt"], 8)]
     elif d.get("yt_err"):
-        L += ["", "<i>⑥ 유튜브 인기 동영상: API 키에 YouTube Data API 권한이 없어 건너뜀</i>"]
+        L += ["", "<i>⑤ 유튜브 인기 동영상: API 키에 YouTube Data API 권한이 없어 건너뜀</i>"]
     miss = [lab for k, lab in (("gweek", "구글 트렌드"), ("ysearch", "유튜브 검색어"), ("wiki", "위키백과")) if d.get(k) is None]
     if miss: L += ["", f"<i>못 가져온 항목: {', '.join(miss)}</i>"]
     if dropped: L += ["", f"<i>부고·스포츠 {dropped}건은 뺌</i>"]
     if stq: L += ["", "<i>🆕 = 이번 주 처음, (n주째) = n주 연속 급상승</i>"]
     if any(stk.values()): L += ["<i>관련주는 AI 추정(매출 연관성은 직접 확인). 일본·한국 티커는 상장사 목록과 대조해 틀린 것은 뺐고, 해외 티커는 미확인</i>"]
-    L += ["", "<i>출처: 구글 트렌드(웹·유튜브 검색 급상승만, 상시 인기 검색어 제외)·구글 뉴스(이유 근거)·애플 앱스토어 순위·넷플릭스 TOP10·위키미디어 조회수·유튜브. 검색량은 구간값</i>"]
+    L += ["", "<i>출처: 구글 트렌드(웹·유튜브 검색 급상승만, 상시 인기 검색어 제외)·구글 뉴스(이유 근거)·애플 앱스토어 순위·위키미디어 조회수·유튜브. 검색량은 구간값</i>"]
     return "\n".join(L)
