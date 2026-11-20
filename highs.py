@@ -141,11 +141,13 @@ SECTOR_KO = {
 }
 
 
-JP_MOBILE = False  # PC판 카부탄이 막히면(GitHub 서버에서 HTTP 405 등) 모바일판(s.kabutan.jp)으로 전환
+JP_MOBILE = os.getenv("KABUTAN_PC") != "1"  # PC판 카부탄은 GitHub 서버에서 HTTP 405로 막힘 → 기본은 모바일판(s.kabutan.jp)
 
 
 def jp_list(today):
     global JP_MOBILE
+    if JP_MOBILE:
+        return _jp_list_mobile(today)
     try:
         return _jp_list_pc(today)
     except Exception as ex:
@@ -260,14 +262,24 @@ def _jp_val(r):
     out = []
     try:
         price = num(str(r.get("price", "")).replace("엔", ""))
-        h = get(f"https://kabutan.jp/stock/finance?code={code}")
+        # 카부탄 모바일판 실적 페이지(PC판은 GitHub 서버에서 HTTP 405로 막힘)
+        h = get(f"https://s.kabutan.jp/stocks/{code}/finance/")
+        tabs = []
+        for tb in re.findall(r"<table.*?</table>", h, re.S):
+            rows = [[re.sub(r"\s+", " ", re.sub(r"<[^>]+>", "", x)).strip()
+                     for x in re.findall(r"<t[hd][^>]*>(.*?)</t[hd]>", tr, re.S)] for tr in re.findall(r"<tr[^>]*>(.*?)</tr>", tb, re.S)]
+            if rows:
+                tabs.append((" ".join(rows[0]), rows[1:]))
         eps0 = fy_end = None
-        i = h.find("修正1株配")   # 통기 실적 표(회사 예상 '予' 줄)
-        for c in _kb_rows(h[max(0, i - 1500):i + 4000]) if i > 0 else []:
-            m = re.search(r"予\s*(\d{4})\.(\d{2})", c[0])
-            if m and len(c) > 5 and num(c[5]) is not None:
-                eps0, fy_end = num(c[5]), datetime(int(m.group(1)), int(m.group(2)), 28, tzinfo=JST)
-                break
+        for head_, rows in tabs:   # 통기 실적 표(회사 예상 '予 2027.03' 줄의 수정 1주이익)
+            if "修正1株配" in head_ and "発表日" in head_:
+                for c in rows:
+                    m = re.match(r"予\s*(\d{4})\.(\d{2})$", c[0]) if c else None
+                    if m and len(c) > 5 and num(c[5].replace("円", "")) is not None:
+                        eps0, fy_end = num(c[5].replace("円", "")), datetime(int(m.group(1)), int(m.group(2)), 28, tzinfo=JST)
+                        break
+                if eps0 is not None:
+                    break
         eps12, lab = None, ""
         for _ in range(2):   # 야후가 가끔 빈 표를 줌 → 한 번 더
             try:
@@ -284,10 +296,11 @@ def _jp_val(r):
             eps12, lab = eps0, "(회사 예상)"
         if price and eps12:
             out.append(f"12MF PER {price / eps12:.1f}배{lab}" if eps12 > 0 else "12MF PER 적자")
-        j = h.find("3ヵ月決算")   # 분기 실적 표
-        seg = h[j:j + 6000] if j > 0 else ""
-        seg = seg[:seg.find("前年同期比")] if "前年同期比" in seg else seg   # 분기 표(최근 8개 분기)까지만
-        q = [num(c[2]) for c in _kb_rows(seg) if len(c) > 2]
+        q = []
+        for head_, rows in tabs:   # 분기 실적 표(최근 8개 분기, '売上営業損益率' 칸이 있는 표)
+            if "売上営業損益率" in head_:
+                q = [num(c[2]) for c in rows if c and re.match(r"\d{2}\.\d{2}-\d{2}$", c[0]) and len(c) > 2]
+                break
         q = [x for x in q if x is not None]
         if len(q) >= 8:
             now4, prev4 = sum(q[-4:]), sum(q[-8:-4])
