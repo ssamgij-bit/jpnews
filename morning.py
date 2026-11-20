@@ -997,6 +997,7 @@ def health_issues():
     if d.get("smv") and not d.get("us_why"): out.append("미국 섹터 이유 없음")
     if not d.get("movers"): out.append("일본 업종 주요 종목 없음")
     if d.get("jp_traded") and not d.get("hi"): out.append("신고가·상승률 상위 없음")
+    if d.get("fallback"): out.append(f"신고가 봇 정리 빠짐 → 카부탄 대체 표({d['fallback']}) — 신고가 봇 실행 기록 확인")
     if d.get("jp_traded") and not d.get("wrap"): out.append("전 거래일 마감 정리 없음")
     if not d.get("com"): out.append("커뮤니티 동향·인사이트 없음")
     if not d.get("flows"): out.append("투자주체별 매매동향 없음")
@@ -1441,6 +1442,61 @@ def rank_table(groups):
     return "<table class='rank'><tr><th></th><th style='width:38%'>주제</th><th>내용</th></tr>" + "".join(rows) + "</table>" if rows else ""
 
 
+def fallback_ranks(jp_day, kinds):
+    """신고가 봇이 그날 정리를 못 남겼을 때(시간 초과 등): 카부탄 순위를 바로 읽어 이유 없는 표라도 만듦.
+    아침 8:30에는 카부탄 순위가 아직 전 거래일 마감 기준. kinds: highs·gainers·lows·losers 중 빠진 것"""
+    import highs
+    from concurrent.futures import ThreadPoolExecutor
+    highs.JP_MOBILE = True   # GitHub 서버에서는 카부탄 PC판이 막힘
+    names, sec = jp_names(), jp_sector_of()
+    src = {"highs": lambda: highs._jp_list_mobile(jp_day)[2] or [],
+           "gainers": lambda: highs.jp_gainers(jp_day),
+           "lows": lambda: highs.jp_mobile_rank("record_w52_low_price", jp_day, 3, 6, pool=300, pages=15),
+           "losers": lambda: highs.jp_mobile_rank("price_decrease", jp_day, 4, 7, pool=120, pages=6)}
+    title = {"highs": "52주 신고가", "gainers": "상승률 상위", "lows": "52주 신저가", "losers": "하락률 상위"}
+    out = []
+    for k in kinds:
+        try:
+            rows = src[k]()
+            up = k in ("highs", "gainers")
+            rows = [r for r in rows if r.get("pct") is not None and (r["pct"] > 0 if up else r["pct"] < 0)]
+            if k in ("gainers", "losers"):
+                rows.sort(key=lambda r: -r["pct"] if up else r["pct"])
+                rows = rows[:120]
+            else:
+                rows = rows[:300]
+
+            def prof(r):
+                try:
+                    highs.jp_profile(r)
+                except Exception:
+                    r["cap"] = None
+                return r
+            with ThreadPoolExecutor(4) as ex:
+                rows = list(ex.map(prof, rows))
+            rows = [r for r in rows if (r.get("cap") or 0) >= 300]
+            n_all = len(rows)
+            if k in ("highs", "lows"):
+                rows.sort(key=lambda r: -(r.get("cap") or 0))
+            rows = rows[:30]
+            with ThreadPoolExecutor(4) as ex:
+                vals = list(ex.map(lambda r: highs.jp_val(r) or r.get("val", ""), rows))
+            blocks = []
+            for i, (r, v) in enumerate(zip(rows, vals), 1):
+                nm = (names.get(r["code"]) or {}).get("ko") or r["name"]
+                pct = f"{r['pct']:+.2f}%"
+                blocks.append(f"<b>{i}. {esc(nm)}({r['code']} JP)</b> {pct}\n종가 {esc(r['price'])} · {highs.cap_str('JP', r.get('cap'))}"
+                              + (f" · {esc(v)}" if v else "") + (f"\n\n• 사업: {esc(sec.get(r['code'], ''))}" if sec.get(r["code"]) else ""))
+            order = "시총 큰 순" if k in ("highs", "lows") else ("상승률" if up else "하락률") + " 큰 순"
+            head = (f"<b>&gt;&gt;[{title[k]}] 일본 {jp_day[5:]} 도쿄 마감 · {n_all}종목</b>\n"
+                    f"(신고가 봇이 정리를 못 끝내 아침에 카부탄 순위로 다시 만든 표 — 이유 없음, 사업 칸은 업종. ETF·리츠·시총 300억 엔 미만 제외, {order})")
+            out.append({"ts": time.time(), "kind": k, "day": jp_day, "head": head, "blocks": blocks})
+            print(f"[info] {title[k]} 대체 표 {len(blocks)}종목(시총 300억 엔↑ {n_all})", file=sys.stderr)
+        except Exception as ex:
+            print(f"[warn] {title[k]} 대체 표 실패: {ex}", file=sys.stderr)
+    return out
+
+
 def stock_table(blocks, down=False):
     """신고가·상승률 상위 종목 조각 → 표(순위 | 종목·사업 | 등락·종가 | 시총·12MF PER·최근 4분기 영업익 증감 | 이유)"""
     rows = []
@@ -1723,6 +1779,12 @@ def build_pdf(state, since_ts):
     jp_b = ai_cached(state, "일본 뉴스·공시", jp_sig, lambda: gemini_obj(
         state, jp_p + "\n[이번 응답] 위 항목 중 news·disc만 출력하라.", JP_B, "일본 뉴스·공시")) or {}
     jp = {**jp_b, **jp_a}
+    if jp_day and jp_day >= since.strftime("%Y-%m-%d"):   # 지난 거래일 정리가 빠졌으면 카부탄 순위로 대체 표
+        miss = [k for k in STK_KINDS if not any(x["kind"] == k and x.get("day") == jp_day for x in wraps)]
+        if miss:
+            print(f"[warn] 신고가 봇 정리 빠짐({jp_day}): {', '.join(miss)} → 대체 표", file=sys.stderr)
+            DIAG["fallback"] = ",".join(miss)
+            wraps = wraps + fallback_ranks(jp_day, miss)
     hi = [x for x in wraps if x["kind"] in ("highs", "gainers")]
     lo = [x for x in wraps if x["kind"] in ("lows", "losers")]
     # 커뮤니티: 오전 7시 다이제스트(+ 봇이 남긴 요약·주간 인사이트)를 하나로 통합해 '주목할 부분'만

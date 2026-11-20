@@ -29,7 +29,7 @@ import requests
 import bot
 from bot import JST, UA, esc
 
-bot.RUN_BUDGET = int(os.getenv("RUN_BUDGET", "1300"))  # 일본·한국을 한 번에 돌 수 있어 넉넉히(워크플로우 제한 25분)
+bot.RUN_BUDGET = int(os.getenv("RUN_BUDGET", "2100"))  # 일본·한국을 한 번에 돌 수 있어 넉넉히(워크플로우 제한 25분)
 STATE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "highs_state.json")
 TOP_N = int(os.getenv("HIGHS_TOP_N", "30"))
 OTHERS_MAX = 120                       # '그 밖의 신고가'에 이름을 적는 최대 수
@@ -68,18 +68,29 @@ def save_state(s):
 
 
 # ───────────────────────── 공통 ─────────────────────────
+T_END = time.time() + float(os.getenv("HIGHS_DEADLINE_MIN", "40")) * 60   # 이 시각이 지나면 남은 일은 다음 실행으로(워크플로 timeout 전에 상태 저장)
+
+
+def left():
+    """남은 시간(초)"""
+    return T_END - time.time()
+
+
+_BAD = [0]   # 연속 실패 수: 사이트가 막히거나 느려지면 재시도 대기를 줄여 시간을 아낌
 def get(url, enc="utf-8", **kw):
     last = None
-    for wait in (0, 5, 15):
+    for wait in ((0,) if _BAD[0] >= 6 else (0, 5, 15)):
         time.sleep(wait)
         try:
-            r = requests.get(url, headers=UA, timeout=20, **kw)
+            r = requests.get(url, headers=UA, timeout=12 if _BAD[0] >= 6 else 20, **kw)
             if r.status_code == 200:
                 r.encoding = enc
+                _BAD[0] = 0
                 return r.text
             last = f"HTTP {r.status_code}"
         except Exception as ex:
             last = str(ex)
+    _BAD[0] += 1
     raise RuntimeError(f"{url}: {last}")
 
 
@@ -231,7 +242,18 @@ def _kb_rows(seg):
     return out
 
 
+_VAL = {}
 def jp_val(r):
+    """_jp_val + 같은 실행 안 캐시, 시간이 모자라면 건너뜀"""
+    c = r["code"]
+    if c not in _VAL:
+        if left() < 300:
+            return ""
+        _VAL[c] = _jp_val(r)
+    return _VAL[c]
+
+
+def _jp_val(r):
     """12MF PER(애널리스트 컨센서스 EPS: 이번 기·다음 기를 남은 개월 수로 가중, 컨센서스가 없으면 회사 예상 EPS)과
     최근 4개 분기 누적 영업이익의 전년 같은 4개 분기 대비 증감률(카부탄 분기 실적) → '12MF PER x배 · 영업익(최근 4분기) +y%'"""
     code = r["code"]
@@ -645,6 +667,9 @@ def build(state, mk, day, asof, stocks, final):
     now = now_in(cfg["tz"])
     if mk == "JP":  # 일본은 목록에 시총이 없어 모든 종목 페이지를 연다(업종도 여기서)
         for r in stocks[:400]:
+            if left() < 20 * 60:   # 시간이 모자라면 확인한 종목까지만
+                print(f"[warn] 시간 부족: 시총 확인을 {stocks.index(r)}종목에서 멈춤", file=sys.stderr)
+                break
             try:
                 jp_profile(r)
             except Exception as ex:
@@ -652,6 +677,8 @@ def build(state, mk, day, asof, stocks, final):
             time.sleep(0.5)
         n0 = len(stocks)
         stocks[:] = [r for r in stocks if (r.get("cap") or 0) >= HIGH_MIN_CAP]  # 시총 300억 엔 미만 제외
+        if not stocks and left() < 20 * 60:   # 시간이 없어 하나도 확인 못 함 → 다음 실행에서 다시
+            return None
         asof += f", 시총 {HIGH_MIN_CAP:,.0f}억 엔 미만 {n0 - len(stocks)}종목 제외"
     stocks.sort(key=lambda r: -(r.get("cap") or 0))
     top, rest = stocks[:TOP_N], stocks[TOP_N:]
@@ -981,7 +1008,7 @@ def jp_down_msg(state, day, kind, rows, mark):
         rows = [r for r in rows if (r.get("pct") or 0) < 0]   # 장중 신저가를 찍고 반등해 끝난 종목은 제외(하락 마감만)
     keep, n_chk = [], 0
     for r in rows:   # 시총을 종목 페이지에서 읽음(300억 엔 미만 제외)
-        if kind == "losers" and len(keep) >= DOWN_N or n_chk >= 250:
+        if kind == "losers" and len(keep) >= DOWN_N or n_chk >= 250 or left() < 10 * 60:
             break
         try:
             jp_profile(r)
@@ -1032,22 +1059,30 @@ def jp_down_msg(state, day, kind, rows, mark):
 def run_down(state, day, today):
     """신저가 → 하락률 상위(★ = 신저가) 순서로 아침 PDF용 저장"""
     lows = None
+    if left() < 12 * 60:
+        print(f"[warn] 시간 부족({left() / 60:.0f}분): 신저가·하락률은 다음 실행에서", file=sys.stderr)
+        return
     if state["last"].get("JPLOW") != today or FORCE:
         try:
             lows = jp_mobile_rank("record_w52_low_price", today, 3, 6)
             if lows:
                 stash(state, "lows", day, *jp_down_msg(state, day, "lows", lows, set()))
             state["last"]["JPLOW"] = today
+            save_state(state)
         except Exception as ex:
             print(f"[warn] 신저가 실패: {ex}", file=sys.stderr)
     if state["last"].get("JPLOSE") != today or FORCE:
         try:
+            if left() < 8 * 60:
+                print("[warn] 시간 부족: 하락률 상위는 다음 실행에서", file=sys.stderr)
+                return
             if lows is None:
                 lows = jp_mobile_rank("record_w52_low_price", today, 3, 6)
             g = jp_mobile_rank("price_decrease", today, 4, 7)
             if g:
                 stash(state, "losers", day, *jp_down_msg(state, day, "losers", g, {r["code"] for r in lows or []}))
             state["last"]["JPLOSE"] = today
+            save_state(state)
         except Exception as ex:
             print(f"[warn] 하락률 상위 실패: {ex}", file=sys.stderr)
 
@@ -1099,6 +1134,7 @@ def stash(state, kind, day, header, blocks):
     """아침 PDF용으로 메시지(텔레그램 HTML)를 상태에 쌓아 둠"""
     state.setdefault("pdfq", []).append({"ts": time.time(), "kind": kind, "day": day, "head": header, "blocks": blocks})
     print(f"[info] 아침 PDF용 저장: {kind} {day} ({len(blocks)}블록)")
+    save_state(state)   # 중간에 끊겨도(시간 초과) 여기까지 만든 것은 남김
     return True
 
 
@@ -1133,6 +1169,7 @@ def run_market(state, mk):
             # 마감 정리는 텔레그램으로 보내지 않고 다음 날 08:30 아침 PDF(morning.py '전 거래일 마감 정리')에만 넣음(HIGHS_TO_PDF=0 이면 예전처럼 텔레그램도)
             if stash(state, "wrap", day, *w) if TO_PDF else (send_chunks(*w) and stash(state, "wrap", day, *w)):
                 state["last"]["JPWRAP"] = today
+                save_state(state)
     except Exception as ex:
         state["fail"][mk] = state["fail"].get(mk, 0) + 1
         print(f"[warn] {mk} 목록 실패({state['fail'][mk]}회): {ex}", file=sys.stderr)
@@ -1165,12 +1202,15 @@ def run_market(state, mk):
         ok = stash(state, "highs", day, *msg) if TO_PDF and mk == "JP" else send_chunks(*msg)
     if ok:
         state["last"][mk] = today
-    if ok and mk == "JP" and (state["last"].get("JPGAIN") != today or FORCE):
+    if ok and mk == "JP" and (state["last"].get("JPGAIN") != today or FORCE) and left() < 10 * 60:
+        print(f"[warn] 시간 부족({left() / 60:.0f}분): 상승률 상위는 다음 실행에서", file=sys.stderr)
+    elif ok and mk == "JP" and (state["last"].get("JPGAIN") != today or FORCE):
         try:
             g = jp_gainers(today)
             if g and (stash(state, "gainers", day, *jp_gain_msg(state, day, g, {r["code"] for r in rows})) if TO_PDF
                       else send_chunks(*jp_gain_msg(state, day, g, {r["code"] for r in rows}))):
                 state["last"]["JPGAIN"] = today
+                save_state(state)
             elif not g:
                 state["last"]["JPGAIN"] = today
         except Exception as ex:
