@@ -56,6 +56,8 @@ jobs:
             # (한 번에 다 못 끝내도 만든 부분은 저장되고, 남은 부분은 다음 회차가 이어서 함)
             python relay_wait.py "16:40,17:10,17:40,18:40,20:00,21:30" "0-4" 19200 || exit 0
           fi
+          # 기다리는 동안(최대 5시간) 코드가 고쳐졌을 수 있음 → 실행 직전 최신 코드로(예전엔 대기 시작 때 코드로 돌았음)
+          git fetch -q --depth=1 origin +refs/heads/main:refs/remotes/origin/main && git checkout -q origin/main -- '*.py' state.sh relay_wait.py 2>/dev/null || true
           bash state.sh pull && touch .pulled
           timeout 48m python highs.py "${{ github.event.inputs.market || 'auto' }}"
       - name: Save state

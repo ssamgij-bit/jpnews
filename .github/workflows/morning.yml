@@ -15,6 +15,10 @@ on:
         description: "이어 달리기 실행(자동으로 띄우는 용도, 직접 실행할 때는 끄기)"
         type: boolean
         default: false
+      fallback:
+        description: "시험: 신고가·상승률·신저가·하락률을 대체 표(원자료·카부탄 순위)로 만들어 보기"
+        type: boolean
+        default: false
 
 concurrency:
   group: morning-brief-${{ (github.event_name == 'schedule' || inputs.relay) && 'relay' || 'manual' }}   # '' 은 거짓으로 취급돼 예전 식은 항상 -manual이었음
@@ -49,6 +53,7 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           WATCH_KEY: ${{ secrets.WATCH_KEY }}   # 관심 종목 = japan stock 봇 구독 목록(jpall 저장소와 같은 값)
           MORNING_NOW: ${{ (github.event.inputs.relay != 'true' && github.event.inputs.now == 'true') && '1' || '0' }}
+          MORNING_FALLBACK: ${{ (github.event.inputs.relay != 'true' && github.event.inputs.fallback == 'true') && '1' || '0' }}
         run: |
           git config user.name "morning-bot"
           git config user.email "actions@users.noreply.github.com"
