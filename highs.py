@@ -63,6 +63,9 @@ def load_state():
 
 def save_state(s):
     s["pdfq"] = [x for x in s.get("pdfq", []) if time.time() - x["ts"] < 8 * 86400]
+    s["valc"] = {k: v for k, v in VCACHE.items() if time.time() - v.get("t", 0) < 7 * 86400}
+    s["capc"] = dict(list(CAPC.items())[-6000:])
+    s["raw"] = dict(sorted((s.get("raw") or {}).items())[-4:])   # 장 마감 원자료(최근 4거래일)
     with open(STATE_PATH, "w", encoding="utf-8") as f:
         json.dump(s, f, ensure_ascii=False, indent=0)
 
@@ -245,23 +248,41 @@ def _kb_rows(seg):
 
 
 _VAL = {}
+VCACHE = {}   # 종목코드 → {t, eps, lab, op}: 12MF EPS·영업익 증감은 며칠 사이 거의 안 바뀜 → 상태에 저장해 재사용(PER은 그날 종가로 다시 계산)
+VAL_TTL = 2 * 86400
+CAPC = {}     # 종목코드 → 최근 확인한 시총(억 엔): 신저가 후보를 큰 종목부터 확인하는 순서용
+
+
 def jp_val(r):
-    """_jp_val + 같은 실행 안 캐시, 시간이 모자라면 건너뜀"""
+    """12MF PER · 영업익(최근 4분기) 문자열. 같은 실행 안 캐시 + 이틀 안에 계산한 EPS·영업익 재사용, 시간이 모자라면 건너뜀"""
     c = r["code"]
-    if c not in _VAL:
+    if c in _VAL:
+        return _VAL[c]
+    e = VCACHE.get(c)
+    if not (e and time.time() - e.get("t", 0) < VAL_TTL):
         if left() < 300:
             return ""
-        _VAL[c] = _jp_val(r)
+        e = _jp_val(r)
+        if e is None:
+            return ""
+        e["t"] = time.time()
+        VCACHE[c] = e
+    price = num(str(r.get("price", "")).replace("엔", ""))
+    out = []
+    if price and e.get("eps"):
+        out.append(f"12MF PER {price / e['eps']:.1f}배{e.get('lab', '')}" if e["eps"] > 0 else "12MF PER 적자")
+    if e.get("op"):
+        out.append(e["op"])
+    _VAL[c] = " · ".join(out)
     return _VAL[c]
 
 
 def _jp_val(r):
     """12MF PER(애널리스트 컨센서스 EPS: 이번 기·다음 기를 남은 개월 수로 가중, 컨센서스가 없으면 회사 예상 EPS)과
-    최근 4개 분기 누적 영업이익의 전년 같은 4개 분기 대비 증감률(카부탄 분기 실적) → '12MF PER x배 · 영업익(최근 4분기) +y%'"""
+    최근 4개 분기 누적 영업이익의 전년 같은 4개 분기 대비 증감률(카부탄 분기 실적) → {eps, lab, op} (실패하면 None)"""
     code = r["code"]
-    out = []
+    res = {"eps": None, "lab": "", "op": ""}
     try:
-        price = num(str(r.get("price", "")).replace("엔", ""))
         # 카부탄 모바일판 실적 페이지(PC판은 GitHub 서버에서 HTTP 405로 막힘)
         h = get(f"https://s.kabutan.jp/stocks/{code}/finance/")
         tabs = []
@@ -287,15 +308,15 @@ def _jp_val(r):
                 ee = yf.Ticker(f"{code}.T").earnings_estimate
                 e0, e1 = float(ee.loc["0y", "avg"]), float(ee.loc["+1y", "avg"])
                 if e0 == e0 and e1 == e1:   # NaN 아님
-                    left = max(0.0, min(12.0, ((fy_end or now() + timedelta(days=180)) - now()).days / 30.44))
-                    eps12, lab = left / 12 * e0 + (1 - left / 12) * e1, ""
+                    t_ = datetime.now(JST)   # (예전엔 정의 안 된 now()를 불러 늘 실패 → 컨센서스 대신 회사 예상만 쓰였음)
+                    ml = max(0.0, min(12.0, ((fy_end or t_ + timedelta(days=180)) - t_).days / 30.44))   # 이번 기 남은 개월
+                    eps12, lab = ml / 12 * e0 + (1 - ml / 12) * e1, ""
                 break
             except Exception:
                 time.sleep(2)
         if eps12 is None and eps0:
             eps12, lab = eps0, "(회사 예상)"
-        if price and eps12:
-            out.append(f"12MF PER {price / eps12:.1f}배{lab}" if eps12 > 0 else "12MF PER 적자")
+        res["eps"], res["lab"] = eps12, lab
         q = []
         for head_, rows in tabs:   # 분기 실적 표(최근 8개 분기, '売上営業損益率' 칸이 있는 표)
             if "売上営業損益率" in head_:
@@ -305,16 +326,17 @@ def _jp_val(r):
         if len(q) >= 8:
             now4, prev4 = sum(q[-4:]), sum(q[-8:-4])
             if prev4 > 0 and now4 > 0:
-                out.append(f"영업익(최근 4분기) {(now4 / prev4 - 1) * 100:+.0f}%")
+                res["op"] = f"영업익(최근 4분기) {(now4 / prev4 - 1) * 100:+.0f}%"
             elif prev4 <= 0 < now4:
-                out.append("영업익(최근 4분기) 흑자 전환")
+                res["op"] = "영업익(최근 4분기) 흑자 전환"
             elif now4 <= 0 < prev4:
-                out.append("영업익(최근 4분기) 적자 전환")
+                res["op"] = "영업익(최근 4분기) 적자 전환"
             else:
-                out.append("영업익(최근 4분기) 적자 지속")
+                res["op"] = "영업익(최근 4분기) 적자 지속"
     except Exception as ex:
         print(f"[warn] 밸류 계산 실패 {code}: {ex}", file=sys.stderr)
-    return " · ".join(out)
+        return None
+    return res
 
 
 def jp_profile(r):
@@ -322,6 +344,8 @@ def jp_profile(r):
         h = get(f"https://s.kabutan.jp/stocks/{r['code']}/")
         m = re.search(r"時価総額</div>.*?>\s*(?:([\d,]+)兆)?([\d,.]+)?\s*<span[^>]*>億円", h, re.S)
         r["cap"] = (int((m.group(1) or "0").replace(",", "")) * 10000 + float((m.group(2) or "0").replace(",", ""))) if m else None
+        if r["cap"]:
+            CAPC[r["code"]] = r["cap"]
         g = re.search(r"業種\s*</span>\s*<a[^>]*>(.*?)</a>", h, re.S)
         g = text_of(g.group(1)) if g else ""
         r["sector"] = SECTOR_KO.get(g, g or "기타")
@@ -1019,6 +1043,7 @@ def jp_down_msg(state, day, kind, rows, mark):
         rows = sorted([r for r in rows if (r.get("pct") or 0) < 0], key=lambda r: r["pct"])
     else:
         rows = [r for r in rows if (r.get("pct") or 0) < 0]   # 장중 신저가를 찍고 반등해 끝난 종목은 제외(하락 마감만)
+        rows.sort(key=lambda r: -(CAPC.get(r["code"]) or 0))   # 최근 시총을 아는 큰 종목부터 확인(후보가 많아 잘려도 큰 종목은 빠지지 않게)
     keep, n_chk = [], 0
     for r in rows:   # 시총을 종목 페이지에서 읽음(300억 엔 미만 제외)
         if kind == "losers" and len(keep) >= DOWN_N or n_chk >= 250 or left() < 10 * 60:
@@ -1069,6 +1094,48 @@ def jp_down_msg(state, day, kind, rows, mark):
     return head, blocks
 
 
+RAW_KEYS = ("code", "name", "mkt", "price", "pct", "val")
+
+
+def raw_snapshot(state, day, today, highs_rows):
+    """장 마감 직후 순위 원자료(신고가·상승률·신저가·하락률)를 먼저 저장 — AI 정리가 실패해도 다음 날 아침 표는 만들 수 있게"""
+    raw = state.setdefault("raw", {})
+    if day in raw and not FORCE:
+        return
+    slim = lambda rows, n: [{k: r.get(k) for k in RAW_KEYS} for r in (rows or [])[:n]]
+    snap = {"highs": slim(highs_rows, 600)}
+    for k, f, n in (("gainers", lambda: jp_gainers(today), 200),
+                    ("lows", lambda: jp_mobile_rank("record_w52_low_price", today, 3, 6), 600),
+                    ("losers", lambda: jp_mobile_rank("price_decrease", today, 4, 7, pool=200, pages=10), 200)):
+        try:
+            snap[k] = slim(f(), n)
+        except Exception as ex:
+            print(f"[warn] 원자료 {k} 실패: {ex}", file=sys.stderr)
+    raw[day] = snap
+    save_state(state)
+    print(f"[info] 장 마감 원자료 저장 {day}: " + ", ".join(f"{k} {len(v)}" for k, v in snap.items()))
+
+
+def raw_rows(state, day, kind, fetch):
+    """저장한 원자료가 있으면 그 복사본, 없으면 새로 읽음"""
+    v = ((state.get("raw") or {}).get(day) or {}).get(kind)
+    return [dict(r) for r in v] if v else fetch()
+
+
+def watchdog(state):
+    """21시 이후 회차: 그날 정리가 다 안 쌓였으면 관리 채팅으로 한 번 알림(다음 날 아침에야 알게 되는 것 방지)"""
+    t = datetime.now(JST)
+    today = t.strftime("%Y-%m-%d")
+    if t.weekday() >= 5 or t.hour < 21 or state.get("holiday") == today or state.get("warned") == today or FORCE:
+        return
+    miss = [lab for k, lab in (("JPWRAP", "마감 정리"), ("JP", "52주 신고가"), ("JPGAIN", "상승률 상위"), ("JPLOW", "52주 신저가"),
+                               ("JPLOSE", "하락률 상위")) if state["last"].get(k) != today]
+    if miss:
+        bot.admin_send(f"<b>[봇 경고]</b> 신고가 봇: 오늘({today[5:]}) {', '.join(miss)} 정리가 아직 없습니다. "
+                       "내일 아침 브리핑은 카부탄 원자료로 대체 표(이유 없음)를 만듭니다.")
+        state["warned"] = today
+
+
 def run_down(state, day, today):
     """신저가 → 하락률 상위(★ = 신저가) 순서로 아침 PDF용 저장"""
     lows = None
@@ -1077,7 +1144,7 @@ def run_down(state, day, today):
         return
     if state["last"].get("JPLOW") != today or FORCE:
         try:
-            lows = jp_mobile_rank("record_w52_low_price", today, 3, 6)
+            lows = raw_rows(state, day, "lows", lambda: jp_mobile_rank("record_w52_low_price", today, 3, 6))
             if lows:
                 stash(state, "lows", day, *jp_down_msg(state, day, "lows", lows, set()))
             state["last"]["JPLOW"] = today
@@ -1090,8 +1157,8 @@ def run_down(state, day, today):
                 print("[warn] 시간 부족: 하락률 상위는 다음 실행에서", file=sys.stderr)
                 return
             if lows is None:
-                lows = jp_mobile_rank("record_w52_low_price", today, 3, 6)
-            g = jp_mobile_rank("price_decrease", today, 4, 7)
+                lows = raw_rows(state, day, "lows", lambda: jp_mobile_rank("record_w52_low_price", today, 3, 6))
+            g = raw_rows(state, day, "losers", lambda: jp_mobile_rank("price_decrease", today, 4, 7))
             if g:
                 stash(state, "losers", day, *jp_down_msg(state, day, "losers", g, {r["code"] for r in lows or []}))
             state["last"]["JPLOSE"] = today
@@ -1172,6 +1239,8 @@ def run_market(state, mk):
         return
     try:
         day, asof, rows = cfg["list"](today)
+        if rows is not None and mk == "JP":
+            raw_snapshot(state, day, today, rows)
         if rows is not None and mk == "JP" and (state["last"].get("JPWRAP") != today or FORCE):
             tries = state.setdefault("tries", {})
             n = tries["JPWRAP"] = (tries.get("JPWRAP", 0) + 1) if tries.get("JPWRAP_day") == today else 1
@@ -1193,6 +1262,7 @@ def run_market(state, mk):
     if rows is None:  # 휴장일: 데이터가 직전 거래일 그대로
         print(f"[info] {mk}: 데이터 기준일 {day} ≠ 오늘 {today} → 휴장일로 보고 건너뜀")
         state["last"][mk] = today
+        state["holiday"] = today
         return
     n0 = len(rows)
     rows = [r for r in rows if (r.get("pct") or 0) > 0]  # 장중 신고가를 찍고 하락·보합으로 끝난 종목은 제외(상승 마감만)
@@ -1219,7 +1289,7 @@ def run_market(state, mk):
         print(f"[warn] 시간 부족({left() / 60:.0f}분): 상승률 상위는 다음 실행에서", file=sys.stderr)
     elif ok and mk == "JP" and (state["last"].get("JPGAIN") != today or FORCE):
         try:
-            g = jp_gainers(today)
+            g = raw_rows(state, day, "gainers", lambda: jp_gainers(today))
             if g and (stash(state, "gainers", day, *jp_gain_msg(state, day, g, {r["code"] for r in rows})) if TO_PDF
                       else send_chunks(*jp_gain_msg(state, day, g, {r["code"] for r in rows}))):
                 state["last"]["JPGAIN"] = today
@@ -1240,8 +1310,13 @@ def main():
     else:
         mks = [m for m in arg.split(",") if m in MARKETS]
     state = load_state()
+    VCACHE.update(state.get("valc") or {})
+    CAPC.update(state.get("capc") or {})
     for mk in mks:
         run_market(state, mk)
+        save_state(state)
+    if "JP" in mks:
+        watchdog(state)
         save_state(state)
 
 

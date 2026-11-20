@@ -1442,9 +1442,10 @@ def rank_table(groups):
     return "<table class='rank'><tr><th></th><th style='width:38%'>주제</th><th>내용</th></tr>" + "".join(rows) + "</table>" if rows else ""
 
 
-def fallback_ranks(jp_day, kinds):
+def fallback_ranks(jp_day, kinds, raw=None):
     """신고가 봇이 그날 정리를 못 남겼을 때(시간 초과 등): 카부탄 순위를 바로 읽어 이유 없는 표라도 만듦.
-    아침 8:30에는 카부탄 순위가 아직 전 거래일 마감 기준. kinds: highs·gainers·lows·losers 중 빠진 것"""
+    아침 8:30에는 카부탄 순위가 아직 전 거래일 마감 기준. kinds: highs·gainers·lows·losers 중 빠진 것.
+    raw: 신고가 봇이 장 마감 직후 저장한 순위 원자료(있으면 그것을 씀 — 카부탄 순위가 바뀐 뒤에도 만들 수 있음)"""
     import highs
     from concurrent.futures import ThreadPoolExecutor
     highs.JP_MOBILE = True   # GitHub 서버에서는 카부탄 PC판이 막힘
@@ -1457,7 +1458,7 @@ def fallback_ranks(jp_day, kinds):
     out = []
     for k in kinds:
         try:
-            rows = src[k]()
+            rows = [dict(r) for r in (raw or {}).get(k) or []] or src[k]()
             up = k in ("highs", "gainers")
             rows = [r for r in rows if r.get("pct") is not None and (r["pct"] > 0 if up else r["pct"] < 0)]
             if k in ("gainers", "losers"):
@@ -1489,7 +1490,7 @@ def fallback_ranks(jp_day, kinds):
                               + (f" · {esc(v)}" if v else "") + (f"\n\n• 사업: {esc(sec.get(r['code'], ''))}" if sec.get(r["code"]) else ""))
             order = "시총 큰 순" if k in ("highs", "lows") else ("상승률" if up else "하락률") + " 큰 순"
             head = (f"<b>&gt;&gt;[{title[k]}] 일본 {jp_day[5:]} 도쿄 마감 · {n_all}종목</b>\n"
-                    f"(신고가 봇이 정리를 못 끝내 아침에 카부탄 순위로 다시 만든 표 — 이유 없음, 사업 칸은 업종. ETF·리츠·시총 300억 엔 미만 제외, {order})")
+                    f"(신고가 봇이 정리를 못 끝내 아침에 장 마감 원자료(없으면 카부탄 순위)로 다시 만든 표 — 이유 없음, 사업 칸은 업종. ETF·리츠·시총 300억 엔 미만 제외, {order})")
             out.append({"ts": time.time(), "kind": k, "day": jp_day, "head": head, "blocks": blocks})
             print(f"[info] {title[k]} 대체 표 {len(blocks)}종목(시총 300억 엔↑ {n_all})", file=sys.stderr)
         except Exception as ex:
@@ -1779,12 +1780,17 @@ def build_pdf(state, since_ts):
     jp_b = ai_cached(state, "일본 뉴스·공시", jp_sig, lambda: gemini_obj(
         state, jp_p + "\n[이번 응답] 위 항목 중 news·disc만 출력하라.", JP_B, "일본 뉴스·공시")) or {}
     jp = {**jp_b, **jp_a}
-    if jp_day and jp_day >= since.strftime("%Y-%m-%d"):   # 지난 거래일 정리가 빠졌으면 카부탄 순위로 대체 표
+    fb_test = os.getenv("MORNING_FALLBACK") == "1"   # 시험: 대체 표 경로를 강제로 탐(카부탄 순위 날짜 확인도 끔)
+    if fb_test:
+        import highs as _h
+        _h.FORCE = True
+        wraps = [x for x in wraps if not (x["kind"] in STK_KINDS and x.get("day") == jp_day)]
+    if jp_day and (jp_day >= since.strftime("%Y-%m-%d") or fb_test):   # 지난 거래일 정리가 빠졌으면 원자료·카부탄 순위로 대체 표
         miss = [k for k in STK_KINDS if not any(x["kind"] == k and x.get("day") == jp_day for x in wraps)]
         if miss:
             print(f"[warn] 신고가 봇 정리 빠짐({jp_day}): {', '.join(miss)} → 대체 표", file=sys.stderr)
             DIAG["fallback"] = ",".join(miss)
-            wraps = wraps + fallback_ranks(jp_day, miss)
+            wraps = wraps + fallback_ranks(jp_day, miss, (load_json("highs_state.json").get("raw") or {}).get(jp_day))
     hi = [x for x in wraps if x["kind"] in ("highs", "gainers")]
     lo = [x for x in wraps if x["kind"] in ("lows", "losers")]
     # 커뮤니티: 오전 7시 다이제스트(+ 봇이 남긴 요약·주간 인사이트)를 하나로 통합해 '주목할 부분'만
