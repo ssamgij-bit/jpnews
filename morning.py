@@ -889,9 +889,9 @@ JPX_PER = "https://www.jpx.co.jp/markets/statistics-equities/misc/04.html"
 
 def jpx_flows(n=4):
     """JPX 투자부문별 매매동향(주간, 도쿄·나고야 2시장 금액 순매수) → [(시작일, 종료일, {구분: 억엔})] 최근 n주"""
-    import openpyxl
     out = []
     try:
+        import openpyxl
         page = requests.get(JPX_INV, headers={"User-Agent": "Mozilla/5.0"}, timeout=30).text
         links = sorted({(a, b, u) for u, a, b in re.findall(r'href="([^"]*stock_1_w_(\d{8})_(\d{8})\.xlsx)"', page)}, reverse=True)[:n]
         for a, b, u in links:
