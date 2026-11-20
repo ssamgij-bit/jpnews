@@ -21,7 +21,7 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-      - run: pip install -r requirements.txt yfinance weasyprint matplotlib koreanize-matplotlib pyyaml
+      - run: pip install -r requirements.txt yfinance weasyprint matplotlib koreanize-matplotlib pyyaml openpyxl
       - name: PDF 도구 확인(pango)
         run: python -c "import weasyprint" || (sudo apt-get update -qq && timeout 300 sudo apt-get install -y -qq libpango-1.0-0 libpangoft2-1.0-0)
       - name: 문법·중복 이름·워크플로 형식
@@ -51,7 +51,7 @@ jobs:
         run: |
           mkdir -p /tmp/log
           t() { n=$1; s=$2; shift 2; rc=0; timeout $s "$@" > /tmp/log/$n.txt 2>&1 || rc=$?; echo "$n 종료코드 $rc"; }
-          t highs 240 env HIGHS_NOW=1 python highs.py JP &
+          t highs 240 env HIGHS_NOW=1 HIGHS_DEADLINE_MIN=3 python highs.py JP &
           t weather 120 env FORCE=1 python weather.py
           t news 240 python bot.py
           t community 240 python community.py
