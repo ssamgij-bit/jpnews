@@ -18,12 +18,13 @@ COLLECT_MIN, GEMINI_MIN = 12, 20   # 시작 후 수집은 12분, Gemini는 20분
 TEST = os.getenv("TRENDS_TEST") == "1" and os.getenv("RELAY") != "1"
 SCHEMA = {"type": "OBJECT", "properties": {
     "summary": {"type": "ARRAY", "items": {"type": "STRING"}},
-    "items": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {"id": {"type": "STRING"}, "ko": {"type": "STRING"}, "cat": {"type": "STRING", "enum": ["부고", "스포츠", "연예", "정치·사회", "사건사고", "소비·제품", "기술·게임", "금융·투자", "기타"]}, "stocks": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {"ko": {"type": "STRING"}, "ticker": {"type": "STRING"}, "ex": {"type": "STRING"}, "local": {"type": "STRING"}}, "required": ["ko", "ticker", "ex"]}}}, "required": ["id", "ko", "cat"]}}},
+    "items": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {"id": {"type": "STRING"}, "ko": {"type": "STRING"}, "why": {"type": "STRING"}, "cat": {"type": "STRING", "enum": ["부고", "스포츠", "연예", "정치·사회", "사건사고", "소비·제품", "기술·게임", "금융·투자", "기타"]}, "stocks": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {"ko": {"type": "STRING"}, "ticker": {"type": "STRING"}, "ex": {"type": "STRING"}, "local": {"type": "STRING"}}, "required": ["ko", "ticker", "ex"]}}}, "required": ["id", "ko", "cat"]}}},
     "required": ["summary", "items"]}
 
 CROSS_SCHEMA = {"type": "OBJECT", "properties": {
     "common": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {"theme": {"type": "STRING"}, "where": {"type": "STRING"}, "why": {"type": "STRING"}}, "required": ["theme", "where", "why"]}},
-    "diff": {"type": "ARRAY", "items": {"type": "STRING"}}}, "required": ["common", "diff"]}
+    "flows": {"type": "ARRAY", "items": {"type": "OBJECT", "properties": {"flow": {"type": "STRING"}, "where": {"type": "STRING"}, "evidence": {"type": "STRING"}, "meaning": {"type": "STRING"}}, "required": ["flow", "where", "meaning"]}},
+    "diff": {"type": "ARRAY", "items": {"type": "STRING"}}}, "required": ["common", "flows", "diff"]}
 
 def log(*a): print("[trends]", *a, file=sys.stderr, flush=True)
 

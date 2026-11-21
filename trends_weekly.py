@@ -217,14 +217,14 @@ def snap_apps(state):
 PROMPT = """너는 한국 애널리스트에게 '요즘 {name} 사람들이 무엇에 관심을 갖는지'를 정리해 주는 비서다.
 아래는 지난 1주 동안 {name}에서 새로 뜬 검색어·앱·위키백과 문서·유튜브 영상 목록이다(원문 {lang}).
 규칙
-- 모든 항목을 한국어로: 각 id마다 "한국어 이름 — 왜 떴는지 한 줄(35자 안팎)". 예: "나카타 노아 — 배우, 23세로 급서 소식".
-- '왜 떴는지'는 함께 준 [뉴스] 기사 제목과 관련 검색어를 근거로 쓴다. 근거가 없으면 지어내지 말고 무엇인지(인물·스포츠·드라마 등)만.
+- ko: 한국어로 무엇인지. 일본어·영어 검색어는 소리만 옮기지 말고 뜻을 풀어서(예: "スイカ キャラクター" → "스이카(JR동일본 교통카드) 펭귄 캐릭터", "ちいかわクリニック" → "치이카와(인기 캐릭터) 콜라보 진료소"). 인물은 이름 + 누구인지(예: "나카타 노아(배우)").
+- why: 그 나라 사람들이 왜 이걸 검색하고 관심을 가졌는지 한 문장(50자 안팎). [뉴스] 기사 제목·관련 검색어를 근거로 구체적으로(무슨 일이 있었는지). 기사가 없으면 합리적으로 추정하되 끝에 "(추정)"을 붙이고, 추정도 어려우면 빈 문자열.
 - cat(분류): "부고"(사망·추모), "스포츠"(경기·선수·팀·대회·부상·이적), "연예", "정치·사회", "사건사고", "소비·제품", "기술·게임", "금융·투자", "기타" 중 하나. 운동선수의 사망은 "부고".
 - stocks(관련 상장사): cat이 소비·제품/기술·게임/금융·투자/연예일 때만, 이 관심이 매출로 이어질 상장사 0~2개. 일본 상장사를 우선하고 없으면 해외. 직접 관련이 확실할 때만 쓰고, 애매하면 빈 배열.
   각 상장사: ko(한국어 회사명), ticker(일본은 4자리 코드, 한국은 6자리, 미국은 티커), ex(JP/KS/KQ/US/기타 거래소 코드), local(현지 정식 회사명 — 일본은 일본어 정식 사명, 예: "カプコン")
 - 고유명사는 한국에서 통용되는 표기나 한글 발음. 일본어·영어 원문을 그대로 남기지 말 것.
 - summary: 부고·스포츠는 빼고 이번 주 관심사를 3줄로(정치·사회, 연예, 소비·기술·투자처럼 묶어서). 투자와 이어지는 신호(기업·제품·소비 트렌드)가 있으면 꼭 한 줄 넣기.
-출력 JSON: {{"summary": ["...", "...", "..."], "items": [{{"id": "gw0", "ko": "한국어 이름 — 설명", "cat": "기술·게임", "stocks": [{{"ko": "캡콤", "ticker": "9697", "ex": "JP", "local": "カプコン"}}]}}, ...]}}
+출력 JSON: {{"summary": ["...", "...", "..."], "items": [{{"id": "gw0", "ko": "한국어 뜻", "why": "관심을 가진 이유", "cat": "기술·게임", "stocks": [{{"ko": "캡콤", "ticker": "9697", "ex": "JP", "local": "カプコン"}}]}}, ...]}}
 
 {rows}"""
 
@@ -237,8 +237,16 @@ def ai_notes(d, gemini_json):
     for k, it in enumerate(d.get("wiki") or []): rows.append(f"wk{k}: {it[0]}" + nw("wiki", k))
     for k, it in enumerate(d.get("yt") or []): rows.append(f"yt{k}: {it[0]} / 채널 {it[1]}")
     if not rows: return {}
-    out = gemini_json(PROMPT.format(name=d["name"], lang=d["lang"], rows="\n".join(rows)))
-    if not isinstance(out, dict): return {}
+    out, items = {}, []
+    for i in range(0, len(rows), 35):   # 항목이 많으면 나눠서(출력이 길어 잘리는 것 방지, 2026-11-21)
+        part = gemini_json(PROMPT.format(name=d["name"], lang=d["lang"], rows="\n".join(rows[i:i + 35])))
+        if not isinstance(part, dict): continue
+        if not out.get("summary") and part.get("summary"): out["summary"] = part["summary"]
+        items += [x for x in part.get("items") or [] if isinstance(x, dict)]
+    if not items: return out
+    for x in items:   # 뜻 — 이유 한 줄로
+        x["ko"] = (x.get("ko") or "").strip() + (" — " + x["why"].strip() if (x.get("why") or "").strip() else "")
+    out["items"] = items
     if isinstance(out.get("items"), list):   # [{"id","ko"}] → {id: ko}
         out["cats"] = {x.get("id"): x.get("cat") for x in out["items"] if isinstance(x, dict)}
         out["stocks"] = {x.get("id"): check_stocks(x.get("stocks")) for x in out["items"] if isinstance(x, dict) and x.get("cat") in INVEST}
@@ -321,8 +329,10 @@ def record_week(data, hist, wk):
 CROSS_PROMPT = """아래는 지난 1주 한국·일본·미국에서 새로 뜬 관심사(이미 한국어로 정리, [분류] 표시)다.
 1) common: 두 나라 이상에서 같이 뜬 주제(같은 게임·제품·기업·사건·인물·현상). 이름이 달라도 같은 주제면 묶기. 억지로 만들지 말고 없으면 빈 배열.
    각 항목: theme(주제 한국어), where(예: "일본·미국"), why(왜 같이 떴는지 한 줄, 아래 목록 근거로만).
-2) diff: 나라별 이번 주 특징 한 줄씩(한국, 일본, 미국 순서로 3개). 소비·기술·투자와 이어지는 것을 우선.
-출력 JSON: {{"common": [{{"theme": "...", "where": "...", "why": "..."}}], "diff": ["한국: ...", "일본: ...", "미국: ..."]}}
+2) flows: 세 나라(또는 두 나라)에 공통으로 보이는 큰 흐름 2~4개. 같은 항목이 아니어도 성격이 같은 관심(예: 생성형 AI 서비스, 게임 신작, 연말 소비, 물가·금리, 특정 콘텐츠 장르)이면 묶는다.
+   각 항목: flow(흐름 이름), where(예: "한국·일본·미국"), evidence(나라별 근거 항목을 짧게, 예: "한국: ChatGPT 앱 / 미국: 제미나이 3"), meaning(왜 이런 흐름이 생겼는지·무엇을 뜻하는지 한 줄). 근거가 약하면 만들지 말 것.
+3) diff: 나라별 이번 주 특징 한 줄씩(한국, 일본, 미국 순서로 3개). 소비·기술·투자와 이어지는 것을 우선.
+출력 JSON: {{"common": [{{"theme": "...", "where": "...", "why": "..."}}], "flows": [{{"flow": "...", "where": "...", "evidence": "...", "meaning": "..."}}], "diff": ["한국: ...", "일본: ...", "미국: ..."]}}
 
 {rows}"""
 
@@ -342,6 +352,11 @@ def render_cross(out, week_lab):
     L = [f"🌐 <b>이번 주 세 나라 관심사 비교</b> · {week_lab}", "", "<b>두 나라 이상 공통</b>"]
     com = [c for c in (out or {}).get("common") or [] if isinstance(c, dict) and c.get("theme")]
     L += [f"• <b>{esc(c['theme'])}</b> ({esc(c.get('where', ''))}) — {esc(c.get('why', ''))}" for c in com[:6]] or ["• 이번 주는 겹치는 주제 없음"]
+    fl = [f for f in (out or {}).get("flows") or [] if isinstance(f, dict) and f.get("flow")]
+    if fl:
+        L += ["", "<b>공통 흐름</b>"]
+        for f in fl[:4]:
+            L += [f"• <b>{esc(f['flow'])}</b> ({esc(f.get('where', ''))}) — {esc(f.get('meaning', ''))}"] + ([f"   <i>{esc(f['evidence'])}</i>"] if f.get("evidence") else [])
     diff = [x for x in (out or {}).get("diff") or [] if isinstance(x, str)]
     if diff: L += ["", "<b>나라별 특징</b>"] + [f"• {esc(x)}" for x in diff[:3]]
     L += ["", "<i>나라별 상세는 아래 메시지 3개. 부고·스포츠 제외</i>"]
